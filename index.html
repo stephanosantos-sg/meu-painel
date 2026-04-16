@@ -837,7 +837,9 @@ function renderHoje(H, C) {
   });
 
   const allPending = overdueTasks.length + todayTasks.length;
-  const habitsToday = D.habits.filter(h => h.log && h.log[t]).length;
+  const todayDowStat = new Date().getDay();
+  const habitsForToday = D.habits.filter(h => { const days = h.days || [0,1,2,3,4,5,6]; return days.includes(todayDowStat); });
+  const habitsToday = habitsForToday.filter(h => h.log && h.log[t]).length;
 
   H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar na nuvem" style="font-size:1rem;padding:8px 12px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar da nuvem" style="font-size:1rem;padding:8px 12px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
 
@@ -845,7 +847,7 @@ function renderHoje(H, C) {
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
     <div class="stat-card accent"><div class="stat-label">Pendentes</div><div class="stat-value">${allPending}</div></div>
     <div class="stat-card green"><div class="stat-label">Concluidas hoje</div><div class="stat-value">${countDoneToday()}</div></div>
-    <div class="stat-card orange"><div class="stat-label">Habitos</div><div class="stat-value">${habitsToday}/${D.habits.length}</div></div>
+    <div class="stat-card orange"><div class="stat-label">Habitos</div><div class="stat-value">${habitsToday}/${habitsForToday.length}</div></div>
   </div>`;
 
   html += viewSwitcher();
@@ -863,19 +865,24 @@ function renderHoje(H, C) {
     if (!allTodayTasks.length) html += emptyState('Tudo em dia! Nenhuma tarefa pendente.');
   }
 
-  // Habits quick (only in lista mode)
+  // Habits quick (only in lista mode, only today's habits)
   if (viewMode === 'lista' && D.habits.length) {
-    html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--orange)">⭐ Habitos de hoje</span><span class="task-group-count">${D.habits.filter(h=>h.log&&h.log[t]).length}/${D.habits.length}</span></div><div class="task-group-items">`;
-    D.habits.forEach(h => {
-      const done = h.log&&h.log[t];
-      const streak = getStreak(h);
-      html += `<div class="task-item" style="cursor:pointer" onclick="toggleHabitDay('${h.id}','${t}')">
-        <div class="task-check ${done?'checked':''}" style="border-color:var(--${h.color||'green'})">${done?'&#10003;':''}</div>
-        <div class="task-body"><div class="task-text">${h.icon?h.icon+' ':''}${esc(h.name)}</div>
-        <div class="task-meta">${streak>0?`<span style="font-size:0.72rem;color:var(--orange);font-weight:600">🔥 ${streak} dias</span>`:''}<span style="font-size:0.72rem;color:var(--text3)">Meta: ${h.goal||7}x/sem</span></div></div>
-      </div>`;
-    });
-    html += `</div></div>`;
+    const todayDow = new Date().getDay();
+    const todayHabits = D.habits.filter(h => { const days = h.days || [0,1,2,3,4,5,6]; return days.includes(todayDow); });
+    if (todayHabits.length) {
+      const todayDone = todayHabits.filter(h=>h.log&&h.log[t]).length;
+      html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--orange)">⭐ Habitos de hoje</span><span class="task-group-count">${todayDone}/${todayHabits.length}</span></div><div class="task-group-items">`;
+      todayHabits.forEach(h => {
+        const done = h.log&&h.log[t];
+        const streak = getStreak(h);
+        html += `<div class="task-item" style="cursor:pointer" onclick="toggleHabitDay('${h.id}','${t}')">
+          <div class="task-check ${done?'checked':''}" style="border-color:var(--${h.color||'green'})">${done?'&#10003;':''}</div>
+          <div class="task-body"><div class="task-text">${h.icon?h.icon+' ':''}${esc(h.name)}</div>
+          <div class="task-meta">${streak>0?`<span style="font-size:0.72rem;color:var(--orange);font-weight:600">🔥 ${streak} dias</span>`:''}<span style="font-size:0.72rem;color:var(--text3)">Meta: ${h.goal||7}x/sem</span></div></div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
   }
 
   // Goals quick (only in lista mode)
