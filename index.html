@@ -1413,7 +1413,7 @@ function saveHabit(){
 function renderHabitos(H, C) {
   H.innerHTML = `<h2>Habitos</h2><div class="subtitle">Consistencia e o segredo</div>`;
   let html = `<button class="btn btn-primary" onclick="openHabitModal()" style="margin-bottom:20px">+ Novo Habito</button>`;
-  if (!D.habits.length) { C.innerHTML = html + emptyState('Nenhum habito cadastrado'); return; }
+  if (!D.habits.length) { C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">⭐</div><p>Nenhum habito cadastrado</p><button class="btn btn-primary" style="margin-top:16px" onclick="openHabitModal()">+ Novo Habito</button></div>`; return; }
   const week=getWeekDays(), last30=getLast30(), t=todayStr();
   html += `<div class="habits-grid">`;
   D.habits.forEach(h => {
