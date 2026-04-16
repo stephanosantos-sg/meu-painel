@@ -433,6 +433,9 @@ textarea.form-input{min-height:50px;resize:vertical}
       <div class="form-group"><label>Dias da semana</label>
         <div id="fHDays" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
+      <div class="form-group"><label>Icone</label>
+        <div class="form-chips" id="fHIcon" style="gap:4px"></div>
+      </div>
       <div class="form-group"><label>Cor</label>
         <div class="form-chips" id="fHColor">
           <button class="form-chip active" data-v="green" style="background:var(--green);color:#fff;border-color:var(--green)">&#9679;</button>
@@ -440,6 +443,9 @@ textarea.form-input{min-height:50px;resize:vertical}
           <button class="form-chip" data-v="orange" style="background:var(--orange);color:#fff;border-color:var(--orange)">&#9679;</button>
           <button class="form-chip" data-v="pink" style="background:var(--pink);color:#fff;border-color:var(--pink)">&#9679;</button>
           <button class="form-chip" data-v="accent" style="background:var(--accent);color:#fff;border-color:var(--accent)">&#9679;</button>
+          <button class="form-chip" data-v="cyan" style="background:var(--cyan);color:#000;border-color:var(--cyan)">&#9679;</button>
+          <button class="form-chip" data-v="red" style="background:var(--red);color:#fff;border-color:var(--red)">&#9679;</button>
+          <button class="form-chip" data-v="yellow" style="background:var(--yellow);color:#000;border-color:var(--yellow)">&#9679;</button>
         </div>
       </div>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeHabitModal()">Cancelar</button><button class="btn btn-primary" onclick="saveHabit()">Criar</button></div>
@@ -587,7 +593,7 @@ const DEFAULT_CATS = [
   {id:'saude', name:'Saude', icon:'&#129657;', color:'green'},
   {id:'casa', name:'Casa', icon:'&#127968;', color:'yellow'},
 ];
-const ICONS = ['&#128100;','&#128188;','&#129657;','&#127968;','&#128054;','&#128049;','&#128118;','&#128150;','&#127947;','&#128218;','&#127911;','&#128187;','&#9749;','&#127828;','&#128176;','&#9992;','&#127793;','&#128161;','&#128640;','&#127775;','&#128247;','&#127926;','&#128222;','&#9997;','&#128736;','&#128138;','&#128663;','&#128106;','&#9971;','&#127908;'];
+const ICONS = ['🧘','🏋','🏃','💧','📖','📚','🧠','💤','🍎','💊','🎯','✍️','🎵','🎨','💻','📱','🧹','🛒','👶','🐶','🐱','💰','📸','🌱','☀️','🌙','❤️','🙏','💪','🧘‍♂️','🚴','🏊','⚽','🎸','🍳','🥤','💡','🎓','📝','🔔','👔','🏠','✈️','🚗','👨‍👩‍👧','🎁','🔧','💊','🧴','👕'];
 const COLORS = ['blue','orange','green','yellow','red','pink','cyan','accent'];
 
 let D = (() => {
@@ -838,7 +844,7 @@ function renderHoje(H, C) {
       const streak = getStreak(h);
       html += `<div class="task-item" style="cursor:pointer" onclick="toggleHabitDay('${h.id}','${t}')">
         <div class="task-check ${done?'checked':''}" style="border-color:var(--${h.color||'green'})">${done?'&#10003;':''}</div>
-        <div class="task-body"><div class="task-text">${esc(h.name)}</div>
+        <div class="task-body"><div class="task-text">${h.icon?h.icon+' ':''}${esc(h.name)}</div>
         <div class="task-meta">${streak>0?`<span style="font-size:0.72rem;color:var(--orange);font-weight:600">🔥 ${streak} dias</span>`:''}<span style="font-size:0.72rem;color:var(--text3)">Meta: ${h.goal||7}x/sem</span></div></div>
       </div>`;
     });
@@ -1431,6 +1437,15 @@ function openHabitModal(editId){
   document.getElementById('habitModal').dataset.editId = editId || '';
   document.querySelector('#habitModal .modal-header h3').textContent = h ? 'Editar Habito' : 'Novo Habito';
   buildDayPicker('fHDays', h ? h.days : [0,1,2,3,4,5,6]);
+
+  // Icon picker
+  const fHIcon = document.getElementById('fHIcon');
+  const activeIcon = h ? h.icon : '🏋';
+  fHIcon.innerHTML = ICONS.map(ic =>
+    `<button class="form-chip ${ic===activeIcon?'active':''}" data-v="${ic}" style="padding:6px 8px;font-size:1rem">${ic}</button>`
+  ).join('');
+  fHIcon.querySelectorAll('.form-chip').forEach(ch => ch.addEventListener('click', () => { fHIcon.querySelectorAll('.form-chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); }));
+
   document.querySelectorAll('#fHColor .form-chip').forEach(c => c.classList.toggle('active', c.dataset.v === (h ? h.color : 'green')));
   document.getElementById('habitModal').classList.add('show');
   setTimeout(()=>document.getElementById('fHName').focus(),100);
@@ -1440,13 +1455,14 @@ function saveHabit(){
   const name=document.getElementById('fHName').value.trim();if(!name)return;
   const days=getSelectedDays('fHDays');
   const goal=days.length;
+  const icon=document.querySelector('#fHIcon .form-chip.active')?.dataset.v||'';
   const color=document.querySelector('#fHColor .form-chip.active')?.dataset.v||'green';
   const editId = document.getElementById('habitModal').dataset.editId;
   if (editId) {
     const h = D.habits.find(x=>x.id===editId);
-    if (h) { h.name=name; h.days=days; h.goal=goal; h.color=color; }
+    if (h) { h.name=name; h.days=days; h.goal=goal; h.icon=icon; h.color=color; }
   } else {
-    D.habits.push({id:uid(),name,days,goal,color,log:{}});
+    D.habits.push({id:uid(),name,days,goal,icon,color,log:{}});
   }
   save();closeHabitModal();render();
 }
@@ -1462,7 +1478,7 @@ function renderHabitos(H, C) {
     const days = h.days || [0,1,2,3,4,5,6];
     const daysLabel = days.length===7 ? 'Todos os dias' : days.map(d=>DAY_LABELS[d]).join(' ');
     html += `<div class="habit-card">
-      <div class="habit-top"><span class="habit-name">${esc(h.name)}</span>
+      <div class="habit-top"><span class="habit-name">${h.icon?h.icon+' ':''}${esc(h.name)}</span>
         <div style="display:flex;align-items:center;gap:8px">
           ${streak>0?`<span class="habit-streak">🔥 ${streak}</span>`:''}
           <button class="task-action" onclick="openHabitModal('${h.id}')" title="Editar" style="opacity:0.6">✏️</button>
