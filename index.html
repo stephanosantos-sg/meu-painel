@@ -59,6 +59,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .stat-card.red .stat-value{color:var(--red)}.stat-card.green .stat-value{color:var(--green)}
 .stat-card.accent .stat-value{color:var(--accent2)}.stat-card.orange .stat-value{color:var(--orange)}
 
+/* View switcher */
+.view-switch{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:16px;width:fit-content}
+.view-btn{padding:6px 14px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+.view-btn:hover{color:var(--text)}
+.view-btn.active{background:var(--accent);color:#fff}
+
+/* Board/Panel view */
+.board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px}
+.board-col{min-width:260px;max-width:300px;flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;max-height:70vh}
+.board-col-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;flex-shrink:0}
+.board-col-header .col-icon{font-size:1rem}
+.board-col-header .col-count{margin-left:auto;font-size:0.7rem;color:var(--text3);font-weight:600;background:var(--surface2);padding:2px 7px;border-radius:10px}
+.board-col-body{padding:8px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px}
+.board-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:default;transition:border-color 0.15s}
+.board-card:hover{border-color:var(--accent)}
+.board-card .bc-text{font-size:0.85rem;font-weight:500;margin-bottom:4px}
+.board-card .bc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.board-card .bc-time{font-size:0.7rem;color:var(--text3)}
+
+/* Calendar view */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-header{font-size:0.7rem;font-weight:700;color:var(--text3);text-align:center;padding:6px 0;text-transform:uppercase}
+.cal-day{background:var(--surface);border:1px solid var(--border);border-radius:8px;min-height:90px;padding:6px;font-size:0.72rem;transition:border-color 0.15s;overflow:hidden}
+.cal-day:hover{border-color:var(--accent)}
+.cal-day.today{border-color:var(--accent);background:var(--accent-bg)}
+.cal-day.other-month{opacity:0.35}
+.cal-day .cd-num{font-weight:700;color:var(--text2);margin-bottom:4px;font-size:0.78rem}
+.cal-day.today .cd-num{color:var(--accent2)}
+.cal-day .cd-task{padding:2px 4px;border-radius:4px;margin-bottom:2px;font-size:0.65rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.cal-nav button{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;padding:4px 10px;font-size:0.85rem;transition:all 0.15s}
+.cal-nav button:hover{background:var(--surface);color:var(--text)}
+.cal-nav .cal-month{font-weight:700;font-size:0.95rem;min-width:140px;text-align:center;text-transform:capitalize}
+
 .task-group{margin-bottom:20px}
 .task-group-header{display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;user-select:none}
 .task-group-header .arrow{font-size:0.7rem;color:var(--text3);transition:transform 0.2s}
@@ -475,6 +509,9 @@ let D = (() => {
   } catch { return {tasks:[],habits:[],goals:[],categories:[...DEFAULT_CATS]}; }
 })();
 let currentView = 'hoje';
+let viewMode = localStorage.getItem('meuPainel_viewMode') || 'lista';
+let calMonth = new Date().getMonth();
+let calYear = new Date().getFullYear();
 function save() { localStorage.setItem(SK, JSON.stringify(D)); }
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -675,12 +712,23 @@ function renderHoje(H, C) {
     <div class="stat-card orange"><div class="stat-label">Habitos</div><div class="stat-value">${habitsToday}/${D.habits.length}</div></div>
   </div>`;
 
-  if (overdueTasks.length) html += renderTaskGroup('Atrasadas', overdueTasks, t, 'overdue');
-  if (todayTasks.length) html += renderTaskGroup('Hoje', todayTasks, t, 'today');
-  if (!overdueTasks.length && !todayTasks.length) html += emptyState('Tudo em dia! Nenhuma tarefa pendente.');
+  html += viewSwitcher();
 
-  // Habits quick
-  if (D.habits.length) {
+  const allTodayTasks = [...overdueTasks, ...todayTasks];
+
+  if (viewMode === 'painel') {
+    if (allTodayTasks.length) html += renderBoard(allTodayTasks, t);
+    else html += emptyState('Tudo em dia!');
+  } else if (viewMode === 'calendario') {
+    html += renderCalendar(D.tasks);
+  } else {
+    if (overdueTasks.length) html += renderTaskGroup('Atrasadas', overdueTasks, t, 'overdue');
+    if (todayTasks.length) html += renderTaskGroup('Hoje', todayTasks, t, 'today');
+    if (!allTodayTasks.length) html += emptyState('Tudo em dia! Nenhuma tarefa pendente.');
+  }
+
+  // Habits quick (only in lista mode)
+  if (viewMode === 'lista' && D.habits.length) {
     html += `<div class="task-group" style="margin-top:8px"><div class="task-group-header"><span class="task-group-title">Habitos de hoje</span></div><div class="task-group-items">`;
     D.habits.forEach(h => {
       const done = h.log&&h.log[t];
@@ -726,10 +774,16 @@ function renderTodas(H, C) {
   const t = todayStr();
   const pending = D.tasks.filter(x => !(x.freq==='pontual'&&x.done));
   const done = D.tasks.filter(x => x.freq==='pontual'&&x.done);
-  let html = '';
-  if (pending.length) html += renderTaskGroup(`Ativas (${pending.length})`, pending, t, '');
-  if (done.length) html += renderTaskGroup(`Concluidas (${done.length})`, done, t, '', true);
-  if (!D.tasks.length) html = emptyState('Nenhuma tarefa');
+  let html = viewSwitcher();
+  if (viewMode === 'painel') {
+    html += pending.length ? renderBoard(pending, t) : emptyState('Nenhuma tarefa');
+  } else if (viewMode === 'calendario') {
+    html += renderCalendar(D.tasks);
+  } else {
+    if (pending.length) html += renderTaskGroup(`Ativas (${pending.length})`, pending, t, '');
+    if (done.length) html += renderTaskGroup(`Concluidas (${done.length})`, done, t, '', true);
+    if (!D.tasks.length) html += emptyState('Nenhuma tarefa');
+  }
   C.innerHTML = html;
 }
 
@@ -741,10 +795,16 @@ function renderCat(H, C, catId) {
   const t = todayStr();
   const pending = tasks.filter(x => !(x.freq==='pontual'&&x.done));
   const done = tasks.filter(x => x.freq==='pontual'&&x.done);
-  let html = '';
-  if (pending.length) html += renderTaskGroup(`Pendentes (${pending.length})`, pending, t, '');
-  if (done.length) html += renderTaskGroup(`Concluidas (${done.length})`, done, t, '', true);
-  if (!tasks.length) html = emptyState('Nenhuma tarefa nesta categoria');
+  let html = viewSwitcher();
+  if (viewMode === 'painel') {
+    html += pending.length ? renderBoard(pending, t) : emptyState('Nenhuma tarefa nesta categoria');
+  } else if (viewMode === 'calendario') {
+    html += renderCalendar(tasks);
+  } else {
+    if (pending.length) html += renderTaskGroup(`Pendentes (${pending.length})`, pending, t, '');
+    if (done.length) html += renderTaskGroup(`Concluidas (${done.length})`, done, t, '', true);
+    if (!tasks.length) html += emptyState('Nenhuma tarefa nesta categoria');
+  }
   C.innerHTML = html;
 }
 
@@ -811,7 +871,7 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
       html += `<div style="margin-left:32px;margin-top:2px">
         <div onclick="toggleCollapse('${t.id}','subtasks')" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;background:var(--surface2);font-size:0.72rem;color:var(--accent2);font-weight:600">${stHidden?'&#9656;':'&#9662;'} ${stDone}/${t.subtasks.length} subtarefas</div>
         <div class="subtasks" style="margin-left:0;${stHidden?'display:none':''}">${t.subtasks.map((s,i) => `
-          <div class="subtask ${s.done?'done':''}" onclick="toggleSubtask('${t.id}',${i})">
+          <div class="subtask ${s.done?'done':''}" onclick="event.stopPropagation();toggleSubtask('${t.id}',${i})">
             <div class="task-check ${s.done?'checked':''}" style="width:16px;height:16px">${s.done?'&#10003;':''}</div>
             <span>${esc(s.text)}</span>
           </div>`).join('')}</div>
@@ -824,6 +884,133 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
 }
 
 function emptyState(msg) { return `<div class="empty-state"><div class="empty-icon">&#9744;</div><p>${msg}</p><button class="btn btn-primary" style="margin-top:16px" onclick="openAddTask()">+ Adicionar tarefa</button></div>`; }
+
+function setViewMode(m) { viewMode = m; localStorage.setItem('meuPainel_viewMode', m); render(); }
+
+function viewSwitcher() {
+  return `<div class="view-switch">
+    <button class="view-btn ${viewMode==='lista'?'active':''}" onclick="setViewMode('lista')">&#9776; Lista</button>
+    <button class="view-btn ${viewMode==='painel'?'active':''}" onclick="setViewMode('painel')">&#9638; Painel</button>
+    <button class="view-btn ${viewMode==='calendario'?'active':''}" onclick="setViewMode('calendario')">&#128197; Calendario</button>
+  </div>`;
+}
+
+// ─── Board View ───
+function renderBoard(tasks, dateCtx) {
+  const cols = D.categories.map(c => ({...c, tasks: tasks.filter(t => t.cat === c.id)}));
+  const uncategorized = tasks.filter(t => !D.categories.find(c => c.id === t.cat));
+  if (uncategorized.length) cols.push({id:'_none',name:'Sem categoria',icon:'&#9679;',color:'text3',tasks:uncategorized});
+
+  let html = `<div class="board">`;
+  cols.forEach(col => {
+    if (!col.tasks.length) return;
+    html += `<div class="board-col">
+      <div class="board-col-header"><span class="col-icon" style="color:var(--${col.color})">${col.icon}</span>${esc(col.name)}<span class="col-count">${col.tasks.length}</span></div>
+      <div class="board-col-body">`;
+    col.tasks.forEach(t => {
+      const done = isTaskDone(t, dateCtx);
+      const pClass = 'p'+(t.prio||3);
+      html += `<div class="board-card" style="${done?'opacity:0.45':''}">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div class="task-check ${pClass} ${done?'checked':''}" onclick="toggleTask('${t.id}','${dateCtx}')" style="flex-shrink:0;margin-top:2px">${done?'&#10003;':''}</div>
+          <div class="bc-text" style="${done?'text-decoration:line-through':''}">${t.icon?t.icon+' ':''}${esc(t.text)}</div>
+        </div>
+        <div class="bc-meta">
+          ${freqTag(t.freq)}
+          ${t.date?`<span class="bc-time">${fmtDate(t.date)}${t.time?' '+t.time:''}</span>`:''}
+          ${t.times&&t.times.length?`<span class="bc-time">${((t.doneSlots&&t.doneSlots[dateCtx])||[]).length}/${t.times.length}</span>`:''}
+          ${t.subtasks&&t.subtasks.length?`<span class="bc-time">${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} sub</span>`:''}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+// ─── Calendar View ───
+function renderCalendar(tasks) {
+  const MONTHS = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const DAYS = ['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
+  const t = todayStr();
+
+  let html = `<div class="cal-nav">
+    <button onclick="calMonth--;if(calMonth<0){calMonth=11;calYear--;}render()">&#9664;</button>
+    <span class="cal-month">${MONTHS[calMonth]} ${calYear}</span>
+    <button onclick="calMonth++;if(calMonth>11){calMonth=0;calYear++;}render()">&#9654;</button>
+    <button onclick="calMonth=new Date().getMonth();calYear=new Date().getFullYear();render()" class="btn btn-ghost btn-sm" style="margin-left:8px">Hoje</button>
+  </div>`;
+
+  html += `<div class="cal-grid">`;
+  DAYS.forEach(d => html += `<div class="cal-header">${d}</div>`);
+
+  // First day of month
+  const firstDay = new Date(calYear, calMonth, 1);
+  let startDow = firstDay.getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1; // Monday=0
+
+  // Days in month
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevMonthDays = new Date(calYear, calMonth, 0).getDate();
+
+  // Build task lookup by date
+  const tasksByDate = {};
+  tasks.forEach(tk => {
+    if (tk.freq === 'pontual' && tk.done) return;
+    // For calendar, show tasks on their date
+    if (tk.date) {
+      if (!tasksByDate[tk.date]) tasksByDate[tk.date] = [];
+      tasksByDate[tk.date].push(tk);
+    }
+    // For recurring tasks, check each day of this month
+    if (tk.freq && tk.freq !== 'pontual') {
+      for (let d = 1; d <= daysInMonth; d++) {
+        const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        if (isTaskForDate(tk, ds)) {
+          if (!tasksByDate[ds]) tasksByDate[ds] = [];
+          if (!tasksByDate[ds].includes(tk)) tasksByDate[ds].push(tk);
+        }
+      }
+    }
+  });
+
+  // Previous month padding
+  for (let i = startDow - 1; i >= 0; i--) {
+    const d = prevMonthDays - i;
+    html += `<div class="cal-day other-month"><div class="cd-num">${d}</div></div>`;
+  }
+
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isT = ds === t;
+    const dayTasks = tasksByDate[ds] || [];
+
+    html += `<div class="cal-day ${isT?'today':''}">
+      <div class="cd-num">${d}</div>`;
+
+    dayTasks.slice(0, 4).forEach(tk => {
+      const cat = getCat(tk.cat);
+      const done = isTaskDone(tk, ds);
+      html += `<div class="cd-task" style="background:var(--${cat.color}-bg,var(--surface2));color:var(--${cat.color});${done?'opacity:0.4;text-decoration:line-through':''}" title="${esc(tk.text)}">${tk.icon?tk.icon+' ':''}${esc(tk.text)}</div>`;
+    });
+    if (dayTasks.length > 4) {
+      html += `<div style="font-size:0.6rem;color:var(--text3);padding:1px 4px">+${dayTasks.length-4} mais</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Next month padding
+  const totalCells = startDow + daysInMonth;
+  const remaining = (7 - (totalCells % 7)) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    html += `<div class="cal-day other-month"><div class="cd-num">${d}</div></div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
 
 // ═══════════════════ TASK ACTIONS ═══════════════════
 function toggleTask(id, dateCtx) {
