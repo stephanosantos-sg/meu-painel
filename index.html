@@ -455,6 +455,31 @@ textarea.form-input{min-height:50px;resize:vertical}
   </div>
 </div>
 
+<!-- ═══ Shopping List Modal ═══ -->
+<div class="modal-overlay" id="shopListModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="shopListModalTitle">Nova Lista</h3><button class="modal-close" onclick="closeShopListModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Nome da lista</label><input class="form-input" id="fShopName" placeholder="Ex: Supermercado, Farmacia..."></div>
+      <div class="form-group"><label>Icone</label>
+        <div class="form-chips" id="fShopIcon" style="gap:4px">
+          <button class="form-chip active" data-v="🛒" style="padding:6px 8px;font-size:1rem">🛒</button>
+          <button class="form-chip" data-v="🏪" style="padding:6px 8px;font-size:1rem">🏪</button>
+          <button class="form-chip" data-v="💊" style="padding:6px 8px;font-size:1rem">💊</button>
+          <button class="form-chip" data-v="🍼" style="padding:6px 8px;font-size:1rem">🍼</button>
+          <button class="form-chip" data-v="🏠" style="padding:6px 8px;font-size:1rem">🏠</button>
+          <button class="form-chip" data-v="👶" style="padding:6px 8px;font-size:1rem">👶</button>
+          <button class="form-chip" data-v="🐶" style="padding:6px 8px;font-size:1rem">🐶</button>
+          <button class="form-chip" data-v="👕" style="padding:6px 8px;font-size:1rem">👕</button>
+          <button class="form-chip" data-v="💻" style="padding:6px 8px;font-size:1rem">💻</button>
+          <button class="form-chip" data-v="🎁" style="padding:6px 8px;font-size:1rem">🎁</button>
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeShopListModal()">Cancelar</button><button class="btn btn-primary" onclick="saveShopList()">Criar</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- Mobile FAB -->
 <button class="mobile-fab" onclick="openAddTask()">+</button>
 
@@ -688,6 +713,7 @@ function renderSidebar() {
       <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">⭐</span>Habitos</div>
       <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
       <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
+      <div class="nav-item ${currentView==='compras'?'active':''}" data-view="compras"><span class="icon">🛒</span>Compras</div>
       <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Graficos</div>
     </div>
   `;
@@ -735,6 +761,7 @@ function render() {
       case 'habitos': renderHabitos(H,C); break;
       case 'objetivos': renderObjetivos(H,C); break;
       case 'eventos': renderEventos(H,C); break;
+      case 'compras': renderCompras(H,C); break;
       case 'graficos': renderGraficos(H,C); break;
     }
   }
@@ -1579,6 +1606,135 @@ function renderObjetivos(H, C) {
   C.innerHTML = html;
 }
 
+// ═══════════════════ COMPRAS ═══════════════════
+// Data: D.shopLists = [{id, name, icon, items:[{text, done, qty}]}]
+
+function ensureShopLists() { if (!D.shopLists) D.shopLists = []; }
+
+function openShopListModal(editId) {
+  ensureShopLists();
+  const sl = editId ? D.shopLists.find(x=>x.id===editId) : null;
+  document.getElementById('shopListModalTitle').textContent = sl ? 'Editar Lista' : 'Nova Lista';
+  document.getElementById('fShopName').value = sl ? sl.name : '';
+  document.getElementById('shopListModal').dataset.editId = editId || '';
+  document.querySelectorAll('#fShopIcon .form-chip').forEach(c => c.classList.toggle('active', c.dataset.v === (sl ? sl.icon : '🛒')));
+  document.querySelectorAll('#fShopIcon .form-chip').forEach(ch => ch.addEventListener('click', () => { document.querySelectorAll('#fShopIcon .form-chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); }));
+  document.getElementById('shopListModal').classList.add('show');
+  setTimeout(()=>document.getElementById('fShopName').focus(),100);
+}
+function closeShopListModal() { document.getElementById('shopListModal').classList.remove('show'); }
+
+function saveShopList() {
+  ensureShopLists();
+  const name = document.getElementById('fShopName').value.trim();
+  if (!name) return;
+  const icon = document.querySelector('#fShopIcon .form-chip.active')?.dataset.v || '🛒';
+  const editId = document.getElementById('shopListModal').dataset.editId;
+  if (editId) {
+    const sl = D.shopLists.find(x=>x.id===editId);
+    if (sl) { sl.name = name; sl.icon = icon; }
+  } else {
+    D.shopLists.push({id:uid(), name, icon, items:[]});
+  }
+  save(); closeShopListModal(); render();
+}
+
+function deleteShopList(id) {
+  ensureShopLists();
+  D.shopLists = D.shopLists.filter(x=>x.id!==id);
+  save(); render();
+}
+
+function addShopItem(listId) {
+  ensureShopLists();
+  const input = document.getElementById('shopInput_'+listId);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (!sl) return;
+  sl.items.push({text, done:false, qty:1});
+  input.value = '';
+  save(); render();
+}
+
+function toggleShopItem(listId, idx) {
+  ensureShopLists();
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (sl && sl.items[idx] !== undefined) {
+    sl.items[idx].done = !sl.items[idx].done;
+    save(); render();
+  }
+}
+
+function deleteShopItem(listId, idx) {
+  ensureShopLists();
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (sl) { sl.items.splice(idx, 1); save(); render(); }
+}
+
+function clearDoneItems(listId) {
+  ensureShopLists();
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (sl) { sl.items = sl.items.filter(x=>!x.done); save(); render(); }
+}
+
+function renderCompras(H, C) {
+  ensureShopLists();
+  H.innerHTML = `<h2>🛒 Compras</h2><div class="subtitle">Listas de compras</div>`;
+  let html = `<button class="btn btn-primary" onclick="openShopListModal()" style="margin-bottom:20px">+ Nova Lista</button>`;
+
+  if (!D.shopLists.length) {
+    C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">🛒</div><p>Nenhuma lista de compras</p><button class="btn btn-primary" style="margin-top:16px" onclick="openShopListModal()">+ Nova Lista</button></div>`;
+    return;
+  }
+
+  html += `<div class="goals-grid">`;
+  D.shopLists.forEach(sl => {
+    const total = sl.items.length;
+    const done = sl.items.filter(x=>x.done).length;
+    const pct = total > 0 ? Math.round((done/total)*100) : 0;
+    const pctColor = pct>=100?'var(--green)':pct>0?'var(--accent)':'var(--text3)';
+
+    html += `<div class="goal-card" style="border-left:4px solid ${pctColor}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.5rem">${sl.icon}</span>
+          <div>
+            <div style="font-size:1.05rem;font-weight:700">${esc(sl.name)}</div>
+            <div style="font-size:0.72rem;color:var(--text3)">${done}/${total} itens${pct>=100?' ✅':''}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button class="task-action" onclick="openShopListModal('${sl.id}')" title="Editar" style="opacity:0.6">✏️</button>
+          ${done>0?`<button class="task-action" onclick="clearDoneItems('${sl.id}')" title="Limpar concluidos" style="opacity:0.6">🧹</button>`:''}
+          <button class="task-action del" onclick="deleteShopList('${sl.id}')" title="Excluir" style="opacity:0.6">✕</button>
+        </div>
+      </div>
+
+      ${total>0?`<div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${pct}%;background:${pctColor};border-radius:4px;transition:width 0.3s"></div></div>`:''}
+
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input class="form-input" id="shopInput_${sl.id}" placeholder="Adicionar item..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter')addShopItem('${sl.id}')">
+        <button class="btn btn-primary btn-sm" onclick="addShopItem('${sl.id}')">+</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:2px">
+        ${sl.items.map((item, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;transition:background 0.15s;${item.done?'opacity:0.45':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+            <div onclick="event.stopPropagation();toggleShopItem('${sl.id}',${i})" style="width:18px;height:18px;border-radius:50%;border:2px solid ${item.done?'var(--green)':'var(--border2)'};background:${item.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${item.done?'&#10003;':''}</div>
+            <span style="flex:1;font-size:0.88rem;${item.done?'text-decoration:line-through':''}">${esc(item.text)}</span>
+            <button onclick="event.stopPropagation();deleteShopItem('${sl.id}',${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:2px 4px;opacity:0.5">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  C.innerHTML = html;
+}
+
 // ═══════════════════ EVENTOS ═══════════════════
 let cachedEvents = null;
 let eventsLoading = false;
@@ -2332,7 +2488,7 @@ function deleteCat(id) {
 // ═══════════════════ KEYBOARD ═══════════════════
 document.addEventListener('keydown', e => {
   if (e.key==='q' && !e.ctrlKey && !e.metaKey && !document.querySelector('.modal-overlay.show') && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA') openAddTask();
-  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); }
+  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); }
 });
 document.getElementById('fText').addEventListener('keydown', e => {if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveTask();}});
 document.getElementById('fHName').addEventListener('keydown', e => {if(e.key==='Enter'){e.preventDefault();saveHabit();}});
@@ -2428,7 +2584,7 @@ function mobileNav(view) {
 }
 function updateMobileNav() {
   document.querySelectorAll('.mob-nav').forEach(b => b.classList.toggle('active', b.dataset.mv === currentView));
-  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',graficos:'Graficos'};
+  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',graficos:'Graficos'};
   const el = document.getElementById('mobileTitle');
   if (el) el.textContent = titles[currentView] || currentView;
 }
