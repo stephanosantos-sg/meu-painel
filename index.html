@@ -749,7 +749,7 @@ function renderHoje(H, C) {
     D.goals.forEach(g => {
       const total = g.milestones?g.milestones.length:0;
       const done = g.milestones?g.milestones.filter(m=>m.done).length:0;
-      const pct = total>0?Math.round((done/total)*100):0;
+      const pct = getGoalPct(g);
       const pctColor = pct>=100?'var(--green)':pct>=50?'var(--accent)':pct>0?'var(--orange)':'var(--text3)';
       html += `<div class="task-item" style="cursor:pointer" onclick="currentView='objetivos';render()">
         <div style="width:36px;height:36px;border-radius:50%;border:3px solid ${pctColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:800;color:${pctColor}">${pct}%</div>
@@ -1269,7 +1269,32 @@ function saveGoal(){
   D.goals.push({id:uid(),title,desc,deadline,milestones});
   save();closeGoalModal();render();
 }
-function toggleMilestone(gid,idx){const g=D.goals.find(x=>x.id===gid);if(g&&g.milestones&&g.milestones[idx]!==undefined){g.milestones[idx].done=!g.milestones[idx].done;save();render();}}
+function toggleMilestone(gid,idx){
+  const g=D.goals.find(x=>x.id===gid);
+  if(!g||!g.milestones||g.milestones[idx]===undefined) return;
+  const m = g.milestones[idx];
+  // Cycle: 0 -> 25 -> 50 -> 75 -> 100 -> 0
+  const p = m.progress || (m.done ? 100 : 0);
+  const steps = [0,25,50,75,100];
+  const next = steps[(steps.indexOf(p)+1) % steps.length] || (p < 100 ? 100 : 0);
+  m.progress = next;
+  m.done = next >= 100;
+  save(); render();
+}
+function setMilestoneProgress(gid,idx,val){
+  const g=D.goals.find(x=>x.id===gid);
+  if(!g||!g.milestones||g.milestones[idx]===undefined) return;
+  const v = Math.max(0,Math.min(100,parseInt(val)||0));
+  g.milestones[idx].progress = v;
+  g.milestones[idx].done = v >= 100;
+  save(); render();
+}
+function getMsProgress(m){ return m.progress !== undefined ? m.progress : (m.done ? 100 : 0); }
+function getGoalPct(g){
+  if(!g.milestones||!g.milestones.length) return 0;
+  const sum = g.milestones.reduce((a,m) => a + getMsProgress(m), 0);
+  return Math.round(sum / g.milestones.length);
+}
 function deleteGoal(id){D.goals=D.goals.filter(x=>x.id!==id);save();render();}
 
 function renderObjetivos(H, C) {
@@ -1279,7 +1304,7 @@ function renderObjetivos(H, C) {
   html += `<div class="goals-grid">`;
   D.goals.forEach(g => {
     const total=g.milestones?g.milestones.length:0, done=g.milestones?g.milestones.filter(m=>m.done).length:0;
-    const pct=total>0?Math.round((done/total)*100):0;
+    const pct=getGoalPct(g);
     const r=28,circ=2*Math.PI*r,offset=circ-(pct/100)*circ;
     const pctColor = pct>=100?'var(--green)':pct>=50?'var(--accent)':pct>0?'var(--orange)':'var(--text3)';
 
@@ -1319,13 +1344,22 @@ function renderObjetivos(H, C) {
           <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:6px;transition:width 0.4s ease"></div>
         </div>
         <div class="goal-milestones">
-          ${g.milestones.map((m,i) => `
-            <div onclick="event.stopPropagation();toggleMilestone('${g.id}',${i})" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background 0.15s;${m.done?'opacity:0.5':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
-              <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${m.done?'var(--green)':'var(--border2)'};background:${m.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700">${m.done?'&#10003;':''}</div>
-              <span style="flex:1;font-size:0.88rem;${m.done?'text-decoration:line-through':''}"> ${esc(m.text)}</span>
-              ${m.done?'<span style="font-size:0.7rem;color:var(--green)">Concluida</span>':'<span style="font-size:0.7rem;color:var(--text3)">Pendente</span>'}
-            </div>
-          `).join('')}
+          ${g.milestones.map((m,i) => {
+            const mp = getMsProgress(m);
+            const mpColor = mp>=100?'var(--green)':mp>=50?'var(--accent)':mp>0?'var(--orange)':'var(--border2)';
+            return `
+            <div style="padding:8px 10px;border-radius:8px;margin-bottom:2px;transition:background 0.15s;${mp>=100?'opacity:0.55':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div onclick="event.stopPropagation();toggleMilestone('${g.id}',${i})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${mpColor};background:${mp>=100?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700;cursor:pointer">${mp>=100?'&#10003;':''}</div>
+                <span style="flex:1;font-size:0.88rem;${mp>=100?'text-decoration:line-through':''}">${esc(m.text)}</span>
+                <input type="range" min="0" max="100" step="1" value="${mp}" oninput="this.nextElementSibling.textContent=this.value+'%'" onchange="event.stopPropagation();setMilestoneProgress('${g.id}',${i},this.value)" style="width:80px;accent-color:${mpColor};cursor:pointer">
+                <span style="font-size:0.75rem;font-weight:700;min-width:36px;text-align:right;color:${mpColor}">${mp}%</span>
+              </div>
+              <div style="margin-top:4px;margin-left:30px;background:var(--surface2);border-radius:3px;height:4px;overflow:hidden">
+                <div style="height:100%;width:${mp}%;background:${mpColor};border-radius:3px;transition:width 0.2s"></div>
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       `:`<div style="color:var(--text3);font-size:0.85rem;padding:8px 0">Sem etapas definidas. Edite para adicionar marcos.</div>`}
     </div>`;
