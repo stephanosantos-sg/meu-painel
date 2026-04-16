@@ -312,6 +312,8 @@ textarea.form-input{min-height:50px;resize:vertical}
 <div class="mobile-bar">
   <button onclick="toggleMobileMenu()">☰</button>
   <span class="mb-title" id="mobileTitle">Hoje</span>
+  <button onclick="syncSave()" title="Salvar na nuvem" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem;padding:4px">💾</button>
+  <button onclick="forcePull()" title="Baixar da nuvem" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem;padding:4px">☁️</button>
   <img src="" id="mobileAvatar" class="mb-avatar" onclick="toggleMobileMenu()">
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
@@ -735,6 +737,7 @@ function renderSidebar() {
       <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
       <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
       <div class="nav-item ${currentView==='compras'?'active':''}" data-view="compras"><span class="icon">🛒</span>Compras</div>
+      <div class="nav-item ${currentView==='midia'?'active':''}" data-view="midia"><span class="icon">🎬</span>Midia</div>
       <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Graficos</div>
     </div>
   `;
@@ -783,6 +786,7 @@ function render() {
       case 'objetivos': renderObjetivos(H,C); break;
       case 'eventos': renderEventos(H,C); break;
       case 'compras': renderCompras(H,C); break;
+      case 'midia': renderMidia(H,C); break;
       case 'graficos': renderGraficos(H,C); break;
     }
   }
@@ -835,7 +839,7 @@ function renderHoje(H, C) {
   const allPending = overdueTasks.length + todayTasks.length;
   const habitsToday = D.habits.filter(h => h.log && h.log[t]).length;
 
-  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar na nuvem" style="font-size:1rem;padding:8px 12px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
+  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar na nuvem" style="font-size:1rem;padding:8px 12px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar da nuvem" style="font-size:1rem;padding:8px 12px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
 
   let html = `<div class="stats-row">
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
@@ -1788,6 +1792,156 @@ function renderCompras(H, C) {
   C.innerHTML = html;
 }
 
+// ═══════════════════ MIDIA ═══════════════════
+// D.media = {filmes:[{title,done}], docs:[{title,done}], series:[{title,done}], livros:[{title,author,status,progress}]}
+
+function ensureMedia() {
+  if (!D.media) D.media = {filmes:[],docs:[],series:[],livros:[]};
+  if (!D.media.filmes) D.media.filmes = [];
+  if (!D.media.docs) D.media.docs = [];
+  if (!D.media.series) D.media.series = [];
+  if (!D.media.livros) D.media.livros = [];
+}
+
+function addMediaItem(cat, title, extra) {
+  ensureMedia();
+  const item = {title, done:false, ...extra};
+  D.media[cat].push(item);
+  save(); render();
+}
+
+function toggleMediaItem(cat, idx) {
+  ensureMedia();
+  if (D.media[cat] && D.media[cat][idx]!==undefined) {
+    D.media[cat][idx].done = !D.media[cat][idx].done;
+    save(); render();
+  }
+}
+
+function deleteMediaItem(cat, idx) {
+  ensureMedia();
+  if (D.media[cat]) { D.media[cat].splice(idx,1); save(); render(); }
+}
+
+function renderMidia(H, C) {
+  ensureMedia();
+  H.innerHTML = `<h2>🎬 Midia</h2><div class="subtitle">Filmes, series, documentarios e livros</div>`;
+
+  const tabs = [
+    {key:'livros',icon:'📚',label:'Livros'},
+    {key:'filmes',icon:'🎬',label:'Filmes'},
+    {key:'series',icon:'📺',label:'Series'},
+    {key:'docs',icon:'🎞️',label:'Documentarios'},
+  ];
+
+  const activeTab = D._mediaTab || 'livros';
+
+  let html = `<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+    ${tabs.map(t => `<button onclick="D._mediaTab='${t.key}';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} (${D.media[t.key].length})</button>`).join('')}
+  </div>`;
+
+  const items = D.media[activeTab] || [];
+  const doneItems = items.filter(x=>x.done);
+  const pendingItems = items.filter(x=>!x.done);
+  const tab = tabs.find(t=>t.key===activeTab);
+
+  // Add input
+  if (activeTab === 'livros') {
+    html += `<div style="display:flex;gap:6px;margin-bottom:16px">
+      <input class="form-input" id="mediaTitle" placeholder="Titulo do livro..." style="flex:2">
+      <input class="form-input" id="mediaAuthor" placeholder="Autor..." style="flex:1">
+      <button class="btn btn-primary btn-sm" onclick="addMediaItem('livros',document.getElementById('mediaTitle').value,{author:document.getElementById('mediaAuthor').value,status:'Fila',progress:0});document.getElementById('mediaTitle').value='';document.getElementById('mediaAuthor').value=''">+</button>
+    </div>`;
+  } else {
+    html += `<div style="display:flex;gap:6px;margin-bottom:16px">
+      <input class="form-input" id="mediaTitle" placeholder="${tab.icon} Adicionar ${tab.label.toLowerCase().slice(0,-1)}..." style="flex:1" onkeydown="if(event.key==='Enter'){addMediaItem('${activeTab}',this.value);this.value=''}">
+      <button class="btn btn-primary btn-sm" onclick="addMediaItem('${activeTab}',document.getElementById('mediaTitle').value);document.getElementById('mediaTitle').value=''">+</button>
+    </div>`;
+  }
+
+  // Render items
+  if (activeTab === 'livros') {
+    // Livros with author and status
+    const lendo = items.filter(x=>x.status==='Lendo');
+    const fila = items.filter(x=>x.status==='Fila'&&!x.done);
+    const lidos = items.filter(x=>x.status==='Lido'||x.done);
+
+    if (lendo.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--accent2);margin-bottom:8px">📖 LENDO AGORA (${lendo.length})</div>`;
+      lendo.forEach((item,i) => {
+        const idx = items.indexOf(item);
+        html += renderBookItem(item, idx);
+      });
+      html += `</div>`;
+    }
+    if (fila.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 NA FILA (${fila.length})</div>`;
+      fila.forEach(item => html += renderBookItem(item, items.indexOf(item)));
+      html += `</div>`;
+    }
+    if (lidos.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--green);margin-bottom:8px">✅ LIDOS (${lidos.length})</div>`;
+      lidos.forEach(item => html += renderBookItem(item, items.indexOf(item)));
+      html += `</div>`;
+    }
+  } else {
+    // Filmes/Series/Docs - simple list
+    if (pendingItems.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--text2);margin-bottom:8px">${tab.icon} PARA ASSISTIR (${pendingItems.length})</div>`;
+      pendingItems.forEach(item => {
+        const idx = items.indexOf(item);
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background 0.15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
+          <div onclick="toggleMediaItem('${activeTab}',${idx})" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);cursor:pointer;flex-shrink:0"></div>
+          <span style="flex:1;font-size:0.9rem">${esc(item.title)}</span>
+          <button onclick="deleteMediaItem('${activeTab}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.5;font-size:0.8rem">✕</button>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    if (doneItems.length) {
+      html += `<div><div style="font-size:0.8rem;font-weight:700;color:var(--green);margin-bottom:8px">✅ ASSISTIDOS (${doneItems.length})</div>`;
+      doneItems.forEach(item => {
+        const idx = items.indexOf(item);
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;opacity:0.5">
+          <div onclick="toggleMediaItem('${activeTab}',${idx})" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--green);background:var(--green);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">&#10003;</div>
+          <span style="flex:1;font-size:0.9rem;text-decoration:line-through">${esc(item.title)}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    if (!items.length) html += `<div class="empty-state"><p>Nenhum item</p></div>`;
+  }
+
+  C.innerHTML = html;
+}
+
+function renderBookItem(item, idx) {
+  const statusColors = {Lido:'var(--green)',Lendo:'var(--accent)',Fila:'var(--text3)'};
+  const sc = statusColors[item.status] || 'var(--text3)';
+  const p = item.progress || 0;
+  return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background 0.15s;${item.status==='Lido'?'opacity:0.5':''}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
+    <div onclick="cycleBookStatus(${idx})" style="width:18px;height:18px;border-radius:50%;border:2px solid ${sc};background:${item.status==='Lido'?'var(--green)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">${item.status==='Lido'?'&#10003;':''}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:0.9rem;${item.status==='Lido'?'text-decoration:line-through':''}">${esc(item.title)}</div>
+      ${item.author?`<div style="font-size:0.72rem;color:var(--text3)">${esc(item.author)}</div>`:''}
+    </div>
+    <span style="font-size:0.68rem;padding:2px 8px;border-radius:4px;font-weight:600;background:${sc==='var(--green)'?'var(--green-bg)':sc==='var(--accent)'?'var(--accent-bg)':'var(--surface2)'};color:${sc}">${item.status||'Fila'}</span>
+    <button onclick="deleteMediaItem('livros',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.5;font-size:0.8rem">✕</button>
+  </div>`;
+}
+
+function cycleBookStatus(idx) {
+  ensureMedia();
+  const item = D.media.livros[idx];
+  if (!item) return;
+  const order = ['Fila','Lendo','Lido'];
+  const next = order[(order.indexOf(item.status)+1) % order.length];
+  item.status = next;
+  item.done = next === 'Lido';
+  if (next === 'Lido') item.progress = 100;
+  save(); render();
+}
+
 // ═══════════════════ EVENTOS ═══════════════════
 let cachedEvents = null;
 let eventsLoading = false;
@@ -2426,25 +2580,29 @@ async function forcePush() {
 }
 
 async function forcePull() {
-  const url = document.getElementById('fSyncUrl').value.trim() || syncUrl;
-  if (!url) { alert('Configure a URL primeiro'); return; }
+  const urlInput = document.getElementById('fSyncUrl');
+  const url = (urlInput ? urlInput.value.trim() : '') || syncUrl;
+  if (!url) { alert('Configure a URL de sync primeiro (menu > Sync)'); return; }
   const res = document.getElementById('syncTestResult');
-  res.style.display = 'block'; res.style.color = 'var(--yellow)'; res.textContent = 'Baixando dados da nuvem...';
+  setSyncStatus('syncing', 'Baixando...');
+  if (res) { res.style.display = 'block'; res.style.color = 'var(--yellow)'; res.textContent = 'Baixando dados da nuvem...'; }
   try {
     const r = await fetch(url, {redirect:'follow'});
     const text = await r.text();
     if (!text || text.trim() === '' || text.trim() === 'ok') {
-      res.style.color = 'var(--red)'; res.textContent = 'Nuvem vazia. Envie os dados primeiro.'; return;
+      if (res) { res.style.color = 'var(--red)'; res.textContent = 'Nuvem vazia.'; }
+      setSyncStatus('error', 'Nuvem vazia'); return;
     }
     const remote = JSON.parse(text);
     if (!remote.categories) remote.categories = [...DEFAULT_CATS];
     D = remote;
     localStorage.setItem(SK, JSON.stringify(D));
     render();
-    res.style.color = 'var(--green)'; res.textContent = 'Dados carregados da nuvem! ' + D.tasks.length + ' tarefas, ' + D.habits.length + ' habitos.';
+    const msg = D.tasks.length + ' tarefas, ' + (D.habits||[]).length + ' habitos, ' + (D.goals||[]).length + ' objetivos';
+    if (res) { res.style.color = 'var(--green)'; res.textContent = 'Carregado! ' + msg; }
     setSyncStatus('ok', 'Carregado');
   } catch(e) {
-    res.style.color = 'var(--red)'; res.textContent = 'Erro: ' + e.message;
+    if (res) { res.style.color = 'var(--red)'; res.textContent = 'Erro: ' + e.message; }
   }
 }
 
@@ -2637,7 +2795,7 @@ function mobileNav(view) {
 }
 function updateMobileNav() {
   document.querySelectorAll('.mob-nav').forEach(b => b.classList.toggle('active', b.dataset.mv === currentView));
-  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',graficos:'Graficos'};
+  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',midia:'Midia',graficos:'Graficos'};
   const el = document.getElementById('mobileTitle');
   if (el) el.textContent = titles[currentView] || currentView;
 }
