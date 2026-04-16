@@ -706,8 +706,12 @@ function renderSidebar() {
   let hojeCount = 0;
   D.tasks.forEach(tk => {
     if (tk.freq === 'pontual' && tk.done) return;
-    if (isTaskForDate(tk, t) && !isTaskDone(tk, t)) hojeCount++;
-    else if (tk.freq === 'pontual' && isOverdue(tk.date) && !tk.done) hojeCount++;
+    if (tk.freq === 'diaria') { if (isTaskForDate(tk,t) && !isTaskDone(tk,t)) hojeCount++; return; }
+    if (tk.freq === 'pontual' && isOverdue(tk.date) && !tk.done) { hojeCount++; return; }
+    if (tk.freq !== 'pontual' && tk.date) {
+      for (let i=1;i<=7;i++) { const pd=new Date();pd.setDate(pd.getDate()-i);const pds=pd.toISOString().split('T')[0]; if(isTaskForDate(tk,pds)&&!isTaskDone(tk,pds)){hojeCount++;return;} }
+    }
+    if (isTaskForDate(tk,t) && !isTaskDone(tk,t)) hojeCount++;
   });
 
   let html = `
@@ -805,8 +809,27 @@ function renderHoje(H, C) {
   const overdueTasks = [], todayTasks = [];
   D.tasks.forEach(tk => {
     if (tk.freq === 'pontual' && tk.done) return;
-    if (tk.freq === 'pontual' && isOverdue(tk.date) && !tk.done) overdueTasks.push(tk);
-    else if (isTaskForDate(tk, t) && !isTaskDone(tk, t)) todayTasks.push(tk);
+    // Diarias nao ficam atrasadas (renovam todo dia)
+    if (tk.freq === 'diaria') {
+      if (isTaskForDate(tk, t) && !isTaskDone(tk, t)) todayTasks.push(tk);
+      return;
+    }
+    // Pontual, semanal, mensal, anual - se a data passou e nao foi feita, e atrasada
+    if (tk.freq === 'pontual' && isOverdue(tk.date) && !tk.done) {
+      overdueTasks.push(tk); return;
+    }
+    if (tk.freq !== 'pontual' && tk.date) {
+      // Check past occurrences (last 7 days) for overdue
+      for (let i = 1; i <= 7; i++) {
+        const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - i);
+        const pd = pastDate.toISOString().split('T')[0];
+        if (isTaskForDate(tk, pd) && !isTaskDone(tk, pd)) {
+          if (!overdueTasks.includes(tk)) overdueTasks.push(tk);
+          break;
+        }
+      }
+    }
+    if (isTaskForDate(tk, t) && !isTaskDone(tk, t) && !overdueTasks.includes(tk)) todayTasks.push(tk);
   });
 
   const allPending = overdueTasks.length + todayTasks.length;
