@@ -842,14 +842,15 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
 
     // Multi-time slots
     if (hasSlots) {
-      const ds = (t.doneSlots && t.doneSlots[dateCtx]) || [];
+      let ds = (t.doneSlots && t.doneSlots[dateCtx]) || [];
+      if (!Array.isArray(ds)) ds = [];
       const slotsDone = ds.length;
       const slotsHidden = isCollapsed(t,'slots');
       html += `<div onclick="toggleCollapse('${t.id}','slots')" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:3px 10px;border-radius:6px;background:var(--surface2);font-size:0.72rem;color:var(--accent2);font-weight:600">${slotsHidden?'&#9656;':'&#9662;'} ${slotsDone}/${t.times.length} horarios</div>`;
       html += `<div class="time-slots" style="${slotsHidden?'display:none':''}">`;
       t.times.forEach(s => {
         const sd = ds.includes(s.time);
-        html += `<div class="time-slot ${sd?'done':''}" onclick="toggleSlot('${t.id}','${dateCtx}','${s.time}')">
+        html += `<div class="time-slot ${sd?'done':''}" onclick="event.stopPropagation();toggleSlot('${t.id}','${dateCtx}','${s.time}')">
           <div class="slot-check ${sd?'checked':''}">${sd?'&#10003;':''}</div>
           <span class="slot-time">${s.time}</span>
           <span class="slot-label">${esc(s.label||t.text)}</span>
@@ -1032,7 +1033,7 @@ function toggleSlot(taskId, dateCtx, time) {
   const t = D.tasks.find(x=>x.id===taskId);
   if (!t) return;
   if (!t.doneSlots) t.doneSlots = {};
-  if (!t.doneSlots[dateCtx]) t.doneSlots[dateCtx] = [];
+  if (!Array.isArray(t.doneSlots[dateCtx])) t.doneSlots[dateCtx] = [];
   const arr = t.doneSlots[dateCtx];
   const idx = arr.indexOf(time);
   if (idx >= 0) arr.splice(idx, 1);
