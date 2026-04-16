@@ -379,6 +379,12 @@ textarea.form-input{min-height:50px;resize:vertical}
         </div>
       </div>
 
+      <!-- Day of week picker (for semanal tasks) -->
+      <div class="form-group" id="taskDaysArea" style="display:none">
+        <label>Dias da semana</label>
+        <div id="fTaskDays" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
       <!-- Multi-time area -->
       <div class="form-group" id="multiTimeArea" style="display:none">
         <label>Horarios do dia <span style="font-weight:400;text-transform:none;color:var(--text3)">&mdash; ex: beber agua 6x/dia</span></label>
@@ -651,6 +657,11 @@ function isTaskForDate(t, dateStr) {
   if (t.freq === 'pontual') return t.date === dateStr;
   if (t.freq === 'diaria') return t.date <= dateStr;
   if (t.freq === 'semanal') {
+    if (t.date > dateStr) return false;
+    if (t.days && t.days.length) {
+      const dow = new Date(dateStr+'T12:00:00').getDay();
+      return t.days.includes(dow);
+    }
     const start = new Date(t.date), check = new Date(dateStr);
     const diff = Math.floor((check - start) / 86400000);
     return diff >= 0 && diff % 7 === 0;
@@ -966,6 +977,7 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
 
     // Meta tags
     const meta = [catTag(t.cat), freqTag(t.freq)];
+    if (t.days && t.days.length && t.days.length < 7) meta.push(`<span style="font-size:0.65rem;color:var(--text3)">${t.days.map(d=>DAY_LABELS[d]).join(' ')}</span>`);
     if (t.date && !hasSlots) meta.push(`<span class="task-date-label ${isOverdue(t.date)&&!taskDone?'overdue':''}">${fmtDate(t.date)}${t.time?' '+t.time:''}</span>`);
 
     html += `<div class="task-item" id="task-${t.id}">
@@ -1224,6 +1236,9 @@ function openAddTask() {
   fIcon.querySelectorAll('.form-chip').forEach(ch => ch.addEventListener('click', () => { fIcon.querySelectorAll('.form-chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); }));
 
   setChip('fFreq','pontual'); setChip('fPrio','3');
+  buildDayPicker('fTaskDays', [0,1,2,3,4,5,6]);
+  document.getElementById('taskDaysArea').style.display = 'none';
+  document.getElementById('multiTimeArea').style.display = 'none';
 
   document.getElementById('taskModal').classList.add('show');
   setTimeout(()=>document.getElementById('fText').focus(),100);
@@ -1255,6 +1270,7 @@ function editTask(id) {
 
   setChip('fFreq', t.freq || 'pontual');
   setChip('fPrio', String(t.prio || 3));
+  buildDayPicker('fTaskDays', t.days || [0,1,2,3,4,5,6]);
   onFreqChange(t.freq || 'pontual');
 
   // Time slots
@@ -1282,12 +1298,8 @@ function closeModal() { document.getElementById('taskModal').classList.remove('s
 
 // Show/hide multi-time area based on frequency
 function onFreqChange(freq) {
-  const area = document.getElementById('multiTimeArea');
-  if (freq !== 'pontual') {
-    area.style.display = 'block';
-  } else {
-    area.style.display = 'none';
-  }
+  document.getElementById('multiTimeArea').style.display = freq !== 'pontual' ? 'block' : 'none';
+  document.getElementById('taskDaysArea').style.display = freq === 'semanal' ? 'block' : 'none';
 }
 
 function addTimeEntry(time, label) {
@@ -1331,6 +1343,7 @@ function saveTask() {
   });
 
   const icon = getChip('fIcon') || '';
+  const days = freq === 'semanal' ? getSelectedDays('fTaskDays') : undefined;
 
   if (editingTaskId) {
     // Update existing task
@@ -1342,6 +1355,7 @@ function saveTask() {
       existing.date = date;
       existing.time = times.length ? '' : time;
       existing.times = times.length ? times : undefined;
+      existing.days = days;
       existing.cat = cat;
       existing.prio = prio;
       existing.icon = icon;
@@ -1358,7 +1372,7 @@ function saveTask() {
     editingTaskId = null;
   } else {
     // Create new task
-    const task = { id:uid(), text, desc, freq, date, time:times.length?'':time, times:times.length?times:undefined, doneSlots:{}, cat, prio, icon, subtasks:subtasks.length?subtasks:undefined, done:false, createdAt:new Date().toISOString() };
+    const task = { id:uid(), text, desc, freq, date, time:times.length?'':time, times:times.length?times:undefined, days, doneSlots:{}, cat, prio, icon, subtasks:subtasks.length?subtasks:undefined, done:false, createdAt:new Date().toISOString() };
     D.tasks.push(task);
   }
   save(); closeModal(); render();
