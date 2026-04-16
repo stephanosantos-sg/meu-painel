@@ -159,6 +159,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 
 .task-actions{display:flex;gap:2px;opacity:0;transition:opacity 0.15s}
 .task-item:hover .task-actions{opacity:1}
+@media(max-width:768px){.task-actions{opacity:1}}
 .task-action{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 6px;border-radius:6px;font-size:0.85rem;transition:all 0.15s}
 .task-action:hover{color:var(--text);background:var(--surface2)}
 .task-action.del:hover{color:var(--red);background:var(--red-bg)}
@@ -933,6 +934,7 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
 
     html += `</div>
       <div class="task-actions">
+        <button class="task-action" onclick="editTask('${t.id}')" title="Editar">✏️</button>
         <button class="task-action del" onclick="deleteTask('${t.id}')" title="Excluir">&#10005;</button>
       </div>
     </div>`;
@@ -1133,7 +1135,9 @@ function toggleSubtask(taskId, idx) {
 }
 
 // ═══════════════════ TASK MODAL ═══════════════════
+let editingTaskId = null;
 function openAddTask() {
+  editingTaskId = null;
   document.getElementById('taskModalTitle').textContent = 'Nova Tarefa';
   document.getElementById('fText').value = '';
   document.getElementById('fDesc').value = '';
@@ -1163,7 +1167,56 @@ function openAddTask() {
   setTimeout(()=>document.getElementById('fText').focus(),100);
 }
 
-function closeModal() { document.getElementById('taskModal').classList.remove('show'); }
+function editTask(id) {
+  const t = D.tasks.find(x => x.id === id);
+  if (!t) return;
+  editingTaskId = id;
+
+  document.getElementById('taskModalTitle').textContent = 'Editar Tarefa';
+  document.getElementById('fText').value = t.text || '';
+  document.getElementById('fDesc').value = t.desc || '';
+  document.getElementById('fDate').value = t.date || todayStr();
+  document.getElementById('fTime').value = t.time || '';
+
+  // Category chips
+  const fCat = document.getElementById('fCat');
+  fCat.innerHTML = D.categories.map(c =>
+    `<button class="form-chip ${c.id===t.cat?'active':''}" data-v="${c.id}" style="display:flex;align-items:center;gap:4px"><span>${c.icon}</span>${esc(c.name)}</button>`
+  ).join('');
+  fCat.querySelectorAll('.form-chip').forEach(ch => ch.addEventListener('click', () => { fCat.querySelectorAll('.form-chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); }));
+
+  // Icon picker
+  const fIcon = document.getElementById('fIcon');
+  fIcon.innerHTML = `<button class="form-chip ${!t.icon?'active':''}" data-v="" style="padding:6px 10px">Nenhum</button>` +
+    ICONS.map(ic => `<button class="form-chip ${ic===t.icon?'active':''}" data-v="${ic}" style="padding:6px 8px;font-size:1rem">${ic}</button>`).join('');
+  fIcon.querySelectorAll('.form-chip').forEach(ch => ch.addEventListener('click', () => { fIcon.querySelectorAll('.form-chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); }));
+
+  setChip('fFreq', t.freq || 'pontual');
+  setChip('fPrio', String(t.prio || 3));
+  onFreqChange(t.freq || 'pontual');
+
+  // Time slots
+  document.getElementById('timesList').innerHTML = '';
+  if (t.times && t.times.length) {
+    t.times.forEach(s => addTimeEntry(s.time, s.label));
+  }
+
+  // Subtasks
+  document.getElementById('subtaskList').innerHTML = '';
+  if (t.subtasks && t.subtasks.length) {
+    t.subtasks.forEach(s => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center';
+      div.innerHTML = `<input class="form-input st-input" value="${esc(s.text)}" style="flex:1"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
+      document.getElementById('subtaskList').appendChild(div);
+    });
+  }
+
+  document.getElementById('taskModal').classList.add('show');
+  setTimeout(() => document.getElementById('fText').focus(), 100);
+}
+
+function closeModal() { document.getElementById('taskModal').classList.remove('show'); editingTaskId = null; }
 
 // Show/hide multi-time area based on frequency
 function onFreqChange(freq) {
@@ -1216,8 +1269,36 @@ function saveTask() {
   });
 
   const icon = getChip('fIcon') || '';
-  const task = { id:uid(), text, desc, freq, date, time:times.length?'':time, times:times.length?times:undefined, doneSlots:{}, cat, prio, icon, subtasks:subtasks.length?subtasks:undefined, done:false, createdAt:new Date().toISOString() };
-  D.tasks.push(task);
+
+  if (editingTaskId) {
+    // Update existing task
+    const existing = D.tasks.find(x => x.id === editingTaskId);
+    if (existing) {
+      existing.text = text;
+      existing.desc = desc;
+      existing.freq = freq;
+      existing.date = date;
+      existing.time = times.length ? '' : time;
+      existing.times = times.length ? times : undefined;
+      existing.cat = cat;
+      existing.prio = prio;
+      existing.icon = icon;
+      // Merge subtasks: keep done state for matching text
+      if (subtasks.length) {
+        existing.subtasks = subtasks.map(ns => {
+          const old = (existing.subtasks||[]).find(os => os.text === ns.text);
+          return old ? {...ns, done: old.done} : ns;
+        });
+      } else {
+        existing.subtasks = undefined;
+      }
+    }
+    editingTaskId = null;
+  } else {
+    // Create new task
+    const task = { id:uid(), text, desc, freq, date, time:times.length?'':time, times:times.length?times:undefined, doneSlots:{}, cat, prio, icon, subtasks:subtasks.length?subtasks:undefined, done:false, createdAt:new Date().toISOString() };
+    D.tasks.push(task);
+  }
   save(); closeModal(); render();
 }
 
