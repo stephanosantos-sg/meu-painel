@@ -1767,16 +1767,19 @@ async function syncLoad() {
     // Merge: use whichever has more recent lastModified
     const localTime = D.lastModified || 0;
     const remoteTime = remote.lastModified || 0;
-    if (remoteTime > localTime) {
-      // Remote is newer, use it
+    const localSize = (D.tasks||[]).length + (D.habits||[]).length + (D.goals||[]).length;
+    const remoteSize = (remote.tasks||[]).length + (remote.habits||[]).length + (remote.goals||[]).length;
+
+    if (remoteTime > localTime && remoteSize >= localSize) {
+      // Remote is newer AND has equal or more data - use it
       D = remote;
       if (!D.categories) D.categories = [...DEFAULT_CATS];
       localStorage.setItem(SK, JSON.stringify(D));
       render();
       setSyncStatus('ok', 'Carregado da nuvem');
-    } else if (localTime > remoteTime) {
-      // Local is newer, push to cloud
-      setSyncStatus('ok', 'Local mais recente');
+    } else if (localSize > remoteSize || localTime > remoteTime) {
+      // Local has more data or is newer - push to cloud
+      setSyncStatus('ok', 'Local mais recente, enviando...');
       await syncSave();
     } else {
       setSyncStatus('ok', 'Sincronizado');
