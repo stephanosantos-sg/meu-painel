@@ -1251,21 +1251,61 @@ function toggleMilestone(gid,idx){const g=D.goals.find(x=>x.id===gid);if(g&&g.mi
 function deleteGoal(id){D.goals=D.goals.filter(x=>x.id!==id);save();render();}
 
 function renderObjetivos(H, C) {
-  H.innerHTML = `<h2>Objetivos</h2><div class="subtitle">Metas de longo prazo</div>`;
+  H.innerHTML = `<h2>🎯 Objetivos</h2><div class="subtitle">Metas de longo prazo</div>`;
   let html = `<button class="btn btn-primary" onclick="openGoalModal()" style="margin-bottom:20px">+ Novo Objetivo</button>`;
   if (!D.goals.length) { C.innerHTML = html + emptyState('Nenhum objetivo cadastrado'); return; }
   html += `<div class="goals-grid">`;
   D.goals.forEach(g => {
     const total=g.milestones?g.milestones.length:0, done=g.milestones?g.milestones.filter(m=>m.done).length:0;
     const pct=total>0?Math.round((done/total)*100):0;
-    const r=22,c=2*Math.PI*r,offset=c-(pct/100)*c;
-    html += `<div class="goal-card"><div class="goal-top"><div style="flex:1">
-      <div class="goal-title">${esc(g.title)}</div>${g.desc?`<div class="goal-desc">${esc(g.desc)}</div>`:''}</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="goal-progress-ring"><svg width="56" height="56"><circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="5"/><circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"/></svg><div class="pct">${pct}%</div></div>
-        <button class="task-action del" onclick="deleteGoal('${g.id}')">&#10005;</button></div></div>
-      ${g.deadline?`<div style="margin-bottom:10px"><span class="goal-deadline">&#128197; ${fmtDate(g.deadline)}</span></div>`:''}
-      ${total>0?`<div class="goal-milestones">${g.milestones.map((m,i)=>`<div class="goal-ms ${m.done?'done':''}" onclick="toggleMilestone('${g.id}',${i})"><div class="ms-check">${m.done?'&#10003;':''}</div><span>${esc(m.text)}</span></div>`).join('')}</div>`:''}
+    const r=28,circ=2*Math.PI*r,offset=circ-(pct/100)*circ;
+    const pctColor = pct>=100?'var(--green)':pct>=50?'var(--accent)':pct>0?'var(--orange)':'var(--text3)';
+
+    // Days remaining
+    let deadlineInfo = '';
+    if (g.deadline) {
+      const now = new Date(); now.setHours(0,0,0,0);
+      const dl = new Date(g.deadline+'T00:00:00');
+      const diff = Math.ceil((dl - now) / 86400000);
+      if (diff < 0) deadlineInfo = `<span style="color:var(--red);font-weight:600">Atrasado ${Math.abs(diff)} dias</span>`;
+      else if (diff === 0) deadlineInfo = `<span style="color:var(--orange);font-weight:600">Vence hoje!</span>`;
+      else if (diff <= 7) deadlineInfo = `<span style="color:var(--yellow);font-weight:600">${diff} dias restantes</span>`;
+      else deadlineInfo = `<span style="color:var(--text3)">${diff} dias restantes</span>`;
+    }
+
+    html += `<div class="goal-card" style="border-left:4px solid ${pctColor}">
+      <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:12px">
+        <div class="goal-progress-ring" style="width:64px;height:64px;flex-shrink:0">
+          <svg width="64" height="64"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="5"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${pctColor}" stroke-width="5" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"/></svg>
+          <div class="pct" style="font-size:0.85rem;color:${pctColor}">${pct}%</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="goal-title" style="font-size:1.05rem">🎯 ${esc(g.title)}</div>
+            <button class="task-action del" onclick="deleteGoal('${g.id}')" style="opacity:0.6">&#10005;</button>
+          </div>
+          ${g.desc?`<div class="goal-desc" style="margin-top:4px">${esc(g.desc)}</div>`:''}
+          <div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:0.75rem">
+            ${g.deadline?`<span style="color:var(--text3)">📅 ${fmtDate(g.deadline)}</span>`:''} ${deadlineInfo}
+            ${total>0?`<span style="color:var(--text3)">${done}/${total} etapas</span>`:''}
+          </div>
+        </div>
+      </div>
+
+      ${total>0?`
+        <div style="background:var(--surface2);border-radius:6px;height:10px;overflow:hidden;margin-bottom:14px">
+          <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:6px;transition:width 0.4s ease"></div>
+        </div>
+        <div class="goal-milestones">
+          ${g.milestones.map((m,i) => `
+            <div onclick="event.stopPropagation();toggleMilestone('${g.id}',${i})" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background 0.15s;${m.done?'opacity:0.5':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+              <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${m.done?'var(--green)':'var(--border2)'};background:${m.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700">${m.done?'&#10003;':''}</div>
+              <span style="flex:1;font-size:0.88rem;${m.done?'text-decoration:line-through':''}"> ${esc(m.text)}</span>
+              ${m.done?'<span style="font-size:0.7rem;color:var(--green)">Concluida</span>':'<span style="font-size:0.7rem;color:var(--text3)">Pendente</span>'}
+            </div>
+          `).join('')}
+        </div>
+      `:`<div style="color:var(--text3);font-size:0.85rem;padding:8px 0">Sem etapas definidas. Edite para adicionar marcos.</div>`}
     </div>`;
   });
   html += `</div>`;
