@@ -479,10 +479,21 @@ textarea.form-input{min-height:50px;resize:vertical}
         3. Va em <strong>Extensoes > Apps Script</strong><br>
         4. Apague tudo e cole o codigo abaixo:<br>
       </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:0.72rem;color:var(--cyan);margin-bottom:12px;white-space:pre;overflow-x:auto;line-height:1.5" id="appsScriptCode">function doGet() {
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:0.68rem;color:var(--cyan);margin-bottom:12px;white-space:pre;overflow-x:auto;line-height:1.4" id="appsScriptCode">function doGet(e) {
+  var action = e && e.parameter && e.parameter.action;
+  if (action === 'events') {
+    var now = new Date();
+    var end = new Date();
+    end.setDate(now.getDate() + 15);
+    var cal = CalendarApp.getDefaultCalendar();
+    var evs = cal.getEvents(now, end);
+    var result = evs.map(function(ev) {
+      return {title:ev.getTitle(),start:ev.getStartTime().toISOString(),end:ev.getEndTime().toISOString(),allDay:ev.isAllDayEvent(),location:ev.getLocation()||'',description:ev.getDescription()||''};
+    });
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
   var s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data');
-  return ContentService.createTextOutput(s.getRange('A1').getValue())
-    .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(s.getRange('A1').getValue()).setMimeType(ContentService.MimeType.JSON);
 }
 function doPost(e) {
   var s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data');
@@ -676,6 +687,7 @@ function renderSidebar() {
       <div class="nav-section-title">Acompanhamento</div>
       <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">⭐</span>Habitos</div>
       <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
+      <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
       <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Graficos</div>
     </div>
   `;
@@ -722,6 +734,7 @@ function render() {
       case 'todas': renderTodas(H,C); break;
       case 'habitos': renderHabitos(H,C); break;
       case 'objetivos': renderObjetivos(H,C); break;
+      case 'eventos': renderEventos(H,C); break;
       case 'graficos': renderGraficos(H,C); break;
     }
   }
@@ -815,6 +828,27 @@ function renderHoje(H, C) {
   }
 
   C.innerHTML = html;
+
+  // Load today's events async and append
+  if (viewMode === 'lista' && syncUrl) {
+    getUpcomingEventsForToday().then(events => {
+      if (!events.length) return;
+      let evHtml = `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--blue)">📆 Eventos de hoje</span><span class="task-group-count">${events.length}</span></div><div class="task-group-items">`;
+      events.forEach(ev => {
+        const start = new Date(ev.start);
+        const timeStr = ev.allDay ? 'Dia inteiro' : `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
+        evHtml += `<div class="task-item">
+          <div style="font-size:1rem;width:20px;text-align:center">📆</div>
+          <div class="task-body">
+            <div class="task-text">${esc(ev.title)}</div>
+            <div class="task-meta"><span style="font-size:0.72rem;color:var(--blue);font-weight:600">${timeStr}</span>${ev.location?`<span style="font-size:0.72rem;color:var(--text3)">📍 ${esc(ev.location)}</span>`:''}</div>
+          </div>
+        </div>`;
+      });
+      evHtml += `</div></div>`;
+      C.innerHTML += evHtml;
+    });
+  }
 }
 
 function countDoneToday() {
@@ -1543,6 +1577,105 @@ function renderObjetivos(H, C) {
   });
   html += `</div>`;
   C.innerHTML = html;
+}
+
+// ═══════════════════ EVENTOS ═══════════════════
+let cachedEvents = null;
+let eventsLoading = false;
+
+async function loadEvents() {
+  if (!syncUrl) return [];
+  eventsLoading = true;
+  try {
+    const r = await fetch(syncUrl + '?action=events', {redirect:'follow'});
+    const text = await r.text();
+    cachedEvents = JSON.parse(text);
+    eventsLoading = false;
+    return cachedEvents;
+  } catch(e) {
+    console.error('Events load error:', e);
+    eventsLoading = false;
+    return [];
+  }
+}
+
+function renderEventos(H, C) {
+  H.innerHTML = `<h2>📆 Eventos</h2><div class="subtitle">Google Calendar - proximos 15 dias</div>`;
+
+  if (!syncUrl) {
+    C.innerHTML = `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📆</div><p>Configure o sync para ver seus eventos do Google Calendar.</p><button class="btn btn-primary" style="margin-top:16px" onclick="openSyncModal()">Configurar Sync</button></div>`;
+    return;
+  }
+
+  C.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3)">Carregando eventos...</div>`;
+
+  loadEvents().then(events => {
+    if (!events || !events.length) {
+      C.innerHTML = `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📆</div><p>Nenhum evento nos proximos 15 dias.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="cachedEvents=null;renderEventos(document.getElementById('mainHeader'),document.getElementById('mainContent'))">Recarregar</button></div>`;
+      return;
+    }
+
+    // Group by date
+    const groups = {};
+    events.forEach(ev => {
+      const d = ev.start.split('T')[0];
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(ev);
+    });
+
+    const t = todayStr();
+    let html = `<button class="btn btn-ghost btn-sm" onclick="cachedEvents=null;renderEventos(document.getElementById('mainHeader'),document.getElementById('mainContent'))" style="margin-bottom:16px">🔄 Recarregar</button>`;
+
+    Object.keys(groups).sort().forEach(date => {
+      const isT = date === t;
+      const evs = groups[date];
+      html += `<div style="margin-bottom:20px">
+        <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${isT?'var(--accent2)':'var(--text3)'};padding:8px 0;display:flex;align-items:center;gap:6px">
+          ${isT?'☀️':''} ${fmtDate(date)} <span style="font-weight:400;font-size:0.72rem;color:var(--text3)">${evs.length} evento${evs.length>1?'s':''}</span>
+        </div>`;
+
+      evs.forEach(ev => {
+        const start = new Date(ev.start);
+        const end = new Date(ev.end);
+        const timeStr = ev.allDay ? 'Dia inteiro' : `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')} - ${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
+
+        // Duration
+        const durMs = end - start;
+        const durH = Math.floor(durMs / 3600000);
+        const durM = Math.floor((durMs % 3600000) / 60000);
+        const durStr = ev.allDay ? '' : (durH > 0 ? `${durH}h${durM>0?durM+'m':''}` : `${durM}m`);
+
+        // Color based on event color or time of day
+        const hour = start.getHours();
+        const evColor = hour < 12 ? 'var(--blue)' : hour < 18 ? 'var(--accent)' : 'var(--orange)';
+
+        html += `<div style="display:flex;gap:12px;padding:12px 14px;border-radius:10px;transition:background 0.15s;border-left:3px solid ${evColor};margin-bottom:4px;background:var(--surface)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'">
+          <div style="min-width:55px">
+            <div style="font-size:0.85rem;font-weight:700;color:${evColor}">${ev.allDay?'🌅':timeStr.split(' - ')[0]}</div>
+            ${durStr?`<div style="font-size:0.65rem;color:var(--text3)">${durStr}</div>`:''}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.92rem;font-weight:600">${esc(ev.title)}</div>
+            ${ev.location?`<div style="font-size:0.75rem;color:var(--text3);margin-top:2px">📍 ${esc(ev.location)}</div>`:''}
+            ${!ev.allDay?`<div style="font-size:0.72rem;color:var(--text3);margin-top:1px">${timeStr}</div>`:''}
+          </div>
+        </div>`;
+      });
+
+      html += `</div>`;
+    });
+
+    C.innerHTML = html;
+  });
+}
+
+// Also show events in Hoje view
+async function getUpcomingEventsForToday() {
+  if (!syncUrl) return [];
+  if (!cachedEvents) await loadEvents();
+  if (!cachedEvents) return [];
+  const t = todayStr();
+  return cachedEvents.filter(ev => ev.start.split('T')[0] === t);
 }
 
 // ═══════════════════ GRAFICOS ═══════════════════
@@ -2295,7 +2428,7 @@ function mobileNav(view) {
 }
 function updateMobileNav() {
   document.querySelectorAll('.mob-nav').forEach(b => b.classList.toggle('active', b.dataset.mv === currentView));
-  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',graficos:'Graficos'};
+  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',graficos:'Graficos'};
   const el = document.getElementById('mobileTitle');
   if (el) el.textContent = titles[currentView] || currentView;
 }
