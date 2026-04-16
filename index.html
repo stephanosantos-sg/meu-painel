@@ -730,17 +730,39 @@ function renderHoje(H, C) {
 
   // Habits quick (only in lista mode)
   if (viewMode === 'lista' && D.habits.length) {
-    html += `<div class="task-group" style="margin-top:8px"><div class="task-group-header"><span class="task-group-title">Habitos de hoje</span></div><div class="task-group-items">`;
+    html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--orange)">⭐ Habitos de hoje</span><span class="task-group-count">${D.habits.filter(h=>h.log&&h.log[t]).length}/${D.habits.length}</span></div><div class="task-group-items">`;
     D.habits.forEach(h => {
       const done = h.log&&h.log[t];
+      const streak = getStreak(h);
       html += `<div class="task-item" style="cursor:pointer" onclick="toggleHabitDay('${h.id}','${t}')">
         <div class="task-check ${done?'checked':''}" style="border-color:var(--${h.color||'green'})">${done?'&#10003;':''}</div>
         <div class="task-body"><div class="task-text">${esc(h.name)}</div>
-        ${getStreak(h)>0?`<div class="task-meta"><span class="task-date-label" style="color:var(--orange)">&#128293; ${getStreak(h)} dias</span></div>`:''}</div>
+        <div class="task-meta">${streak>0?`<span style="font-size:0.72rem;color:var(--orange);font-weight:600">🔥 ${streak} dias</span>`:''}<span style="font-size:0.72rem;color:var(--text3)">Meta: ${h.goal||7}x/sem</span></div></div>
       </div>`;
     });
     html += `</div></div>`;
   }
+
+  // Goals quick (only in lista mode)
+  if (viewMode === 'lista' && D.goals.length) {
+    html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--accent2)">🎯 Objetivos</span><span class="task-group-count">${D.goals.length}</span></div><div class="task-group-items">`;
+    D.goals.forEach(g => {
+      const total = g.milestones?g.milestones.length:0;
+      const done = g.milestones?g.milestones.filter(m=>m.done).length:0;
+      const pct = total>0?Math.round((done/total)*100):0;
+      const pctColor = pct>=100?'var(--green)':pct>=50?'var(--accent)':pct>0?'var(--orange)':'var(--text3)';
+      html += `<div class="task-item" style="cursor:pointer" onclick="currentView='objetivos';render()">
+        <div style="width:36px;height:36px;border-radius:50%;border:3px solid ${pctColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:800;color:${pctColor}">${pct}%</div>
+        <div class="task-body">
+          <div class="task-text">${esc(g.title)}</div>
+          <div style="margin-top:4px;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;max-width:200px"><div style="height:100%;width:${pct}%;background:${pctColor};border-radius:4px"></div></div>
+          <div class="task-meta"><span style="font-size:0.7rem;color:var(--text3)">${done}/${total} etapas</span>${g.deadline?`<span style="font-size:0.7rem;color:var(--text3)">📅 ${fmtDate(g.deadline)}</span>`:''}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
   C.innerHTML = html;
 }
 
