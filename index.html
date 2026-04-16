@@ -438,6 +438,9 @@ textarea.form-input{min-height:50px;resize:vertical}
       <div class="form-group"><label>Icone</label>
         <div class="form-chips" id="fHIcon" style="gap:4px"></div>
       </div>
+      <div class="form-group"><label>Meta anual (total de vezes no ano)</label>
+        <input class="form-input" id="fHYearGoal" type="number" min="0" placeholder="Ex: 150 (deixe 0 para sem meta)">
+      </div>
       <div class="form-group"><label>Cor</label>
         <div class="form-chips" id="fHColor">
           <button class="form-chip active" data-v="green" style="background:var(--green);color:#fff;border-color:var(--green)">&#9679;</button>
@@ -1480,6 +1483,7 @@ function openHabitModal(editId){
   ).join('');
   fHIcon.querySelectorAll('.form-chip').forEach(ch => ch.addEventListener('click', () => { fHIcon.querySelectorAll('.form-chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); }));
 
+  document.getElementById('fHYearGoal').value = h ? (h.yearGoal || '') : '';
   document.querySelectorAll('#fHColor .form-chip').forEach(c => c.classList.toggle('active', c.dataset.v === (h ? h.color : 'green')));
   document.getElementById('habitModal').classList.add('show');
   setTimeout(()=>document.getElementById('fHName').focus(),100);
@@ -1494,9 +1498,11 @@ function saveHabit(){
   const editId = document.getElementById('habitModal').dataset.editId;
   if (editId) {
     const h = D.habits.find(x=>x.id===editId);
-    if (h) { h.name=name; h.days=days; h.goal=goal; h.icon=icon; h.color=color; }
+    const yearGoal = parseInt(document.getElementById('fHYearGoal').value) || 0;
+    if (h) { h.name=name; h.days=days; h.goal=goal; h.icon=icon; h.color=color; h.yearGoal=yearGoal; }
   } else {
-    D.habits.push({id:uid(),name,days,goal,icon,color,log:{}});
+    const yearGoal = parseInt(document.getElementById('fHYearGoal').value) || 0;
+    D.habits.push({id:uid(),name,days,goal,icon,color,yearGoal,log:{}});
   }
   save();closeHabitModal();render();
 }
@@ -1509,6 +1515,8 @@ function renderHabitos(H, C) {
   html += `<div class="habits-grid">`;
   D.habits.forEach(h => {
     const streak=getStreak(h), totalDone=Object.keys(h.log||{}).length, weekDone=week.filter(d=>h.log&&h.log[d.date]).length, color=h.color||'green';
+    const currentYear = new Date().getFullYear();
+    const yearDone = Object.keys(h.log||{}).filter(d => d.startsWith(currentYear+'')).length;
     const days = h.days || [0,1,2,3,4,5,6];
     const daysLabel = days.length===7 ? 'Todos os dias' : days.map(d=>DAY_LABELS[d]).join(' ');
     html += `<div class="habit-card">
@@ -1538,10 +1546,21 @@ function renderHabitos(H, C) {
           <div style="height:100%;width:${(h.goal||7)>0?Math.min(100,Math.round(weekDone/(h.goal||7)*100)):0}%;background:var(--${color});border-radius:6px;transition:width 0.3s"></div>
         </div>
       </div>
+      ${h.yearGoal && h.yearGoal > 0 ? `
+      <div style="margin-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:0.72rem;color:var(--text3);font-weight:600">Meta anual</span>
+          <span style="font-size:0.78rem;font-weight:700;color:${yearDone>=h.yearGoal?'var(--green)':'var(--'+color+')'}">${yearDone}/${h.yearGoal}</span>
+        </div>
+        <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(100,Math.round(yearDone/h.yearGoal*100))}%;background:var(--${color});border-radius:6px;transition:width 0.3s"></div>
+        </div>
+      </div>` : ''}
       <div class="habit-stats">
         <div class="habit-stat"><div class="hs-val">${streak}</div><div class="hs-label">🔥 Sequencia</div></div>
         <div class="habit-stat"><div class="hs-val">${Math.min(100,Math.round(weekDone/(h.goal||7)*100))}%</div><div class="hs-label">Semana</div></div>
         <div class="habit-stat"><div class="hs-val">${totalDone}</div><div class="hs-label">Total</div></div>
+        ${h.yearGoal && h.yearGoal > 0 ? `<div class="habit-stat"><div class="hs-val">${Math.min(100,Math.round(yearDone/h.yearGoal*100))}%</div><div class="hs-label">Ano</div></div>` : ''}
       </div></div>`;
   });
   html += `</div>`;
