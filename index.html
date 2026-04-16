@@ -512,7 +512,7 @@ let currentView = 'hoje';
 let viewMode = localStorage.getItem('meuPainel_viewMode') || 'lista';
 let calMonth = new Date().getMonth();
 let calYear = new Date().getFullYear();
-function save() { localStorage.setItem(SK, JSON.stringify(D)); }
+function save() { D.lastModified = Date.now(); localStorage.setItem(SK, JSON.stringify(D)); if (typeof scheduleSyncSave==='function') scheduleSyncSave(); }
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function getCat(id) { return D.categories.find(c=>c.id===id) || {id,name:id,icon:'&#9679;',color:'accent'}; }
@@ -1791,13 +1791,7 @@ function forceSync() {
   syncLoad();
 }
 
-// Override save to include sync
-const _origSave = save;
-function save() {
-  D.lastModified = Date.now();
-  _origSave();
-  scheduleSyncSave();
-}
+// sync is now integrated directly in save()
 
 // ═══════════════════ CATEGORIES ═══════════════════
 let editingCatId = null;
