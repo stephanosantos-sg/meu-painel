@@ -274,7 +274,7 @@ textarea.form-input{min-height:50px;resize:vertical}
 <body>
 
 <div class="mobile-bar">
-  <button onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+  <button onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
   <span>Meu Painel</span>
 </div>
 
@@ -608,9 +608,9 @@ function renderSidebar() {
 
   let html = `
     <div class="nav-section">
-      <div class="nav-item ${currentView==='hoje'?'active':''}" data-view="hoje"><span class="icon">&#9737;</span>Hoje<span class="badge">${hojeCount}</span></div>
+      <div class="nav-item ${currentView==='hoje'?'active':''}" data-view="hoje"><span class="icon">☀️</span>Hoje<span class="badge">${hojeCount}</span></div>
       <div class="nav-item ${currentView==='proximos'?'active':''}" data-view="proximos"><span class="icon">&#128197;</span>Proximos</div>
-      <div class="nav-item ${currentView==='todas'?'active':''}" data-view="todas"><span class="icon">&#128203;</span>Todas</div>
+      <div class="nav-item ${currentView==='todas'?'active':''}" data-view="todas"><span class="icon">📋</span>Todas</div>
     </div>
     <div class="nav-section">
       <div class="nav-section-title" style="display:flex;align-items:center;justify-content:space-between">Categorias <button class="task-action" onclick="openCatModal()" title="Gerenciar categorias" style="opacity:1;font-size:0.75rem">&#9881;</button></div>`;
@@ -623,9 +623,9 @@ function renderSidebar() {
   html += `</div>
     <div class="nav-section">
       <div class="nav-section-title">Acompanhamento</div>
-      <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">&#9733;</span>Habitos</div>
-      <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">&#9872;</span>Objetivos</div>
-      <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">&#128202;</span>Graficos</div>
+      <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">⭐</span>Habitos</div>
+      <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
+      <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Graficos</div>
     </div>
   `;
 
@@ -883,14 +883,14 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
   return html;
 }
 
-function emptyState(msg) { return `<div class="empty-state"><div class="empty-icon">&#9744;</div><p>${msg}</p><button class="btn btn-primary" style="margin-top:16px" onclick="openAddTask()">+ Adicionar tarefa</button></div>`; }
+function emptyState(msg) { return `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📋</div><p>${msg}</p><button class="btn btn-primary" style="margin-top:16px" onclick="openAddTask()">+ Adicionar tarefa</button></div>`; }
 
 function setViewMode(m) { viewMode = m; localStorage.setItem('meuPainel_viewMode', m); render(); }
 
 function viewSwitcher() {
   return `<div class="view-switch">
-    <button class="view-btn ${viewMode==='lista'?'active':''}" onclick="setViewMode('lista')">&#9776; Lista</button>
-    <button class="view-btn ${viewMode==='painel'?'active':''}" onclick="setViewMode('painel')">&#9638; Painel</button>
+    <button class="view-btn ${viewMode==='lista'?'active':''}" onclick="setViewMode('lista')">📝 Lista</button>
+    <button class="view-btn ${viewMode==='painel'?'active':''}" onclick="setViewMode('painel')">📌 Painel</button>
     <button class="view-btn ${viewMode==='calendario'?'active':''}" onclick="setViewMode('calendario')">&#128197; Calendario</button>
   </div>`;
 }
@@ -1331,7 +1331,7 @@ function renderGraficos(H, C) {
 
   // Chart 1: Tarefas concluidas por dia
   html += `<div class="chart-card">
-    <h4>&#9744; Tarefas concluidas (7 dias)</h4>
+    <h4>✅ Tarefas concluidas (7 dias)</h4>
     <div class="chart-week-grid" style="height:140px;align-items:flex-end">
       ${last7.map((d,i) => {
         const h = donePerDay[i] > 0 ? Math.max(20, (donePerDay[i]/maxDone)*120) : 4;
@@ -1347,7 +1347,7 @@ function renderGraficos(H, C) {
 
   // Chart 2: Habitos por dia
   html += `<div class="chart-card">
-    <h4>&#9733; Habitos feitos (7 dias)</h4>
+    <h4>⭐ Habitos feitos (7 dias)</h4>
     <div class="chart-week-grid" style="height:140px;align-items:flex-end">
       ${last7.map((d,i) => {
         const h = habitsPerDay[i] > 0 ? Math.max(20, (habitsPerDay[i]/maxHab)*120) : 4;
@@ -1363,7 +1363,7 @@ function renderGraficos(H, C) {
 
   // Chart 3: Por categoria
   html += `<div class="chart-card">
-    <h4>&#9679; Tarefas por categoria</h4>
+    <h4>🏷️ Tarefas por categoria</h4>
     <div class="chart-bar-group">
       ${cats.map(c => { const ct=getCat(c); return `<div class="chart-bar-row">
         <div class="chart-bar-label" style="width:auto;min-width:60px">${ct.icon} ${esc(ct.name)}</div>
@@ -1409,7 +1409,7 @@ function renderGraficos(H, C) {
   // Chart 6: Progresso dos objetivos
   if (goalStats.length > 0) {
     html += `<div class="chart-card">
-      <h4>&#9872; Progresso dos objetivos</h4>
+      <h4>🎯 Progresso dos objetivos</h4>
       <div class="chart-row-items">
         ${goalStats.map(g => `<div class="chart-row-item">
           <span class="cri-label">${esc(g.title)}</span>
