@@ -2118,7 +2118,9 @@ renderThemePicker();
 
 render();
 // Load from cloud on startup
-if (syncUrl) syncLoad();
+// Auto-save to cloud is ON, but auto-load is OFF to prevent overwriting local data
+// User can manually pull via "Baixar da nuvem" button
+if (syncUrl) setSyncStatus('ok', 'Conectado');
 </script>
 </body>
 </html>
