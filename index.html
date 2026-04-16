@@ -453,6 +453,8 @@ function doPost(e) {
       </div>
       <div class="form-actions" style="justify-content:space-between">
         <button class="btn btn-ghost" onclick="testSync()" id="btnTestSync">Testar conexao</button>
+        <button class="btn btn-primary" onclick="forcePush()" style="background:var(--green)">Enviar tudo para nuvem</button>
+        <button class="btn btn-ghost" onclick="forcePull()">Baixar da nuvem</button>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost" onclick="removeSyncUrl()">Desconectar</button>
           <button class="btn btn-primary" onclick="saveSyncUrl()">Salvar</button>
@@ -1789,6 +1791,44 @@ async function syncLoad() {
 function forceSync() {
   if (!syncUrl) { openSyncModal(); return; }
   syncLoad();
+}
+
+async function forcePush() {
+  const url = document.getElementById('fSyncUrl').value.trim() || syncUrl;
+  if (!url) { alert('Configure a URL primeiro'); return; }
+  const res = document.getElementById('syncTestResult');
+  res.style.display = 'block'; res.style.color = 'var(--yellow)'; res.textContent = 'Enviando dados locais para nuvem...';
+  try {
+    const payload = JSON.stringify(D);
+    await fetch(url, {method:'POST', redirect:'follow', body:payload, headers:{'Content-Type':'text/plain'}});
+    res.style.color = 'var(--green)'; res.textContent = 'Dados enviados com sucesso! Agora abra a versao deployed e clique "Baixar da nuvem".';
+    setSyncStatus('ok', 'Enviado');
+  } catch(e) {
+    res.style.color = 'var(--red)'; res.textContent = 'Erro: ' + e.message;
+  }
+}
+
+async function forcePull() {
+  const url = document.getElementById('fSyncUrl').value.trim() || syncUrl;
+  if (!url) { alert('Configure a URL primeiro'); return; }
+  const res = document.getElementById('syncTestResult');
+  res.style.display = 'block'; res.style.color = 'var(--yellow)'; res.textContent = 'Baixando dados da nuvem...';
+  try {
+    const r = await fetch(url, {redirect:'follow'});
+    const text = await r.text();
+    if (!text || text.trim() === '' || text.trim() === 'ok') {
+      res.style.color = 'var(--red)'; res.textContent = 'Nuvem vazia. Envie os dados primeiro.'; return;
+    }
+    const remote = JSON.parse(text);
+    if (!remote.categories) remote.categories = [...DEFAULT_CATS];
+    D = remote;
+    localStorage.setItem(SK, JSON.stringify(D));
+    render();
+    res.style.color = 'var(--green)'; res.textContent = 'Dados carregados da nuvem! ' + D.tasks.length + ' tarefas, ' + D.habits.length + ' habitos.';
+    setSyncStatus('ok', 'Carregado');
+  } catch(e) {
+    res.style.color = 'var(--red)'; res.textContent = 'Erro: ' + e.message;
+  }
 }
 
 // sync is now integrated directly in save()
