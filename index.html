@@ -768,7 +768,7 @@ function renderHoje(H, C) {
   const allPending = overdueTasks.length + todayTasks.length;
   const habitsToday = D.habits.filter(h => h.log && h.log[t]).length;
 
-  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div>`;
+  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar na nuvem" style="font-size:1rem;padding:8px 12px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
 
   let html = `<div class="stats-row">
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
