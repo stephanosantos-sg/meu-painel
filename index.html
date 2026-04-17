@@ -2159,25 +2159,42 @@ async function fetchMetaForItem(cat, idx) {
 
   try {
     if (cat === 'livros') {
-      // Try title first, then title+author
       let found = false;
+      // Try multiple queries: title, title+author, just author+short title
       const queries = [item.title];
-      if (item.author) queries.push(item.title + ' ' + item.author);
+      if (item.author) {
+        queries.push(item.title + ' ' + item.author);
+        queries.push(item.author + ' ' + item.title.split(':')[0].split('(')[0].trim());
+      }
       for (const q of queries) {
         if (found) break;
         try {
-          const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+'&limit=3');
+          const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+'&limit=5');
           const data = await r.json();
-          if (data.docs) {
-            // Find best match - prefer one with cover
+          if (data.docs && data.docs.length) {
             const withCover = data.docs.filter(d => d.cover_i);
             const b = withCover[0] || data.docs[0];
             if (b) {
-              if (b.author_name && !item.author) item.author = b.author_name[0];
+              if (b.author_name && (!item.author || item.author.length < 2)) item.author = b.author_name[0];
               if (b.first_publish_year) item.year = b.first_publish_year;
               if (b.number_of_pages_median) item.pages = b.number_of_pages_median;
               if (b.cover_i) { item.poster = 'https://covers.openlibrary.org/b/id/'+b.cover_i+'-M.jpg'; found = true; }
             }
+          }
+        } catch(e) {}
+      }
+      // Last resort: try Google Books API (no key needed for basic search)
+      if (!found) {
+        try {
+          const q = (item.author ? item.author + ' ' : '') + item.title.split(':')[0].trim();
+          const r = await fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=1');
+          const data = await r.json();
+          if (data.items && data.items[0]) {
+            const v = data.items[0].volumeInfo;
+            if (v.imageLinks) item.poster = (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || '').replace('http:','https:');
+            if (v.authors && (!item.author || item.author.length < 2)) item.author = v.authors[0];
+            if (v.publishedDate) item.year = v.publishedDate.split('-')[0];
+            if (v.pageCount) item.pages = v.pageCount;
           }
         } catch(e) {}
       }
