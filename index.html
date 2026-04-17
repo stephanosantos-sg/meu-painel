@@ -1730,15 +1730,30 @@ function deleteShopList(id) {
 
 function addShopItem(listId) {
   ensureShopLists();
-  const input = document.getElementById('shopInput_'+listId);
-  if (!input) return;
-  const text = input.value.trim();
+  const nameInput = document.getElementById('shopItemName_'+listId);
+  const linkInput = document.getElementById('shopItemLink_'+listId);
+  const priceInput = document.getElementById('shopItemPrice_'+listId);
+  if (!nameInput) return;
+  const text = nameInput.value.trim();
   if (!text) return;
+  const link = linkInput ? linkInput.value.trim() : '';
+  const price = priceInput ? priceInput.value.trim() : '';
   const sl = D.shopLists.find(x=>x.id===listId);
   if (!sl) return;
-  sl.items.push({text, done:false, qty:1});
-  input.value = '';
+  sl.items.push({text, link, price, done:false});
+  nameInput.value = '';
+  if (linkInput) linkInput.value = '';
+  if (priceInput) priceInput.value = '';
   save(); render();
+}
+function getThumb(url) {
+  if (!url) return '';
+  try { const u = new URL(url); return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`; } catch { return ''; }
+}
+function getOgImage(url) {
+  if (!url) return '';
+  // Use a thumbnail proxy for product images
+  return `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(url)}&size=64`;
 }
 
 function toggleShopItem(listId, idx) {
@@ -1797,19 +1812,31 @@ function renderCompras(H, C) {
 
       ${total>0?`<div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${pct}%;background:${pctColor};border-radius:4px;transition:width 0.3s"></div></div>`:''}
 
-      <div style="display:flex;gap:6px;margin-bottom:10px">
-        <input class="form-input" id="shopInput_${sl.id}" placeholder="Adicionar item..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter')addShopItem('${sl.id}')">
-        <button class="btn btn-primary btn-sm" onclick="addShopItem('${sl.id}')">+</button>
+      <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:12px">
+        <input class="form-input" id="shopItemName_${sl.id}" placeholder="Nome do produto..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter')addShopItem('${sl.id}')">
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="shopItemLink_${sl.id}" placeholder="Link (opcional)" style="flex:2;padding:6px 10px;font-size:0.78rem">
+          <input class="form-input" id="shopItemPrice_${sl.id}" placeholder="Preco" style="flex:0 0 80px;padding:6px 10px;font-size:0.78rem">
+          <button class="btn btn-primary btn-sm" onclick="addShopItem('${sl.id}')">+</button>
+        </div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:2px">
-        ${sl.items.map((item, i) => `
-          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;transition:background 0.15s;${item.done?'opacity:0.45':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
-            <div onclick="event.stopPropagation();toggleShopItem('${sl.id}',${i})" style="width:18px;height:18px;border-radius:50%;border:2px solid ${item.done?'var(--green)':'var(--border2)'};background:${item.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${item.done?'&#10003;':''}</div>
-            <span style="flex:1;font-size:0.88rem;${item.done?'text-decoration:line-through':''}">${esc(item.text)}</span>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${sl.items.map((item, i) => {
+          const hasLink = item.link && item.link.startsWith('http');
+          const favicon = hasLink ? getThumb(item.link) : '';
+          return `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);border:1px solid ${item.done?'var(--green)':'var(--border)'};${item.done?'opacity:0.45':''}">
+            <div onclick="event.stopPropagation();toggleShopItem('${sl.id}',${i})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${item.done?'var(--green)':'var(--border2)'};background:${item.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">${item.done?'&#10003;':''}</div>
+            ${hasLink?`<img src="${favicon}" style="width:24px;height:24px;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">`:''}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.92rem;font-weight:600;${item.done?'text-decoration:line-through':''}">${esc(item.text)}</div>
+              ${hasLink?`<a href="${esc(item.link)}" target="_blank" rel="noopener" style="font-size:0.68rem;color:var(--accent2);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px">${esc(item.link.replace(/https?:\\/\\//,'').slice(0,40))}...</a>`:''}
+            </div>
+            ${item.price?`<span style="font-size:0.82rem;font-weight:700;color:var(--green);white-space:nowrap">${esc(item.price)}</span>`:''}
             <button onclick="event.stopPropagation();deleteShopItem('${sl.id}',${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:2px 4px;opacity:0.5">✕</button>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   });
