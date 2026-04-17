@@ -480,6 +480,33 @@ textarea.form-input{min-height:50px;resize:vertical}
   </div>
 </div>
 
+<!-- ═══ Bulk Import Modal ═══ -->
+<div class="modal-overlay" id="bulkImportModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="bulkImportTitle">Importar Lista</h3><button class="modal-close" onclick="closeBulkImport()">&times;</button></div>
+    <div class="modal-body">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.82rem;color:var(--text2);line-height:1.5">
+        Cole a lista de titulos, <strong>um por linha</strong>.<br>
+        Para livros, use <strong>titulo[TAB]autor</strong> por linha.<br>
+        Duplicatas serao ignoradas automaticamente.
+      </div>
+      <div class="form-group">
+        <label>Colar lista ou carregar arquivo .txt</label>
+        <textarea class="form-input" id="fBulkText" rows="12" placeholder="Titulo 1&#10;Titulo 2&#10;Titulo 3&#10;&#10;Ou para livros:&#10;Titulo do livro&#9;Autor&#10;Outro livro&#9;Outro autor" style="font-family:monospace;font-size:0.82rem"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Ou carregar arquivo .txt</label>
+        <input type="file" id="fBulkFile" accept=".txt,.csv" style="font-size:0.82rem" onchange="loadBulkFile(this)">
+      </div>
+      <div id="bulkPreview" style="font-size:0.78rem;color:var(--text3);margin-bottom:12px"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeBulkImport()">Cancelar</button>
+        <button class="btn btn-primary" onclick="executeBulkImport()">Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ Edit Media Modal ═══ -->
 <div class="modal-overlay" id="editMediaModal">
   <div class="modal">
@@ -1989,7 +2016,8 @@ function renderMidia(H, C) {
   else if (sortMode === 'author') items.sort((a,b) => (a.author||'').localeCompare(b.author||''));
   else if (sortMode === 'rating') items.sort((a,b) => parseFloat(b.rating||0) - parseFloat(a.rating||0));
 
-  // Add input
+  // Add input + bulk import button
+  html += `<div style="display:flex;gap:8px;margin-bottom:8px"><button onclick="openBulkImport('${activeTab}')" class="btn btn-ghost btn-sm" style="font-size:0.72rem">📋 Importar lista</button></div>`;
   html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
   if (activeTab === 'livros') {
     html += `<input class="form-input" id="mediaTitle" placeholder="Titulo do livro..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem">
@@ -2175,6 +2203,86 @@ async function fetchSeriesMeta() {
 }
 
 // Fetch metadata for an EXISTING item by index
+// ── Bulk Import ──
+let bulkCat = '';
+function openBulkImport(cat) {
+  bulkCat = cat;
+  const labels = {livros:'Livros',filmes:'Filmes',series:'Series',docs:'Documentarios'};
+  document.getElementById('bulkImportTitle').textContent = '📋 Importar ' + (labels[cat]||cat);
+  document.getElementById('fBulkText').value = '';
+  document.getElementById('fBulkFile').value = '';
+  document.getElementById('bulkPreview').textContent = '';
+  document.getElementById('bulkImportModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('fBulkText').focus(); }, 100);
+}
+function closeBulkImport() { document.getElementById('bulkImportModal').classList.remove('show'); }
+
+function loadBulkFile(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('fBulkText').value = e.target.result;
+    previewBulk();
+  };
+  reader.readAsText(input.files[0], 'utf-8');
+}
+
+function previewBulk() {
+  const text = document.getElementById('fBulkText').value;
+  const lines = text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  document.getElementById('bulkPreview').textContent = lines.length + ' itens encontrados';
+}
+
+// Update preview on typing
+document.addEventListener('DOMContentLoaded', function(){
+  var el = document.getElementById('fBulkText');
+  if (el) el.addEventListener('input', previewBulk);
+});
+setTimeout(function(){
+  var el = document.getElementById('fBulkText');
+  if (el) el.addEventListener('input', previewBulk);
+}, 500);
+
+function executeBulkImport() {
+  ensureMedia();
+  const text = document.getElementById('fBulkText').value;
+  const lines = text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  if (!lines.length) { alert('Nenhum item para importar'); return; }
+
+  const existing = new Set((D.media[bulkCat]||[]).map(function(x){return x.title.toLowerCase().substring(0,25);}));
+  let added = 0, skipped = 0;
+
+  lines.forEach(function(line) {
+    var parts = line.split('\t');
+    var title = parts[0].trim();
+    var author = parts.length > 1 ? parts[1].trim() : '';
+    if (!title) return;
+
+    var key = title.toLowerCase().substring(0,25);
+    if (existing.has(key)) { skipped++; return; }
+    existing.add(key);
+
+    var item = { title: title, done: false };
+    if (bulkCat === 'livros') {
+      item.author = author;
+      item.status = 'Fila';
+      item.progress = 0;
+    }
+    if (bulkCat === 'series') {
+      item.seasons = 0;
+      item.currentSeason = 0;
+    }
+    D.media[bulkCat].push(item);
+    added++;
+  });
+
+  save();
+  closeBulkImport();
+  render();
+  alert('Importado!\n' + added + ' novos itens adicionados\n' + skipped + ' duplicatas ignoradas');
+}
+
+// ── Edit Media ──
 let editMediaCat = '', editMediaIdx = -1;
 function editMediaItem(cat, idx) {
   ensureMedia();
@@ -3120,7 +3228,7 @@ function deleteCat(id) {
 // ═══════════════════ KEYBOARD ═══════════════════
 document.addEventListener('keydown', e => {
   if (e.key==='q' && !e.ctrlKey && !e.metaKey && !document.querySelector('.modal-overlay.show') && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA') openAddTask();
-  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); }
+  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); closeBulkImport(); }
 });
 document.getElementById('fText').addEventListener('keydown', e => {if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveTask();}});
 document.getElementById('fHName').addEventListener('keydown', e => {if(e.key==='Enter'){e.preventDefault();saveHabit();}});
