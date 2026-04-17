@@ -309,6 +309,9 @@ textarea.form-input{min-height:50px;resize:vertical}
 .mob-nav.active{color:var(--accent2)}
 
 .day-pick.active{background:var(--accent) !important;border-color:var(--accent) !important;color:#fff !important}
+.gallery-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color 0.15s}
+.gallery-card:hover{border-color:var(--accent)}
+.gallery-cover{width:100%;height:180px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .hidden{display:none !important}
 </style>
 </head>
@@ -1994,28 +1997,34 @@ function renderMidia(H, C) {
     const pending = items.filter(x=>!x.done && x.status!=='Lido');
     const done = items.filter(x=>x.done || x.status==='Lido');
     function galleryGrid(gitems, label, color) {
-      let g = `<div style="margin-bottom:20px"><div style="font-size:0.8rem;font-weight:700;color:${color};margin-bottom:10px">${label} (${gitems.length})</div>`;
-      g += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">`;
-      gitems.forEach(item => {
-        const idx = origItems.indexOf(item);
-        const cover = item.poster || '';
-        g += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color 0.15s;cursor:default" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="width:100%;height:180px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden">
-            ${cover?`<img src="${cover}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=font-size:3rem>📖</span>'">`:'<span style="font-size:3rem;opacity:0.3">${activeTab==="livros"?"📚":activeTab==="series"?"📺":"🎬"}</span>'}
-          </div>
-          <div style="padding:8px 10px">
-            <div style="font-size:0.82rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(item.title)}</div>
-            ${item.author?`<div style="font-size:0.68rem;color:var(--text3);margin-top:2px">${esc(item.author)}</div>`:''}
-            ${item.year?`<div style="font-size:0.65rem;color:var(--text3)">${item.year}</div>`:''}
-            ${item.rating?`<div style="font-size:0.68rem;color:var(--yellow)">⭐ ${item.rating}</div>`:''}
-          </div>
-          <div style="display:flex;padding:4px 8px 8px;gap:4px">
-            <button onclick="event.stopPropagation();fetchMetaForItem('${activeTab}',${idx})" id="fetchBtn_${activeTab}_${idx}" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">🔍</button>
-            ${activeTab==='livros'?`<button onclick="event.stopPropagation();cycleBookStatus(${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">${item.status==='Lido'?'✅':item.status==='Lendo'?'📖':'📋'}</button>`:`<button onclick="event.stopPropagation();toggleMediaItem('${activeTab}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">${item.done?'✅':'⬜'}</button>`}
-          </div>
-        </div>`;
+      const icon = activeTab==='livros'?'📚':activeTab==='series'?'📺':'🎬';
+      let g = '<div style="margin-bottom:20px"><div style="font-size:0.8rem;font-weight:700;color:'+color+';margin-bottom:10px">'+label+' ('+gitems.length+')</div>';
+      g += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">';
+      gitems.forEach(function(item) {
+        var idx = origItems.indexOf(item);
+        var cover = item.poster || '';
+        g += '<div class="gallery-card">';
+        g += '<div class="gallery-cover">';
+        if (cover) g += '<img src="'+cover+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">';
+        else g += '<span style="font-size:3rem;opacity:0.3">'+icon+'</span>';
+        g += '</div>';
+        g += '<div style="padding:8px 10px">';
+        g += '<div style="font-size:0.82rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+esc(item.title)+'</div>';
+        if (item.author) g += '<div style="font-size:0.68rem;color:var(--text3);margin-top:2px">'+esc(item.author)+'</div>';
+        if (item.year) g += '<div style="font-size:0.65rem;color:var(--text3)">'+item.year+'</div>';
+        if (item.rating) g += '<div style="font-size:0.68rem;color:var(--yellow)">⭐ '+item.rating+'</div>';
+        g += '</div>';
+        g += '<div style="display:flex;padding:4px 8px 8px;gap:4px">';
+        g += '<button onclick="event.stopPropagation();fetchMetaForItem(\''+activeTab+'\','+idx+')" id="fetchBtn_'+activeTab+'_'+idx+'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">🔍</button>';
+        if (activeTab==='livros') {
+          var sIcon = item.status==='Lido'?'✅':item.status==='Lendo'?'📖':'📋';
+          g += '<button onclick="event.stopPropagation();cycleBookStatus('+idx+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">'+sIcon+'</button>';
+        } else {
+          g += '<button onclick="event.stopPropagation();toggleMediaItem(\''+activeTab+'\','+idx+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">'+(item.done?'✅':'⬜')+'</button>';
+        }
+        g += '</div></div>';
       });
-      g += `</div></div>`;
+      g += '</div></div>';
       return g;
     }
     if (pending.length) html += galleryGrid(pending, '📋 Pendentes', 'var(--orange)');
