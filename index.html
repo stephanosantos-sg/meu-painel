@@ -1878,94 +1878,167 @@ function deleteMediaItem(cat, idx) {
 
 function renderMidia(H, C) {
   ensureMedia();
-  H.innerHTML = `<h2>🎬 Midia</h2><div class="subtitle">Filmes, series, documentarios e livros</div>`;
+  const allTotal = Object.values(D.media).reduce((a,v)=>a+v.length,0);
+  const allDone = Object.values(D.media).reduce((a,v)=>a+v.filter(x=>x.done).length,0);
+  H.innerHTML = `<h2>🎬 Midia</h2><div class="subtitle">${allDone}/${allTotal} concluidos</div>`;
 
   const tabs = [
     {key:'livros',icon:'📚',label:'Livros'},
     {key:'filmes',icon:'🎬',label:'Filmes'},
     {key:'series',icon:'📺',label:'Series'},
-    {key:'docs',icon:'🎞️',label:'Documentarios'},
+    {key:'docs',icon:'🎞️',label:'Docs'},
   ];
 
   const activeTab = D._mediaTab || 'livros';
-
-  let html = `<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
-    ${tabs.map(t => `<button onclick="D._mediaTab='${t.key}';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} (${D.media[t.key].length})</button>`).join('')}
-  </div>`;
-
   const items = D.media[activeTab] || [];
-  const doneItems = items.filter(x=>x.done);
-  const pendingItems = items.filter(x=>!x.done);
+  const doneCount = items.filter(x=>x.done).length;
+  const pct = items.length>0 ? Math.round(doneCount/items.length*100) : 0;
   const tab = tabs.find(t=>t.key===activeTab);
 
+  let html = `<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
+    ${tabs.map(t => {const n=D.media[t.key].length;const dn=D.media[t.key].filter(x=>x.done).length;return `<button onclick="D._mediaTab='${t.key}';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} <span style="opacity:0.7">${dn}/${n}</span></button>`;}).join('')}
+  </div>`;
+
+  // Progress bar
+  html += `<div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px"></div></div>`;
+
   // Add input
+  html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
   if (activeTab === 'livros') {
-    html += `<div style="display:flex;gap:6px;margin-bottom:16px">
-      <input class="form-input" id="mediaTitle" placeholder="Titulo do livro..." style="flex:2">
-      <input class="form-input" id="mediaAuthor" placeholder="Autor..." style="flex:1">
-      <button class="btn btn-primary btn-sm" onclick="addMediaItem('livros',document.getElementById('mediaTitle').value,{author:document.getElementById('mediaAuthor').value,status:'Fila',progress:0});document.getElementById('mediaTitle').value='';document.getElementById('mediaAuthor').value=''">+</button>
+    html += `<input class="form-input" id="mediaTitle" placeholder="Titulo do livro..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem">
+      <div style="display:flex;gap:6px">
+        <input class="form-input" id="mediaAuthor" placeholder="Autor" style="flex:1;padding:6px 10px;font-size:0.78rem">
+        <button class="btn btn-ghost btn-sm" onclick="fetchBookMeta()">🔍 Buscar</button>
+        <button class="btn btn-primary btn-sm" onclick="addMediaItem('livros',document.getElementById('mediaTitle').value,{author:document.getElementById('mediaAuthor')?.value||'',status:'Fila',progress:0});document.getElementById('mediaTitle').value='';if(document.getElementById('mediaAuthor'))document.getElementById('mediaAuthor').value=''">+</button>
+      </div>`;
+  } else if (activeTab === 'series') {
+    html += `<div style="display:flex;gap:6px">
+      <input class="form-input" id="mediaTitle" placeholder="Nome da serie..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter'){addMediaItem('series',this.value,{seasons:0,currentSeason:0});this.value=''}">
+      <button class="btn btn-ghost btn-sm" onclick="fetchSeriesMeta()">🔍</button>
+      <button class="btn btn-primary btn-sm" onclick="addMediaItem('series',document.getElementById('mediaTitle').value,{seasons:0,currentSeason:0});document.getElementById('mediaTitle').value=''">+</button>
     </div>`;
   } else {
-    html += `<div style="display:flex;gap:6px;margin-bottom:16px">
-      <input class="form-input" id="mediaTitle" placeholder="${tab.icon} Adicionar ${tab.label.toLowerCase().slice(0,-1)}..." style="flex:1" onkeydown="if(event.key==='Enter'){addMediaItem('${activeTab}',this.value);this.value=''}">
+    html += `<div style="display:flex;gap:6px">
+      <input class="form-input" id="mediaTitle" placeholder="${tab.icon} Adicionar..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter'){addMediaItem('${activeTab}',this.value);this.value=''}">
       <button class="btn btn-primary btn-sm" onclick="addMediaItem('${activeTab}',document.getElementById('mediaTitle').value);document.getElementById('mediaTitle').value=''">+</button>
     </div>`;
   }
+  html += `</div>`;
 
-  // Render items
+  // Render items by status
   if (activeTab === 'livros') {
-    // Livros with author and status
     const lendo = items.filter(x=>x.status==='Lendo');
     const fila = items.filter(x=>x.status==='Fila'&&!x.done);
     const lidos = items.filter(x=>x.status==='Lido'||x.done);
-
-    if (lendo.length) {
-      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--accent2);margin-bottom:8px">📖 LENDO AGORA (${lendo.length})</div>`;
-      lendo.forEach((item,i) => {
-        const idx = items.indexOf(item);
-        html += renderBookItem(item, idx);
-      });
-      html += `</div>`;
-    }
-    if (fila.length) {
-      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 NA FILA (${fila.length})</div>`;
-      fila.forEach(item => html += renderBookItem(item, items.indexOf(item)));
-      html += `</div>`;
-    }
-    if (lidos.length) {
-      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--green);margin-bottom:8px">✅ LIDOS (${lidos.length})</div>`;
-      lidos.forEach(item => html += renderBookItem(item, items.indexOf(item)));
-      html += `</div>`;
-    }
+    if (lendo.length) { html += mediaGroup('📖 LENDO AGORA',lendo,items,activeTab,'var(--accent2)'); }
+    if (fila.length) { html += mediaGroup('📋 NA FILA',fila,items,activeTab,'var(--orange)'); }
+    if (lidos.length) { html += mediaGroup('✅ LIDOS',lidos,items,activeTab,'var(--green)',true); }
+  } else if (activeTab === 'series') {
+    const assistindo = items.filter(x=>x.currentSeason>0&&!x.done);
+    const pending = items.filter(x=>!x.done&&(!x.currentSeason||x.currentSeason===0));
+    const done = items.filter(x=>x.done);
+    if (assistindo.length) { html += mediaGroup('📺 ASSISTINDO',assistindo,items,activeTab,'var(--accent2)'); }
+    if (pending.length) { html += mediaGroup('📋 PARA ASSISTIR',pending,items,activeTab,'var(--orange)'); }
+    if (done.length) { html += mediaGroup('✅ ASSISTIDAS',done,items,activeTab,'var(--green)',true); }
   } else {
-    // Filmes/Series/Docs - simple list
-    if (pendingItems.length) {
-      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--text2);margin-bottom:8px">${tab.icon} PARA ASSISTIR (${pendingItems.length})</div>`;
-      pendingItems.forEach(item => {
-        const idx = items.indexOf(item);
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background 0.15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
-          <div onclick="toggleMediaItem('${activeTab}',${idx})" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);cursor:pointer;flex-shrink:0"></div>
-          <span style="flex:1;font-size:0.9rem">${esc(item.title)}</span>
-          <button onclick="deleteMediaItem('${activeTab}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.5;font-size:0.8rem">✕</button>
-        </div>`;
-      });
-      html += `</div>`;
-    }
-    if (doneItems.length) {
-      html += `<div><div style="font-size:0.8rem;font-weight:700;color:var(--green);margin-bottom:8px">✅ ASSISTIDOS (${doneItems.length})</div>`;
-      doneItems.forEach(item => {
-        const idx = items.indexOf(item);
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;opacity:0.5">
-          <div onclick="toggleMediaItem('${activeTab}',${idx})" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--green);background:var(--green);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">&#10003;</div>
-          <span style="flex:1;font-size:0.9rem;text-decoration:line-through">${esc(item.title)}</span>
-        </div>`;
-      });
-      html += `</div>`;
-    }
-    if (!items.length) html += `<div class="empty-state"><p>Nenhum item</p></div>`;
+    const pending = items.filter(x=>!x.done);
+    const done = items.filter(x=>x.done);
+    if (pending.length) { html += mediaGroup(tab.icon+' PARA ASSISTIR',pending,items,activeTab,'var(--text2)'); }
+    if (done.length) { html += mediaGroup('✅ ASSISTIDOS',done,items,activeTab,'var(--green)',true); }
   }
-
+  if (!items.length) html += `<div class="empty-state"><p>Nenhum item</p></div>`;
   C.innerHTML = html;
+}
+
+function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
+  let html = `<div style="margin-bottom:16px">
+    <div style="font-size:0.8rem;font-weight:700;color:${color};margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">${title} (${groupItems.length}) ▾</div>
+    <div style="${collapsed&&groupItems.length>10?'display:none':''}">`;
+  groupItems.forEach(item => {
+    const idx = allItems.indexOf(item);
+    const isDone = item.done || item.status === 'Lido';
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background 0.15s;${isDone?'opacity:0.45':''}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">`;
+
+    // Checkbox / status cycle
+    if (cat === 'livros') {
+      const sc = {Lido:'var(--green)',Lendo:'var(--accent)',Fila:'var(--border2)'}[item.status]||'var(--border2)';
+      html += `<div onclick="event.stopPropagation();cycleBookStatus(${idx})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${sc};background:${item.status==='Lido'?'var(--green)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">${item.status==='Lido'?'&#10003;':''}</div>`;
+    } else {
+      html += `<div onclick="event.stopPropagation();toggleMediaItem('${cat}',${idx})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'var(--border2)'};background:${isDone?'var(--green)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">${isDone?'&#10003;':''}</div>`;
+    }
+
+    // Info
+    html += `<div style="flex:1;min-width:0">
+      <div style="font-size:0.9rem;font-weight:500;${isDone?'text-decoration:line-through':''}">${esc(item.title)}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px">`;
+    if (item.author) html += `<span style="font-size:0.7rem;color:var(--text3)">${esc(item.author)}</span>`;
+    if (item.year) html += `<span style="font-size:0.7rem;color:var(--text3)">${item.year}</span>`;
+    if (item.seasons) html += `<span style="font-size:0.68rem;padding:1px 6px;border-radius:3px;background:var(--surface2);color:var(--text2)">${item.currentSeason||0}/${item.seasons} temp</span>`;
+    if (cat === 'livros') html += `<span style="font-size:0.68rem;padding:1px 6px;border-radius:3px;background:${item.status==='Lido'?'var(--green-bg)':item.status==='Lendo'?'var(--accent-bg)':'var(--surface2)'};color:${item.status==='Lido'?'var(--green)':item.status==='Lendo'?'var(--accent2)':'var(--text3)'}">${item.status||'Fila'}</span>`;
+    if (item.rating) html += `<span style="font-size:0.7rem;color:var(--yellow)">⭐ ${item.rating}</span>`;
+    html += `</div></div>`;
+
+    // Series season controls
+    if (cat === 'series' && item.seasons > 0 && !isDone) {
+      html += `<div style="display:flex;align-items:center;gap:4px">
+        <button onclick="event.stopPropagation();updateSeriesSeason('${cat}',${idx},-1)" style="background:var(--surface2);border:none;color:var(--text2);cursor:pointer;width:22px;height:22px;border-radius:4px;font-size:0.8rem">-</button>
+        <span style="font-size:0.78rem;font-weight:700;min-width:16px;text-align:center">${item.currentSeason||0}</span>
+        <button onclick="event.stopPropagation();updateSeriesSeason('${cat}',${idx},1)" style="background:var(--surface2);border:none;color:var(--text2);cursor:pointer;width:22px;height:22px;border-radius:4px;font-size:0.8rem">+</button>
+      </div>`;
+    }
+
+    html += `<button onclick="event.stopPropagation();deleteMediaItem('${cat}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✕</button>`;
+    html += `</div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function updateSeriesSeason(cat, idx, delta) {
+  ensureMedia();
+  const item = D.media[cat][idx];
+  if (!item) return;
+  item.currentSeason = Math.max(0, Math.min(item.seasons||99, (item.currentSeason||0)+delta));
+  if (item.currentSeason >= item.seasons && item.seasons > 0) item.done = true;
+  save(); render();
+}
+
+// Fetch book metadata from Open Library
+async function fetchBookMeta() {
+  const title = document.getElementById('mediaTitle').value.trim();
+  if (!title) return;
+  try {
+    const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(title)+'&limit=1');
+    const data = await r.json();
+    if (data.docs && data.docs[0]) {
+      const book = data.docs[0];
+      const authorEl = document.getElementById('mediaAuthor');
+      if (authorEl && book.author_name) authorEl.value = book.author_name[0];
+      if (book.title) document.getElementById('mediaTitle').value = book.title;
+    }
+  } catch(e) { console.error('Book fetch error:', e); }
+}
+
+// Fetch series metadata from OMDB (free tier)
+async function fetchSeriesMeta() {
+  const title = document.getElementById('mediaTitle').value.trim();
+  if (!title) return;
+  try {
+    const r = await fetch('https://www.omdbapi.com/?t='+encodeURIComponent(title)+'&type=series&apikey=4a3b711b');
+    const data = await r.json();
+    if (data.Response === 'True') {
+      document.getElementById('mediaTitle').value = data.Title;
+      // Auto-add with metadata
+      addMediaItem('series', data.Title, {
+        seasons: parseInt(data.totalSeasons)||0,
+        currentSeason: 0,
+        year: data.Year,
+        rating: data.imdbRating,
+        done: false
+      });
+      document.getElementById('mediaTitle').value = '';
+    }
+  } catch(e) { console.error('Series fetch error:', e); }
 }
 
 function renderBookItem(item, idx) {
