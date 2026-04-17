@@ -2,8 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meu Painel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#101014">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%237c5cfc' width='100' height='100' rx='20'/><text x='50' y='65' font-size='60' text-anchor='middle'>🚀</text></svg>">
+<title>Orbita - Meu Painel de Vida</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -1448,8 +1453,16 @@ function toggleHabitDay(id, dateStr) {
   save();render();
 }
 function getStreak(h) {
-  let s=0;const d=new Date();
-  while(true){const k=d.toISOString().split('T')[0];if(h.log&&h.log[k]){s++;d.setDate(d.getDate()-1);}else break;}
+  let s=0;const d=new Date();const days=h.days||[0,1,2,3,4,5,6];
+  for(let i=0;i<365;i++){
+    const k=d.toISOString().split('T')[0];
+    const dow=d.getDay();
+    if(days.includes(dow)){
+      if(h.log&&h.log[k]) s++;
+      else break;
+    }
+    d.setDate(d.getDate()-1);
+  }
   return s;
 }
 function deleteHabit(id){D.habits=D.habits.filter(x=>x.id!==id);save();render();}
@@ -1571,6 +1584,8 @@ function renderHabitos(H, C) {
 function openGoalModal(){
   document.getElementById('fGTitle').value='';document.getElementById('fGDesc').value='';document.getElementById('fGDeadline').value='';
   document.getElementById('goalMsList').innerHTML='';addGoalMsInput();
+  document.getElementById('goalModal').dataset.editId='';
+  document.querySelector('#goalModal .modal-header h3').textContent='Novo Objetivo';
   document.getElementById('goalModal').classList.add('show');
   setTimeout(()=>document.getElementById('fGTitle').focus(),100);
 }
@@ -1586,8 +1601,16 @@ function saveGoal(){
   const desc=document.getElementById('fGDesc').value.trim();
   const deadline=document.getElementById('fGDeadline').value;
   const milestones=[];
-  document.querySelectorAll('#goalMsList .gms-input').forEach(inp=>{const v=inp.value.trim();if(v)milestones.push({text:v,done:false});});
-  D.goals.push({id:uid(),title,desc,deadline,milestones});
+  document.querySelectorAll('#goalMsList .gms-input').forEach(inp=>{const v=inp.value.trim();if(v)milestones.push({text:v,done:false,progress:0});});
+  const editId=document.getElementById('goalModal').dataset.editId;
+  if(editId){
+    const g=D.goals.find(x=>x.id===editId);
+    if(g){g.title=title;g.desc=desc;g.deadline=deadline;
+      g.milestones=milestones.map(nm=>{const old=(g.milestones||[]).find(om=>om.text===nm.text);return old?{...nm,done:old.done,progress:old.progress}:nm;});
+    }
+  } else {
+    D.goals.push({id:uid(),title,desc,deadline,milestones});
+  }
   save();closeGoalModal();render();
 }
 function toggleMilestone(gid,idx){
@@ -1615,6 +1638,21 @@ function getGoalPct(g){
   if(!g.milestones||!g.milestones.length) return 0;
   const sum = g.milestones.reduce((a,m) => a + getMsProgress(m), 0);
   return Math.round(sum / g.milestones.length);
+}
+function editGoal(id){
+  const g=D.goals.find(x=>x.id===id);if(!g)return;
+  document.getElementById('fGTitle').value=g.title;
+  document.getElementById('fGDesc').value=g.desc||'';
+  document.getElementById('fGDeadline').value=g.deadline||'';
+  document.getElementById('goalModal').dataset.editId=id;
+  document.querySelector('#goalModal .modal-header h3').textContent='Editar Objetivo';
+  document.getElementById('goalMsList').innerHTML='';
+  (g.milestones||[]).forEach(m=>{
+    const div=document.createElement('div');div.style.cssText='display:flex;gap:8px;margin-bottom:6px;align-items:center';
+    div.innerHTML=`<input class="form-input gms-input" value="${esc(m.text)}" style="flex:1"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
+    document.getElementById('goalMsList').appendChild(div);
+  });
+  document.getElementById('goalModal').classList.add('show');
 }
 function deleteGoal(id){D.goals=D.goals.filter(x=>x.id!==id);save();render();}
 
@@ -1650,6 +1688,7 @@ function renderObjetivos(H, C) {
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div class="goal-title" style="font-size:1.05rem">🎯 ${esc(g.title)}</div>
+            <button class="task-action" onclick="editGoal('${g.id}')" style="opacity:0.6">✏️</button>
             <button class="task-action del" onclick="deleteGoal('${g.id}')" style="opacity:0.6">&#10005;</button>
           </div>
           ${g.desc?`<div class="goal-desc" style="margin-top:4px">${esc(g.desc)}</div>`:''}
@@ -1907,9 +1946,14 @@ function renderMidia(H, C) {
     <button onclick="fetchAllMeta('${activeTab}')" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:0.72rem">🔍 Metadados</button>
   </div>`;
 
-  // Sort controls
+  // View mode + Sort controls
+  const mediaView = D._mediaView || 'lista';
   const sortMode = D._mediaSort || 'default';
-  html += `<div style="display:flex;gap:4px;margin-bottom:12px;align-items:center">
+  html += `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px">
+      <button onclick="D._mediaView='lista';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${mediaView==='lista'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">📝 Lista</button>
+      <button onclick="D._mediaView='galeria';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${mediaView==='galeria'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">🖼️ Galeria</button>
+    </div>
     <span style="font-size:0.72rem;color:var(--text3)">Ordenar:</span>
     <button onclick="D._mediaSort='default';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='default'?'background:var(--accent);color:#fff':''}">Padrao</button>
     <button onclick="D._mediaSort='title';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='title'?'background:var(--accent);color:#fff':''}">Titulo A-Z</button>
@@ -1945,7 +1989,43 @@ function renderMidia(H, C) {
   }
   html += `</div>`;
 
-  // Render items by status
+  // Gallery view
+  if (mediaView === 'galeria') {
+    const pending = items.filter(x=>!x.done && x.status!=='Lido');
+    const done = items.filter(x=>x.done || x.status==='Lido');
+    function galleryGrid(gitems, label, color) {
+      let g = `<div style="margin-bottom:20px"><div style="font-size:0.8rem;font-weight:700;color:${color};margin-bottom:10px">${label} (${gitems.length})</div>`;
+      g += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">`;
+      gitems.forEach(item => {
+        const idx = origItems.indexOf(item);
+        const cover = item.poster || '';
+        g += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color 0.15s;cursor:default" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="width:100%;height:180px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden">
+            ${cover?`<img src="${cover}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=font-size:3rem>📖</span>'">`:'<span style="font-size:3rem;opacity:0.3">${activeTab==="livros"?"📚":activeTab==="series"?"📺":"🎬"}</span>'}
+          </div>
+          <div style="padding:8px 10px">
+            <div style="font-size:0.82rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(item.title)}</div>
+            ${item.author?`<div style="font-size:0.68rem;color:var(--text3);margin-top:2px">${esc(item.author)}</div>`:''}
+            ${item.year?`<div style="font-size:0.65rem;color:var(--text3)">${item.year}</div>`:''}
+            ${item.rating?`<div style="font-size:0.68rem;color:var(--yellow)">⭐ ${item.rating}</div>`:''}
+          </div>
+          <div style="display:flex;padding:4px 8px 8px;gap:4px">
+            <button onclick="event.stopPropagation();fetchMetaForItem('${activeTab}',${idx})" id="fetchBtn_${activeTab}_${idx}" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">🔍</button>
+            ${activeTab==='livros'?`<button onclick="event.stopPropagation();cycleBookStatus(${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">${item.status==='Lido'?'✅':item.status==='Lendo'?'📖':'📋'}</button>`:`<button onclick="event.stopPropagation();toggleMediaItem('${activeTab}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">${item.done?'✅':'⬜'}</button>`}
+          </div>
+        </div>`;
+      });
+      g += `</div></div>`;
+      return g;
+    }
+    if (pending.length) html += galleryGrid(pending, '📋 Pendentes', 'var(--orange)');
+    if (done.length) html += galleryGrid(done, '✅ Concluidos', 'var(--green)');
+    if (!items.length) html += `<div class="empty-state"><p>Nenhum item</p></div>`;
+    C.innerHTML = html;
+    return;
+  }
+
+  // Render items by status (list view)
   if (activeTab === 'livros') {
     const lendo = items.filter(x=>x.status==='Lendo');
     const fila = items.filter(x=>x.status==='Fila'&&!x.done);
