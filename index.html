@@ -1713,6 +1713,7 @@ function renderObjetivos(H, C) {
             return `
             <div style="padding:8px 10px;border-radius:8px;margin-bottom:2px;transition:background 0.15s;${mp>=100?'opacity:0.55':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
               <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:0.68rem;color:var(--text3);min-width:20px;text-align:right">${i+1}</span>
                 <div onclick="event.stopPropagation();toggleMilestone('${g.id}',${i})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${mpColor};background:${mp>=100?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700;cursor:pointer">${mp>=100?'&#10003;':''}</div>
                 <span style="flex:1;font-size:0.88rem;${mp>=100?'text-decoration:line-through':''}">${esc(m.text)}</span>
                 <input type="range" min="0" max="100" step="1" value="${mp}" oninput="this.nextElementSibling.textContent=this.value+'%'" onchange="event.stopPropagation();setMilestoneProgress('${g.id}',${i},this.value)" style="width:80px;accent-color:${mpColor};cursor:pointer">
@@ -2014,14 +2015,17 @@ function renderMidia(H, C) {
         if (item.year) g += '<div style="font-size:0.65rem;color:var(--text3)">'+item.year+'</div>';
         if (item.rating) g += '<div style="font-size:0.68rem;color:var(--yellow)">⭐ '+item.rating+'</div>';
         g += '</div>';
-        g += '<div style="display:flex;padding:4px 8px 8px;gap:4px">';
-        g += '<button onclick="event.stopPropagation();fetchMetaForItem(\''+activeTab+'\','+idx+')" id="fetchBtn_'+activeTab+'_'+idx+'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">🔍</button>';
+        g += '<div style="display:flex;padding:4px 8px 8px;gap:4px;justify-content:space-between">';
+        g += '<div style="display:flex;gap:2px">';
+        g += '<button onclick="event.stopPropagation();refetchMeta(\''+activeTab+'\','+idx+')" title="Buscar novos metadados" id="fetchBtn_'+activeTab+'_'+idx+'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">🔍</button>';
         if (activeTab==='livros') {
           var sIcon = item.status==='Lido'?'✅':item.status==='Lendo'?'📖':'📋';
-          g += '<button onclick="event.stopPropagation();cycleBookStatus('+idx+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">'+sIcon+'</button>';
+          g += '<button onclick="event.stopPropagation();cycleBookStatus('+idx+')" title="Mudar status" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">'+sIcon+'</button>';
         } else {
-          g += '<button onclick="event.stopPropagation();toggleMediaItem(\''+activeTab+'\','+idx+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">'+(item.done?'✅':'⬜')+'</button>';
+          g += '<button onclick="event.stopPropagation();toggleMediaItem(\''+activeTab+'\','+idx+')" title="Marcar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">'+(item.done?'✅':'⬜')+'</button>';
         }
+        g += '</div>';
+        g += '<button onclick="event.stopPropagation();deleteMediaItem(\''+activeTab+'\','+idx+')" title="Remover" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem;opacity:0.5">✕</button>';
         g += '</div></div>';
       });
       g += '</div></div>';
@@ -2150,6 +2154,20 @@ async function fetchSeriesMeta() {
 }
 
 // Fetch metadata for an EXISTING item by index
+async function refetchMeta(cat, idx) {
+  ensureMedia();
+  const item = D.media[cat]?.[idx];
+  if (!item) return;
+  // Clear existing metadata to force fresh search
+  delete item.poster;
+  delete item.year;
+  delete item.rating;
+  delete item.genre;
+  delete item.pages;
+  await fetchMetaForItem(cat, idx);
+  save(); render();
+}
+
 async function fetchMetaForItem(cat, idx) {
   ensureMedia();
   const item = D.media[cat]?.[idx];
