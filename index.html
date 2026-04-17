@@ -3037,27 +3037,33 @@ function scheduleSyncSave() {
 async function syncSave() {
   if (!syncUrl) return;
   setSyncStatus('syncing');
+  const payload = JSON.stringify(D);
+  const timeStr = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // Try multiple methods - Google Apps Script is tricky with CORS
+  // Method 1: no-cors (fire and forget - can't read response but data gets saved)
   try {
-    const payload = JSON.stringify(D);
-    // Use no-cors mode - Google Apps Script redirects POST which causes CORS errors
-    // With no-cors we can't read the response but the data still gets saved
-    await fetch(syncUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: payload,
-      headers: {'Content-Type': 'text/plain'},
-    });
-    setSyncStatus('ok', 'Salvo ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
-  } catch(e) {
-    // Fallback: try with redirect follow
-    try {
-      await fetch(syncUrl, { method:'POST', redirect:'follow', body:payload, headers:{'Content-Type':'text/plain'} });
-      setSyncStatus('ok', 'Salvo agora');
-    } catch(e2) {
-      setSyncStatus('error', 'Erro ao salvar');
-      console.error('Sync save error:', e2);
-    }
-  }
+    await fetch(syncUrl, { method:'POST', mode:'no-cors', body:payload });
+    setSyncStatus('ok', 'Salvo ' + timeStr);
+    return;
+  } catch(e1) {}
+
+  // Method 2: regular fetch with redirect
+  try {
+    await fetch(syncUrl, { method:'POST', redirect:'follow', body:payload, headers:{'Content-Type':'text/plain'} });
+    setSyncStatus('ok', 'Salvo ' + timeStr);
+    return;
+  } catch(e2) {}
+
+  // Method 3: Use navigator.sendBeacon (works even when page is closing)
+  try {
+    const blob = new Blob([payload], {type:'text/plain'});
+    navigator.sendBeacon(syncUrl, blob);
+    setSyncStatus('ok', 'Salvo ' + timeStr);
+    return;
+  } catch(e3) {}
+
+  setSyncStatus('error', 'Erro ao salvar');
 }
 
 // Load from cloud
