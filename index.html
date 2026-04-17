@@ -1890,7 +1890,8 @@ function renderMidia(H, C) {
   ];
 
   const activeTab = D._mediaTab || 'livros';
-  const items = D.media[activeTab] || [];
+  const origItems = D.media[activeTab] || [];
+  let items = [...origItems];
   const doneCount = items.filter(x=>x.done).length;
   const pct = items.length>0 ? Math.round(doneCount/items.length*100) : 0;
   const tab = tabs.find(t=>t.key===activeTab);
@@ -1949,21 +1950,21 @@ function renderMidia(H, C) {
     const lendo = items.filter(x=>x.status==='Lendo');
     const fila = items.filter(x=>x.status==='Fila'&&!x.done);
     const lidos = items.filter(x=>x.status==='Lido'||x.done);
-    if (lendo.length) { html += mediaGroup('📖 LENDO AGORA',lendo,items,activeTab,'var(--accent2)'); }
-    if (fila.length) { html += mediaGroup('📋 NA FILA',fila,items,activeTab,'var(--orange)'); }
-    if (lidos.length) { html += mediaGroup('✅ LIDOS',lidos,items,activeTab,'var(--green)',true); }
+    if (lendo.length) { html += mediaGroup('📖 LENDO AGORA',lendo,origItems,activeTab,'var(--accent2)'); }
+    if (fila.length) { html += mediaGroup('📋 NA FILA',fila,origItems,activeTab,'var(--orange)'); }
+    if (lidos.length) { html += mediaGroup('✅ LIDOS',lidos,origItems,activeTab,'var(--green)',true); }
   } else if (activeTab === 'series') {
     const assistindo = items.filter(x=>x.currentSeason>0&&!x.done);
     const pending = items.filter(x=>!x.done&&(!x.currentSeason||x.currentSeason===0));
     const done = items.filter(x=>x.done);
-    if (assistindo.length) { html += mediaGroup('📺 ASSISTINDO',assistindo,items,activeTab,'var(--accent2)'); }
-    if (pending.length) { html += mediaGroup('📋 PARA ASSISTIR',pending,items,activeTab,'var(--orange)'); }
-    if (done.length) { html += mediaGroup('✅ ASSISTIDAS',done,items,activeTab,'var(--green)',true); }
+    if (assistindo.length) { html += mediaGroup('📺 ASSISTINDO',assistindo,origItems,activeTab,'var(--accent2)'); }
+    if (pending.length) { html += mediaGroup('📋 PARA ASSISTIR',pending,origItems,activeTab,'var(--orange)'); }
+    if (done.length) { html += mediaGroup('✅ ASSISTIDAS',done,origItems,activeTab,'var(--green)',true); }
   } else {
     const pending = items.filter(x=>!x.done);
     const done = items.filter(x=>x.done);
-    if (pending.length) { html += mediaGroup(tab.icon+' PARA ASSISTIR',pending,items,activeTab,'var(--text2)'); }
-    if (done.length) { html += mediaGroup('✅ ASSISTIDOS',done,items,activeTab,'var(--green)',true); }
+    if (pending.length) { html += mediaGroup(tab.icon+' PARA ASSISTIR',pending,origItems,activeTab,'var(--text2)'); }
+    if (done.length) { html += mediaGroup('✅ ASSISTIDOS',done,origItems,activeTab,'var(--green)',true); }
   }
   if (!items.length) html += `<div class="empty-state"><p>Nenhum item</p></div>`;
   C.innerHTML = html;
@@ -2077,6 +2078,7 @@ async function fetchMetaForItem(cat, idx) {
         if (b.first_publish_year) item.year = b.first_publish_year;
         if (b.number_of_pages_median) item.pages = b.number_of_pages_median;
         if (b.subject) item.genre = b.subject.slice(0,3).join(', ');
+        if (b.cover_i) item.poster = 'https://covers.openlibrary.org/b/id/'+b.cover_i+'-M.jpg';
       }
     } else {
       const type = cat === 'series' ? 'series' : 'movie';
