@@ -1831,7 +1831,7 @@ function renderCompras(H, C) {
             ${hasLink?`<img src="${favicon}" style="width:24px;height:24px;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">`:''}
             <div style="flex:1;min-width:0">
               <div style="font-size:0.92rem;font-weight:600;${item.done?'text-decoration:line-through':''}">${esc(item.text)}</div>
-              ${hasLink?`<a href="${esc(item.link)}" target="_blank" rel="noopener" style="font-size:0.68rem;color:var(--accent2);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px">${esc(item.link.replace(/https?:\\/\\//,'').slice(0,40))}...</a>`:''}
+              ${hasLink?`<a href="${esc(item.link)}" target="_blank" rel="noopener" style="font-size:0.68rem;color:var(--accent2);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px">${esc(item.link.replace('https://','').replace('http://','').slice(0,40))}...</a>`:''}
             </div>
             ${item.price?`<span style="font-size:0.82rem;font-weight:700;color:var(--green);white-space:nowrap">${esc(item.price)}</span>`:''}
             <button onclick="event.stopPropagation();deleteShopItem('${sl.id}',${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:2px 4px;opacity:0.5">✕</button>
