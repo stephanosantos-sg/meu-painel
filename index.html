@@ -2159,15 +2159,27 @@ async function fetchMetaForItem(cat, idx) {
 
   try {
     if (cat === 'livros') {
-      const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(item.title)+'&limit=1');
-      const data = await r.json();
-      if (data.docs && data.docs[0]) {
-        const b = data.docs[0];
-        if (b.author_name) item.author = b.author_name[0];
-        if (b.first_publish_year) item.year = b.first_publish_year;
-        if (b.number_of_pages_median) item.pages = b.number_of_pages_median;
-        if (b.subject) item.genre = b.subject.slice(0,3).join(', ');
-        if (b.cover_i) item.poster = 'https://covers.openlibrary.org/b/id/'+b.cover_i+'-M.jpg';
+      // Try title first, then title+author
+      let found = false;
+      const queries = [item.title];
+      if (item.author) queries.push(item.title + ' ' + item.author);
+      for (const q of queries) {
+        if (found) break;
+        try {
+          const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+'&limit=3');
+          const data = await r.json();
+          if (data.docs) {
+            // Find best match - prefer one with cover
+            const withCover = data.docs.filter(d => d.cover_i);
+            const b = withCover[0] || data.docs[0];
+            if (b) {
+              if (b.author_name && !item.author) item.author = b.author_name[0];
+              if (b.first_publish_year) item.year = b.first_publish_year;
+              if (b.number_of_pages_median) item.pages = b.number_of_pages_median;
+              if (b.cover_i) { item.poster = 'https://covers.openlibrary.org/b/id/'+b.cover_i+'-M.jpg'; found = true; }
+            }
+          }
+        } catch(e) {}
       }
     } else {
       const type = cat === 'series' ? 'series' : 'movie';
@@ -2195,20 +2207,29 @@ async function fetchMetaForItem(cat, idx) {
 async function fetchAllMeta(cat) {
   ensureMedia();
   const items = D.media[cat] || [];
-  const toFetch = items.filter(item => {
-    if (cat === 'livros') return !item.author || item.author === '';
-    return !item.year && !item.rating;
-  });
-  if (!toFetch.length) { alert('Todos os itens ja tem metadados!'); return; }
-  if (!confirm('Buscar metadados para ' + toFetch.length + ' itens? Pode demorar um pouco.')) return;
+  // Fetch items missing poster/cover
+  const toFetch = items.filter(item => !item.poster);
+  if (!toFetch.length) { alert('Todos os ' + items.length + ' itens ja tem capa!'); return; }
+  const total = toFetch.length;
+  if (!confirm('Buscar metadados para ' + total + ' itens sem capa?\nIsso pode demorar ' + Math.ceil(total*0.5/60) + ' minutos.')) return;
 
+  let success = 0, fail = 0;
   for (let i = 0; i < toFetch.length; i++) {
     const idx = items.indexOf(toFetch[i]);
-    await fetchMetaForItem(cat, idx);
-    // Rate limit: 300ms between requests
-    await new Promise(r => setTimeout(r, 300));
+    try {
+      await fetchMetaForItem(cat, idx);
+      if (toFetch[i].poster) success++; else fail++;
+    } catch(e) { fail++; }
+    // Update progress every 5 items
+    if (i % 5 === 0) {
+      setSyncStatus('syncing', 'Metadados: ' + (i+1) + '/' + total);
+    }
+    // Rate limit: 500ms between requests
+    await new Promise(r => setTimeout(r, 500));
   }
   save(); render();
+  setSyncStatus('ok', 'Metadados: ' + success + ' capas encontradas, ' + fail + ' sem capa');
+  alert('Concluido!\n' + success + ' capas encontradas\n' + fail + ' sem capa encontrada');
 }
 
 function renderBookItem(item, idx) {
