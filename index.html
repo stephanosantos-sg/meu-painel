@@ -480,6 +480,25 @@ textarea.form-input{min-height:50px;resize:vertical}
   </div>
 </div>
 
+<!-- ═══ Edit Media Modal ═══ -->
+<div class="modal-overlay" id="editMediaModal">
+  <div class="modal">
+    <div class="modal-header"><h3>Editar Midia</h3><button class="modal-close" onclick="closeEditMediaModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Titulo</label><input class="form-input" id="fMediaTitle"></div>
+      <div class="form-group"><label>Autor / Diretor</label><input class="form-input" id="fMediaAuthor"></div>
+      <div class="form-group"><label>Ano</label><input class="form-input" id="fMediaYear" type="text"></div>
+      <div class="form-group"><label>Genero</label><input class="form-input" id="fMediaGenre" type="text"></div>
+      <div class="form-group"><label>URL da capa (poster)</label><input class="form-input" id="fMediaPoster" type="text" placeholder="https://..."></div>
+      <div id="fMediaExtra"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeEditMediaModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditMedia()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ Shopping List Modal ═══ -->
 <div class="modal-overlay" id="shopListModal">
   <div class="modal">
@@ -2017,6 +2036,7 @@ function renderMidia(H, C) {
         g += '</div>';
         g += '<div style="display:flex;padding:4px 8px 8px;gap:4px;justify-content:space-between">';
         g += '<div style="display:flex;gap:2px">';
+        g += '<button onclick="event.stopPropagation();editMediaItem(\''+activeTab+'\','+idx+')" title="Editar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">✏️</button>';
         g += '<button onclick="event.stopPropagation();refetchMeta(\''+activeTab+'\','+idx+')" title="Buscar novos metadados" id="fetchBtn_'+activeTab+'_'+idx+'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem">🔍</button>';
         if (activeTab==='livros') {
           var sIcon = item.status==='Lido'?'✅':item.status==='Lendo'?'📖':'📋';
@@ -2105,6 +2125,7 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
       </div>`;
     }
 
+    html += `<button onclick="event.stopPropagation();editMediaItem('${cat}',${idx})" title="Editar" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✏️</button>`;
     html += `<button id="fetchBtn_${cat}_${idx}" onclick="event.stopPropagation();fetchMetaForItem('${cat}',${idx})" title="Buscar metadados" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">🔍</button>`;
     html += `<button onclick="event.stopPropagation();deleteMediaItem('${cat}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✕</button>`;
     html += `</div>`;
@@ -2154,6 +2175,54 @@ async function fetchSeriesMeta() {
 }
 
 // Fetch metadata for an EXISTING item by index
+let editMediaCat = '', editMediaIdx = -1;
+function editMediaItem(cat, idx) {
+  ensureMedia();
+  const item = D.media[cat]?.[idx];
+  if (!item) return;
+  editMediaCat = cat; editMediaIdx = idx;
+  document.getElementById('fMediaTitle').value = item.title || '';
+  document.getElementById('fMediaAuthor').value = item.author || item.director || '';
+  document.getElementById('fMediaYear').value = item.year || '';
+  document.getElementById('fMediaGenre').value = item.genre || '';
+  document.getElementById('fMediaPoster').value = item.poster || '';
+  // Extra fields based on type
+  let extra = '';
+  if (cat === 'livros') {
+    extra = '<div class="form-group"><label>Status</label><select class="form-input" id="fMediaStatus"><option value="Fila"'+(item.status==='Fila'?' selected':'')+'>Fila</option><option value="Lendo"'+(item.status==='Lendo'?' selected':'')+'>Lendo</option><option value="Lido"'+(item.status==='Lido'?' selected':'')+'>Lido</option></select></div>';
+  }
+  if (cat === 'series') {
+    extra = '<div class="form-row"><div class="form-group"><label>Total temporadas</label><input class="form-input" id="fMediaSeasons" type="number" value="'+(item.seasons||0)+'"></div><div class="form-group"><label>Temporada atual</label><input class="form-input" id="fMediaCurrentSeason" type="number" value="'+(item.currentSeason||0)+'"></div></div>';
+  }
+  document.getElementById('fMediaExtra').innerHTML = extra;
+  document.getElementById('editMediaModal').classList.add('show');
+}
+function closeEditMediaModal() { document.getElementById('editMediaModal').classList.remove('show'); }
+function saveEditMedia() {
+  ensureMedia();
+  const item = D.media[editMediaCat]?.[editMediaIdx];
+  if (!item) return;
+  item.title = document.getElementById('fMediaTitle').value.trim() || item.title;
+  const author = document.getElementById('fMediaAuthor').value.trim();
+  if (editMediaCat === 'livros') item.author = author;
+  else item.director = author;
+  item.year = document.getElementById('fMediaYear').value.trim();
+  item.genre = document.getElementById('fMediaGenre').value.trim();
+  item.poster = document.getElementById('fMediaPoster').value.trim();
+  if (editMediaCat === 'livros') {
+    const sel = document.getElementById('fMediaStatus');
+    if (sel) { item.status = sel.value; item.done = sel.value === 'Lido'; item.progress = sel.value === 'Lido' ? 100 : (sel.value === 'Lendo' ? 50 : 0); }
+  }
+  if (editMediaCat === 'series') {
+    const s = document.getElementById('fMediaSeasons');
+    const cs = document.getElementById('fMediaCurrentSeason');
+    if (s) item.seasons = parseInt(s.value) || 0;
+    if (cs) item.currentSeason = parseInt(cs.value) || 0;
+    if (item.currentSeason >= item.seasons && item.seasons > 0) item.done = true;
+  }
+  save(); closeEditMediaModal(); render();
+}
+
 async function refetchMeta(cat, idx) {
   ensureMedia();
   const item = D.media[cat]?.[idx];
@@ -3051,7 +3120,7 @@ function deleteCat(id) {
 // ═══════════════════ KEYBOARD ═══════════════════
 document.addEventListener('keydown', e => {
   if (e.key==='q' && !e.ctrlKey && !e.metaKey && !document.querySelector('.modal-overlay.show') && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA') openAddTask();
-  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); }
+  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); }
 });
 document.getElementById('fText').addEventListener('keydown', e => {if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveTask();}});
 document.getElementById('fHName').addEventListener('keydown', e => {if(e.key==='Enter'){e.preventDefault();saveHabit();}});
