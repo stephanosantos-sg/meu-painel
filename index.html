@@ -3034,36 +3034,64 @@ function scheduleSyncSave() {
   syncTimer = setTimeout(syncSave, 2000);
 }
 
+// Hidden form POST - most reliable method for Google Apps Script
+function postViaForm(url, data) {
+  return new Promise(function(resolve) {
+    var iframe = document.getElementById('syncFrame');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'syncFrame';
+      iframe.name = 'syncFrame';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
+    var form = document.getElementById('syncForm');
+    if (form) form.remove();
+    form = document.createElement('form');
+    form.id = 'syncForm';
+    form.method = 'POST';
+    form.action = url;
+    form.target = 'syncFrame';
+    form.style.display = 'none';
+    var input = document.createElement('textarea');
+    input.name = 'postData';
+    input.value = data;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    iframe.onload = function() { resolve(true); };
+    setTimeout(function() { resolve(true); }, 3000);
+    form.submit();
+  });
+}
+
 async function syncSave() {
   if (!syncUrl) return;
   setSyncStatus('syncing');
-  const payload = JSON.stringify(D);
-  const timeStr = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var payload = JSON.stringify(D);
+  var timeStr = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 
-  // Try multiple methods - Google Apps Script is tricky with CORS
-  // Method 1: no-cors (fire and forget - can't read response but data gets saved)
   try {
-    await fetch(syncUrl, { method:'POST', mode:'no-cors', body:payload });
+    // Method 1: XMLHttpRequest (most compatible)
+    await new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', syncUrl, true);
+      xhr.setRequestHeader('Content-Type', 'text/plain');
+      xhr.onload = function() { resolve(); };
+      xhr.onerror = function() { reject(new Error('XHR failed')); };
+      xhr.timeout = 10000;
+      xhr.ontimeout = function() { reject(new Error('timeout')); };
+      xhr.send(payload);
+    });
     setSyncStatus('ok', 'Salvo ' + timeStr);
-    return;
-  } catch(e1) {}
-
-  // Method 2: regular fetch with redirect
-  try {
-    await fetch(syncUrl, { method:'POST', redirect:'follow', body:payload, headers:{'Content-Type':'text/plain'} });
-    setSyncStatus('ok', 'Salvo ' + timeStr);
-    return;
-  } catch(e2) {}
-
-  // Method 3: Use navigator.sendBeacon (works even when page is closing)
-  try {
-    const blob = new Blob([payload], {type:'text/plain'});
-    navigator.sendBeacon(syncUrl, blob);
-    setSyncStatus('ok', 'Salvo ' + timeStr);
-    return;
-  } catch(e3) {}
-
-  setSyncStatus('error', 'Erro ao salvar');
+  } catch(e) {
+    // Method 2: sendBeacon
+    try {
+      navigator.sendBeacon(syncUrl, new Blob([payload], {type:'text/plain'}));
+      setSyncStatus('ok', 'Salvo ' + timeStr);
+    } catch(e2) {
+      setSyncStatus('error', 'Erro ao salvar');
+    }
+  }
 }
 
 // Load from cloud
@@ -3113,25 +3141,35 @@ function forceSync() {
 }
 
 async function forcePush() {
-  const url = document.getElementById('fSyncUrl').value.trim() || syncUrl;
+  var url = document.getElementById('fSyncUrl').value.trim() || syncUrl;
   if (!url) { alert('Configure a URL primeiro'); return; }
-  const res = document.getElementById('syncTestResult');
+  var res = document.getElementById('syncTestResult');
   if (res) { res.style.display = 'block'; res.style.color = 'var(--yellow)'; res.textContent = 'Enviando dados locais para nuvem...'; }
   setSyncStatus('syncing', 'Enviando...');
-  const payload = JSON.stringify(D);
-  let ok = false;
-  // Try no-cors first
-  try { await fetch(url, {method:'POST', mode:'no-cors', body:payload}); ok = true; } catch(e1) {}
-  // Fallback
-  if (!ok) { try { await fetch(url, {method:'POST', redirect:'follow', body:payload, headers:{'Content-Type':'text/plain'}}); ok = true; } catch(e2) {} }
-  // sendBeacon
-  if (!ok) { try { navigator.sendBeacon(url, new Blob([payload],{type:'text/plain'})); ok = true; } catch(e3) {} }
-  if (ok) {
+  var payload = JSON.stringify(D);
+  try {
+    await new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'text/plain');
+      xhr.onload = function() { resolve(); };
+      xhr.onerror = function() { reject(new Error('falhou')); };
+      xhr.timeout = 15000;
+      xhr.ontimeout = function() { reject(new Error('timeout')); };
+      xhr.send(payload);
+    });
     if (res) { res.style.color = 'var(--green)'; res.textContent = 'Enviado com sucesso!'; }
     setSyncStatus('ok', 'Enviado');
-  } else {
-    if (res) { res.style.color = 'var(--red)'; res.textContent = 'Erro ao enviar. Verifique a URL.'; }
-    setSyncStatus('error', 'Erro ao enviar');
+  } catch(e) {
+    // Fallback sendBeacon
+    try {
+      navigator.sendBeacon(url, new Blob([payload], {type:'text/plain'}));
+      if (res) { res.style.color = 'var(--green)'; res.textContent = 'Enviado (beacon)!'; }
+      setSyncStatus('ok', 'Enviado');
+    } catch(e2) {
+      if (res) { res.style.color = 'var(--red)'; res.textContent = 'Erro: ' + e.message; }
+      setSyncStatus('error', 'Erro ao enviar');
+    }
   }
 }
 
