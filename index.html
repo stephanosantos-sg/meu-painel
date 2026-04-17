@@ -1899,8 +1899,12 @@ function renderMidia(H, C) {
     ${tabs.map(t => {const n=D.media[t.key].length;const dn=D.media[t.key].filter(x=>x.done).length;return `<button onclick="D._mediaTab='${t.key}';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} <span style="opacity:0.7">${dn}/${n}</span></button>`;}).join('')}
   </div>`;
 
-  // Progress bar
-  html += `<div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px"></div></div>`;
+  // Progress bar + bulk fetch
+  html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div style="flex:1;background:var(--surface2);border-radius:6px;height:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px"></div></div>
+    <span style="font-size:0.75rem;color:var(--text3);white-space:nowrap">${pct}%</span>
+    <button onclick="fetchAllMeta('${activeTab}')" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:0.72rem">🔍 Buscar metadados</button>
+  </div>`;
 
   // Add input
   html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
@@ -1987,6 +1991,7 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
       </div>`;
     }
 
+    html += `<button id="fetchBtn_${cat}_${idx}" onclick="event.stopPropagation();fetchMetaForItem('${cat}',${idx})" title="Buscar metadados" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">🔍</button>`;
     html += `<button onclick="event.stopPropagation();deleteMediaItem('${cat}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✕</button>`;
     html += `</div>`;
   });
@@ -2003,7 +2008,10 @@ function updateSeriesSeason(cat, idx, delta) {
   save(); render();
 }
 
-// Fetch book metadata from Open Library
+// ── Fetch metadata ──
+const OMDB_KEY = '4a3b711b';
+
+// Fetch for input fields (new item)
 async function fetchBookMeta() {
   const title = document.getElementById('mediaTitle').value.trim();
   if (!title) return;
@@ -2012,33 +2020,84 @@ async function fetchBookMeta() {
     const data = await r.json();
     if (data.docs && data.docs[0]) {
       const book = data.docs[0];
-      const authorEl = document.getElementById('mediaAuthor');
-      if (authorEl && book.author_name) authorEl.value = book.author_name[0];
+      if (document.getElementById('mediaAuthor') && book.author_name) document.getElementById('mediaAuthor').value = book.author_name[0];
       if (book.title) document.getElementById('mediaTitle').value = book.title;
     }
-  } catch(e) { console.error('Book fetch error:', e); }
+  } catch(e) { console.error(e); }
 }
 
-// Fetch series metadata from OMDB (free tier)
 async function fetchSeriesMeta() {
   const title = document.getElementById('mediaTitle').value.trim();
   if (!title) return;
   try {
-    const r = await fetch('https://www.omdbapi.com/?t='+encodeURIComponent(title)+'&type=series&apikey=4a3b711b');
+    const r = await fetch('https://www.omdbapi.com/?t='+encodeURIComponent(title)+'&type=series&apikey='+OMDB_KEY);
     const data = await r.json();
     if (data.Response === 'True') {
-      document.getElementById('mediaTitle').value = data.Title;
-      // Auto-add with metadata
-      addMediaItem('series', data.Title, {
-        seasons: parseInt(data.totalSeasons)||0,
-        currentSeason: 0,
-        year: data.Year,
-        rating: data.imdbRating,
-        done: false
-      });
+      addMediaItem('series', data.Title, { seasons:parseInt(data.totalSeasons)||0, currentSeason:0, year:data.Year, rating:data.imdbRating, genre:data.Genre, poster:data.Poster!=='N/A'?data.Poster:'', done:false });
       document.getElementById('mediaTitle').value = '';
     }
-  } catch(e) { console.error('Series fetch error:', e); }
+  } catch(e) { console.error(e); }
+}
+
+// Fetch metadata for an EXISTING item by index
+async function fetchMetaForItem(cat, idx) {
+  ensureMedia();
+  const item = D.media[cat]?.[idx];
+  if (!item) return;
+  const btn = document.getElementById('fetchBtn_'+cat+'_'+idx);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    if (cat === 'livros') {
+      const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(item.title)+'&limit=1');
+      const data = await r.json();
+      if (data.docs && data.docs[0]) {
+        const b = data.docs[0];
+        if (b.author_name) item.author = b.author_name[0];
+        if (b.first_publish_year) item.year = b.first_publish_year;
+        if (b.number_of_pages_median) item.pages = b.number_of_pages_median;
+        if (b.subject) item.genre = b.subject.slice(0,3).join(', ');
+      }
+    } else {
+      const type = cat === 'series' ? 'series' : 'movie';
+      const r = await fetch('https://www.omdbapi.com/?t='+encodeURIComponent(item.title)+'&type='+type+'&apikey='+OMDB_KEY);
+      const data = await r.json();
+      if (data.Response === 'True') {
+        item.title = data.Title;
+        item.year = data.Year;
+        item.rating = data.imdbRating;
+        item.genre = data.Genre;
+        item.poster = data.Poster !== 'N/A' ? data.Poster : '';
+        if (cat === 'series' && data.totalSeasons) item.seasons = parseInt(data.totalSeasons);
+        if (data.Runtime && data.Runtime !== 'N/A') item.runtime = data.Runtime;
+        if (data.Director && data.Director !== 'N/A') item.director = data.Director;
+      }
+    }
+    save(); render();
+  } catch(e) {
+    console.error(e);
+    if (btn) { btn.textContent = '❌'; btn.disabled = false; }
+  }
+}
+
+// Bulk fetch all items without metadata in a category
+async function fetchAllMeta(cat) {
+  ensureMedia();
+  const items = D.media[cat] || [];
+  const toFetch = items.filter(item => {
+    if (cat === 'livros') return !item.author || item.author === '';
+    return !item.year && !item.rating;
+  });
+  if (!toFetch.length) { alert('Todos os itens ja tem metadados!'); return; }
+  if (!confirm('Buscar metadados para ' + toFetch.length + ' itens? Pode demorar um pouco.')) return;
+
+  for (let i = 0; i < toFetch.length; i++) {
+    const idx = items.indexOf(toFetch[i]);
+    await fetchMetaForItem(cat, idx);
+    // Rate limit: 300ms between requests
+    await new Promise(r => setTimeout(r, 300));
+  }
+  save(); render();
 }
 
 function renderBookItem(item, idx) {
