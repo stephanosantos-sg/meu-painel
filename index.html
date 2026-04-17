@@ -1903,8 +1903,23 @@ function renderMidia(H, C) {
   html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <div style="flex:1;background:var(--surface2);border-radius:6px;height:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px"></div></div>
     <span style="font-size:0.75rem;color:var(--text3);white-space:nowrap">${pct}%</span>
-    <button onclick="fetchAllMeta('${activeTab}')" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:0.72rem">🔍 Buscar metadados</button>
+    <button onclick="fetchAllMeta('${activeTab}')" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:0.72rem">🔍 Metadados</button>
   </div>`;
+
+  // Sort controls
+  const sortMode = D._mediaSort || 'default';
+  html += `<div style="display:flex;gap:4px;margin-bottom:12px;align-items:center">
+    <span style="font-size:0.72rem;color:var(--text3)">Ordenar:</span>
+    <button onclick="D._mediaSort='default';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='default'?'background:var(--accent);color:#fff':''}">Padrao</button>
+    <button onclick="D._mediaSort='title';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='title'?'background:var(--accent);color:#fff':''}">Titulo A-Z</button>
+    ${activeTab==='livros'?`<button onclick="D._mediaSort='author';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='author'?'background:var(--accent);color:#fff':''}">Autor A-Z</button>`:''}
+    ${activeTab!=='livros'?`<button onclick="D._mediaSort='rating';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='rating'?'background:var(--accent);color:#fff':''}">Rating</button>`:''}
+  </div>`;
+
+  // Apply sort
+  if (sortMode === 'title') items.sort((a,b) => (a.title||'').localeCompare(b.title||''));
+  else if (sortMode === 'author') items.sort((a,b) => (a.author||'').localeCompare(b.author||''));
+  else if (sortMode === 'rating') items.sort((a,b) => parseFloat(b.rating||0) - parseFloat(a.rating||0));
 
   // Add input
   html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
@@ -1958,10 +1973,15 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
   let html = `<div style="margin-bottom:16px">
     <div style="font-size:0.8rem;font-weight:700;color:${color};margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">${title} (${groupItems.length}) ▾</div>
     <div style="${collapsed&&groupItems.length>10?'display:none':''}">`;
-  groupItems.forEach(item => {
+  groupItems.forEach((item, gi) => {
     const idx = allItems.indexOf(item);
     const isDone = item.done || item.status === 'Lido';
+    const num = idx + 1;
     html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background 0.15s;${isDone?'opacity:0.45':''}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">`;
+    // Number
+    html += `<span style="font-size:0.68rem;color:var(--text3);min-width:22px;text-align:right">${num}</span>`;
+    // Poster image
+    if (item.poster) html += `<img src="${item.poster}" style="width:32px;height:44px;border-radius:4px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`;
 
     // Checkbox / status cycle
     if (cat === 'livros') {
