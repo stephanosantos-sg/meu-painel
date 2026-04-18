@@ -319,7 +319,6 @@ textarea.form-input{min-height:50px;resize:vertical}
 
 <div class="mobile-bar">
   <button onclick="toggleMobileMenu()">☰</button>
-  <span style="font-size:0.85rem;color:var(--accent2);font-weight:700">🪐</span>
   <span class="mb-title" id="mobileTitle">Hoje</span>
   <button onclick="syncSave()" title="Salvar na nuvem" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem;padding:4px">💾</button>
   <button onclick="forcePull()" title="Baixar da nuvem" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem;padding:4px">☁️</button>
@@ -916,7 +915,7 @@ function renderHoje(H, C) {
   const habitsForToday = D.habits.filter(h => { const days = h.days || [0,1,2,3,4,5,6]; return days.includes(todayDowStat); });
   const habitsToday = habitsForToday.filter(h => h.log && h.log[t]).length;
 
-  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar na nuvem" style="font-size:1rem;padding:8px 12px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar da nuvem" style="font-size:1rem;padding:8px 12px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
+  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.05em;opacity:0.6">🪐 ORBITA</span><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar" style="font-size:1rem;padding:8px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar" style="font-size:1rem;padding:8px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
 
   let html = `<div class="stats-row">
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
@@ -1588,8 +1587,33 @@ function saveHabit(){
 }
 
 function renderHabitos(H, C) {
-  H.innerHTML = `<h2>Habitos</h2><div class="subtitle">Consistencia e o segredo</div>`;
-  let html = `<button class="btn btn-primary" onclick="openHabitModal()" style="margin-bottom:20px">+ Novo Habito</button>`;
+  const yr = new Date().getFullYear();
+  H.innerHTML = `<h2>Habitos</h2><div class="subtitle">Consistencia e o segredo &mdash; ${yr}</div>`;
+
+  // Annual summary
+  let totalYearDone = 0, totalYearGoal = 0;
+  D.habits.forEach(function(h) {
+    const yd = Object.keys(h.log||{}).filter(function(d){return d.startsWith(yr+'');}).length;
+    totalYearDone += yd;
+    totalYearGoal += (h.yearGoal || 0);
+  });
+
+  let html = `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-primary" onclick="openHabitModal()">+ Novo Habito</button>
+    <button class="btn btn-ghost btn-sm" onclick="showYearStats()">📊 Resumo ${yr}</button>
+    ${D._habitArchive ? `<button class="btn btn-ghost btn-sm" onclick="showArchivedYears()">📁 Historico</button>` : ''}
+  </div>`;
+
+  if (D.habits.length && totalYearDone > 0) {
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+      <div style="text-align:center"><div style="font-size:1.6rem;font-weight:800;color:var(--accent2)">${totalYearDone}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">Total ${yr}</div></div>
+      ${D.habits.map(function(h){
+        const yd = Object.keys(h.log||{}).filter(function(d){return d.startsWith(yr+'');}).length;
+        const color = h.color||'green';
+        return '<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;color:var(--'+color+')">'+ yd +'</div><div style="font-size:0.62rem;color:var(--text3)">'+(h.icon||'')+ ' ' +esc(h.name).substring(0,10)+'</div></div>';
+      }).join('')}
+    </div>`;
+  }
   if (!D.habits.length) { C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">⭐</div><p>Nenhum habito cadastrado</p><button class="btn btn-primary" style="margin-top:16px" onclick="openHabitModal()">+ Novo Habito</button></div>`; return; }
   const week=getWeekDays(), last30=getLast30(), t=todayStr();
   html += `<div class="habits-grid">`;
@@ -1949,6 +1973,101 @@ function renderCompras(H, C) {
   });
 
   html += `</div>`;
+  C.innerHTML = html;
+}
+
+// ═══════════════════ HABIT YEAR STATS ═══════════════════
+function showYearStats() {
+  var yr = new Date().getFullYear();
+  var months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var html = '<h3 style="margin-bottom:16px">📊 Resumo '+yr+'</h3>';
+
+  D.habits.forEach(function(h) {
+    var color = h.color || 'green';
+    var yearDays = Object.keys(h.log||{}).filter(function(d){return d.startsWith(yr+'');});
+    var total = yearDays.length;
+
+    // Per month breakdown
+    var perMonth = [];
+    for (var m=0; m<12; m++) {
+      var prefix = yr + '-' + String(m+1).padStart(2,'0');
+      var count = yearDays.filter(function(d){return d.startsWith(prefix);}).length;
+      perMonth.push(count);
+    }
+    var maxMonth = Math.max.apply(null, perMonth.concat([1]));
+
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">';
+    html += '<div style="font-weight:700;margin-bottom:10px">'+(h.icon||'')+' '+esc(h.name)+' <span style="color:var(--'+color+');font-size:0.85rem">'+total+' dias em '+yr+'</span></div>';
+    html += '<div style="display:flex;gap:4px;align-items:flex-end;height:60px">';
+    for (var m=0; m<12; m++) {
+      var barH = perMonth[m] > 0 ? Math.max(8, (perMonth[m]/maxMonth)*50) : 2;
+      var now = new Date().getMonth();
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">';
+      html += '<div style="font-size:0.6rem;color:var(--text3)">'+perMonth[m]+'</div>';
+      html += '<div style="width:100%;height:'+barH+'px;background:var(--'+color+');border-radius:3px;opacity:'+(m<=now?'1':'0.2')+'"></div>';
+      html += '<div style="font-size:0.55rem;color:var(--text3)">'+months[m]+'</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    if (h.yearGoal && h.yearGoal > 0) {
+      var pct = Math.round(total/h.yearGoal*100);
+      html += '<div style="margin-top:10px;display:flex;align-items:center;gap:8px"><div style="flex:1;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:var(--'+color+');border-radius:4px"></div></div><span style="font-size:0.72rem;font-weight:700;color:var(--'+color+')">'+pct+'% meta</span></div>';
+    }
+    html += '</div>';
+  });
+
+  // Archive button
+  html += '<button class="btn btn-ghost" onclick="archiveYear('+yr+')" style="margin-top:12px">📁 Arquivar '+yr+' e iniciar novo ano</button>';
+
+  var C = document.getElementById('mainContent');
+  C.innerHTML = html;
+}
+
+function archiveYear(yr) {
+  if (!confirm('Arquivar dados de '+yr+'?\n\nIsso salva as estatisticas e limpa os logs dos habitos para o novo ano.\nAs tarefas e objetivos nao sao afetados.')) return;
+
+  if (!D._habitArchive) D._habitArchive = {};
+  D._habitArchive[yr] = {};
+
+  D.habits.forEach(function(h) {
+    var yearDays = Object.keys(h.log||{}).filter(function(d){return d.startsWith(yr+'');});
+    // Archive stats
+    D._habitArchive[yr][h.id] = {
+      name: h.name, icon: h.icon||'', color: h.color||'green',
+      total: yearDays.length,
+      yearGoal: h.yearGoal||0,
+      log: yearDays
+    };
+    // Remove old year entries from log
+    yearDays.forEach(function(d){ delete h.log[d]; });
+  });
+
+  save(); render();
+  alert('Ano '+yr+' arquivado! Estatisticas salvas no historico.');
+}
+
+function showArchivedYears() {
+  var html = '<h3 style="margin-bottom:16px">📁 Historico de Habitos</h3>';
+  var archive = D._habitArchive || {};
+  var years = Object.keys(archive).sort().reverse();
+
+  if (!years.length) { html += '<p style="color:var(--text3)">Nenhum ano arquivado</p>'; }
+
+  years.forEach(function(yr) {
+    html += '<h4 style="margin:16px 0 8px;color:var(--accent2)">'+yr+'</h4>';
+    var habits = archive[yr];
+    Object.keys(habits).forEach(function(hid) {
+      var h = habits[hid];
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border-radius:8px;margin-bottom:4px">';
+      html += '<span style="font-size:1rem">'+(h.icon||'⭐')+'</span>';
+      html += '<span style="flex:1;font-weight:600">'+esc(h.name)+'</span>';
+      html += '<span style="font-size:0.85rem;font-weight:700;color:var(--'+h.color+')">'+h.total+' dias</span>';
+      if (h.yearGoal) html += '<span style="font-size:0.72rem;color:var(--text3)">meta: '+h.yearGoal+'</span>';
+      html += '</div>';
+    });
+  });
+
+  var C = document.getElementById('mainContent');
   C.innerHTML = html;
 }
 
