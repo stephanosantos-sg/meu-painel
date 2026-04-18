@@ -314,6 +314,17 @@ textarea.form-input{min-height:50px;resize:vertical}
 .gallery-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color 0.15s}
 .gallery-card:hover{border-color:var(--accent)}
 .gallery-cover{width:100%;height:180px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* Drag & drop */
+.task-item[draggable=true]{cursor:grab}
+.task-item.dragging{opacity:0.3;transform:scale(0.98)}
+.task-item.drag-over{border-top:2px solid var(--accent);margin-top:-2px}
+.drag-handle{cursor:grab;color:var(--text3);font-size:0.8rem;padding:4px 2px;opacity:0.3;touch-action:none}
+.drag-handle:hover{opacity:1}
+.task-item:hover .drag-handle{opacity:0.6}
+/* Dependency */
+.dep-badge{font-size:0.62rem;padding:1px 6px;border-radius:3px;background:var(--surface2);color:var(--text3);display:inline-flex;align-items:center;gap:3px}
+.dep-blocked{opacity:0.4;pointer-events:none;position:relative}
+.dep-blocked::after{content:'🔒';position:absolute;top:8px;right:8px;font-size:0.9rem}
 /* Pomodoro */
 .pomo-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;backdrop-filter:blur(8px)}
 .pomo-timer{font-size:5rem;font-weight:800;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
@@ -444,6 +455,12 @@ textarea.form-input{min-height:50px;resize:vertical}
         <label>Subtarefas</label>
         <div id="subtaskList"></div>
         <button class="btn btn-ghost btn-sm" onclick="addSubtaskInput()" style="margin-top:6px">+ Subtarefa</button>
+      </div>
+      <div class="form-group">
+        <label>Depende de (tarefa que precisa ser feita antes)</label>
+        <select class="form-input" id="fTaskDep">
+          <option value="">Nenhuma dependencia</option>
+        </select>
       </div>
       <div class="form-actions">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -1155,12 +1172,17 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
     if (t.days && t.days.length && t.days.length < 7) meta.push(`<span style="font-size:0.65rem;color:var(--text3)">${t.days.map(d=>DAY_LABELS[d]).join(' ')}</span>`);
     if (t.date && !hasSlots) meta.push(`<span class="task-date-label ${isOverdue(t.date)&&!taskDone?'overdue':''}">${fmtDate(t.date)}${t.time?' '+t.time:''}</span>`);
 
-    html += `<div class="task-item" id="task-${t.id}">
+    // Check dependency
+    const isBlocked = t.dependsOn && !isDepDone(t.dependsOn);
+    const depLabel = t.dependsOn ? getDepLabel(t.dependsOn) : '';
+
+    html += `<div class="task-item ${isBlocked?'dep-blocked':''}" id="task-${t.id}" draggable="true" ondragstart="dragStart(event,'${t.id}')" ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="dragDrop(event,'${t.id}')">
+      <span class="drag-handle" title="Arrastar">⠿</span>
       ${hasSlots ? `<div style="width:20px"></div>` : `<div class="task-check ${pClass} ${taskDone?'checked':''}" onclick="toggleTask('${t.id}','${dateCtx}')">${taskDone?'&#10003;':''}</div>`}
       <div class="task-body">
         <div class="task-text" style="${taskDone&&!hasSlots?'text-decoration:line-through;opacity:0.5':''}">${t.icon?t.icon+' ':''}${esc(t.text)}</div>
         ${t.desc?`<div style="font-size:0.78rem;color:var(--text3);margin-top:2px">${esc(t.desc)}</div>`:''}
-        <div class="task-meta">${meta.join('')}</div>`;
+        <div class="task-meta">${meta.join('')}${depLabel?`<span class="dep-badge">🔗 ${depLabel}</span>`:''}</div>`;
 
     // Multi-time slots
     if (hasSlots) {
@@ -1416,6 +1438,8 @@ function openAddTask() {
   document.getElementById('taskDaysArea').style.display = 'none';
   document.getElementById('multiTimeArea').style.display = 'none';
 
+  populateDepSelect(null);
+  document.getElementById('fTaskDep').value = '';
   document.getElementById('taskModal').classList.add('show');
   setTimeout(()=>document.getElementById('fText').focus(),100);
 }
@@ -1466,6 +1490,8 @@ function editTask(id) {
     });
   }
 
+  populateDepSelect(id);
+  document.getElementById('fTaskDep').value = t.dependsOn || '';
   document.getElementById('taskModal').classList.add('show');
   setTimeout(() => document.getElementById('fText').focus(), 100);
 }
@@ -1519,6 +1545,7 @@ function saveTask() {
   });
 
   const icon = getChip('fIcon') || '';
+  const dependsOn = document.getElementById('fTaskDep').value || '';
   const days = freq === 'semanal' ? getSelectedDays('fTaskDays') : undefined;
 
   if (editingTaskId) {
@@ -1535,6 +1562,7 @@ function saveTask() {
       existing.cat = cat;
       existing.prio = prio;
       existing.icon = icon;
+      existing.dependsOn = dependsOn;
       // Merge subtasks: keep done state for matching text
       if (subtasks.length) {
         existing.subtasks = subtasks.map(ns => {
@@ -1548,7 +1576,7 @@ function saveTask() {
     editingTaskId = null;
   } else {
     // Create new task
-    const task = { id:uid(), text, desc, freq, date, time:times.length?'':time, times:times.length?times:undefined, days, doneSlots:{}, cat, prio, icon, subtasks:subtasks.length?subtasks:undefined, done:false, createdAt:new Date().toISOString() };
+    const task = { id:uid(), text, desc, freq, date, time:times.length?'':time, times:times.length?times:undefined, days, doneSlots:{}, cat, prio, icon, dependsOn, subtasks:subtasks.length?subtasks:undefined, done:false, createdAt:new Date().toISOString() };
     D.tasks.push(task);
   }
   save(); closeModal(); render();
@@ -2103,6 +2131,87 @@ function renderCompras(H, C) {
 
   html += `</div>`;
   C.innerHTML = html;
+}
+
+// ═══════════════════ DRAG & DROP ═══════════════════
+var draggedTaskId = null;
+
+function dragStart(e, taskId) {
+  draggedTaskId = taskId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.classList.add('dragging');
+  // For mobile touch support
+  setTimeout(function() { e.target.classList.add('dragging'); }, 0);
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function dragEnter(e) {
+  e.preventDefault();
+  var el = e.target.closest('.task-item');
+  if (el) el.classList.add('drag-over');
+}
+
+function dragLeave(e) {
+  var el = e.target.closest('.task-item');
+  if (el) el.classList.remove('drag-over');
+}
+
+function dragDrop(e, targetId) {
+  e.preventDefault();
+  var el = e.target.closest('.task-item');
+  if (el) el.classList.remove('drag-over');
+
+  if (!draggedTaskId || draggedTaskId === targetId) return;
+
+  var fromIdx = D.tasks.findIndex(function(t) { return t.id === draggedTaskId; });
+  var toIdx = D.tasks.findIndex(function(t) { return t.id === targetId; });
+  if (fromIdx < 0 || toIdx < 0) return;
+
+  // Move task
+  var task = D.tasks.splice(fromIdx, 1)[0];
+  D.tasks.splice(toIdx, 0, task);
+  draggedTaskId = null;
+  save(); render();
+}
+
+// Also handle dragend to clean up
+document.addEventListener('dragend', function() {
+  draggedTaskId = null;
+  document.querySelectorAll('.dragging,.drag-over').forEach(function(el) {
+    el.classList.remove('dragging', 'drag-over');
+  });
+});
+
+// ═══════════════════ DEPENDENCIES ═══════════════════
+function isDepDone(depId) {
+  var dep = D.tasks.find(function(t) { return t.id === depId; });
+  if (!dep) return true; // dependency deleted = unblocked
+  var t = todayStr();
+  if (dep.times && dep.times.length) return isMultiDone(dep, t);
+  if (dep.freq === 'pontual') return dep.done;
+  if (dep.doneSlots && dep.doneSlots[t]) return true;
+  return false;
+}
+
+function getDepLabel(depId) {
+  var dep = D.tasks.find(function(t) { return t.id === depId; });
+  if (!dep) return '';
+  var done = isDepDone(depId);
+  return (done ? '✅ ' : '⏳ ') + dep.text.substring(0, 20);
+}
+
+function populateDepSelect(currentTaskId) {
+  var sel = document.getElementById('fTaskDep');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Nenhuma dependencia</option>';
+  D.tasks.forEach(function(t) {
+    if (t.id === currentTaskId) return; // can't depend on self
+    sel.innerHTML += '<option value="'+t.id+'">'+(t.icon||'')+ ' ' +esc(t.text).substring(0,40)+'</option>';
+  });
 }
 
 // ═══════════════════ SHOW TEMPLATES ═══════════════════
