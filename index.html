@@ -475,8 +475,15 @@ textarea.form-input{min-height:50px;resize:vertical}
     <div class="modal-body">
       <div class="form-group"><label>Titulo</label><input class="form-input" id="fGTitle" placeholder="Qual o seu objetivo?"></div>
       <div class="form-group"><label>Descricao</label><textarea class="form-input" id="fGDesc" placeholder="Por que e importante?"></textarea></div>
-      <div class="form-group"><label>Prazo</label><input type="date" class="form-input" id="fGDeadline"></div>
-      <div class="form-group"><label>Etapas</label><div id="goalMsList"></div><button class="btn btn-ghost btn-sm" onclick="addGoalMsInput()" style="margin-top:6px">+ Etapa</button></div>
+      <div class="form-group"><label>Prazo final</label><input type="date" class="form-input" id="fGDeadline" onchange="calcGoalSchedule()"></div>
+      <div class="form-group"><label>Dias disponiveis para trabalhar</label><div id="fGDays" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
+      <div id="goalScheduleAlert" style="display:none;background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:10px;margin-bottom:12px;font-size:0.82rem;color:var(--red)"></div>
+      <div class="form-group"><label>Etapas</label><div id="goalMsList"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-ghost btn-sm" onclick="addGoalMsInput()">+ Etapa</button>
+          <button class="btn btn-ghost btn-sm" onclick="calcGoalSchedule()" title="Recalcular datas sugeridas">📅 Sugerir datas</button>
+        </div>
+      </div>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeGoalModal()">Cancelar</button><button class="btn btn-primary" onclick="saveGoal()">Criar</button></div>
     </div>
   </div>
@@ -1688,6 +1695,8 @@ function openGoalModal(){
   document.getElementById('goalMsList').innerHTML='';addGoalMsInput();
   document.getElementById('goalModal').dataset.editId='';
   document.querySelector('#goalModal .modal-header h3').textContent='Novo Objetivo';
+  buildDayPicker('fGDays', [1,2,3,4,5]); // default weekdays
+  document.getElementById('goalScheduleAlert').style.display='none';
   document.getElementById('goalModal').classList.add('show');
   setTimeout(()=>document.getElementById('fGTitle').focus(),100);
 }
@@ -1695,23 +1704,84 @@ function closeGoalModal(){document.getElementById('goalModal').classList.remove(
 function addGoalMsInput(){
   const div=document.createElement('div');div.style.cssText='display:flex;gap:8px;margin-bottom:6px;align-items:center';
   const n=document.querySelectorAll('#goalMsList .gms-input').length+1;
-  div.innerHTML=`<input class="form-input gms-input" placeholder="Etapa ${n}..." style="flex:1"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
+  div.innerHTML=`<input class="form-input gms-input" placeholder="Etapa ${n}..." style="flex:1"><input type="date" class="form-input gms-date" style="width:130px;padding:6px 8px;font-size:0.75rem" title="Data sugerida"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
   document.getElementById('goalMsList').appendChild(div);
 }
+function calcGoalSchedule() {
+  var deadline = document.getElementById('fGDeadline').value;
+  if (!deadline) return;
+  var days = getSelectedDays('fGDays');
+  if (!days.length) days = [0,1,2,3,4,5,6];
+  var inputs = document.querySelectorAll('#goalMsList .gms-input');
+  var dateInputs = document.querySelectorAll('#goalMsList .gms-date');
+  var total = inputs.length;
+  if (!total) return;
+
+  // Count available days from today to deadline
+  var today = new Date(); today.setHours(0,0,0,0);
+  var end = new Date(deadline + 'T00:00:00');
+  var availDates = [];
+  var d = new Date(today);
+  while (d <= end) {
+    if (days.includes(d.getDay())) {
+      availDates.push(new Date(d));
+    }
+    d.setDate(d.getDate() + 1);
+  }
+
+  var alert = document.getElementById('goalScheduleAlert');
+
+  if (availDates.length < total) {
+    alert.style.display = 'block';
+    alert.innerHTML = '⚠️ <strong>Prazo curto!</strong> Voce tem ' + availDates.length + ' dias disponiveis mas ' + total + ' etapas. Precisaria de pelo menos ' + total + ' dias disponiveis. Considere estender o prazo ou adicionar mais dias da semana.';
+    // Still distribute what we can
+  } else {
+    var margin = availDates.length - total;
+    if (margin < Math.ceil(total * 0.2)) {
+      alert.style.display = 'block';
+      alert.innerHTML = '⚠️ <strong>Prazo apertado!</strong> ' + availDates.length + ' dias para ' + total + ' etapas. Pouca margem para atrasos.';
+    } else {
+      alert.style.display = 'block';
+      alert.style.background = 'var(--green-bg)';
+      alert.style.borderColor = 'var(--green)';
+      alert.style.color = 'var(--green)';
+      alert.innerHTML = '✅ ' + availDates.length + ' dias disponiveis para ' + total + ' etapas. Boa margem!';
+    }
+  }
+
+  // Distribute dates evenly
+  for (var i = 0; i < total && i < dateInputs.length; i++) {
+    var idx = Math.min(Math.round((i / (total - 1 || 1)) * (availDates.length - 1)), availDates.length - 1);
+    if (availDates[idx]) {
+      var dt = availDates[idx];
+      dateInputs[i].value = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+    }
+  }
+}
+
 function saveGoal(){
   const title=document.getElementById('fGTitle').value.trim();if(!title)return;
   const desc=document.getElementById('fGDesc').value.trim();
   const deadline=document.getElementById('fGDeadline').value;
+  const goalDays=getSelectedDays('fGDays');
   const milestones=[];
-  document.querySelectorAll('#goalMsList .gms-input').forEach(inp=>{const v=inp.value.trim();if(v)milestones.push({text:v,done:false,progress:0});});
+  const textInputs=document.querySelectorAll('#goalMsList .gms-input');
+  const dateInputs=document.querySelectorAll('#goalMsList .gms-date');
+  textInputs.forEach(function(inp,i){
+    const v=inp.value.trim();
+    if(v){
+      const sd=dateInputs[i]?dateInputs[i].value:'';
+      milestones.push({text:v,done:false,progress:0,suggestedDate:sd});
+    }
+  });
   const editId=document.getElementById('goalModal').dataset.editId;
   if(editId){
     const g=D.goals.find(x=>x.id===editId);
-    if(g){g.title=title;g.desc=desc;g.deadline=deadline;
+    if(g){g.title=title;g.desc=desc;g.deadline=deadline;g.days=goalDays;
       g.milestones=milestones.map(nm=>{const old=(g.milestones||[]).find(om=>om.text===nm.text);return old?{...nm,done:old.done,progress:old.progress}:nm;});
     }
   } else {
-    D.goals.push({id:uid(),title,desc,deadline,milestones});
+    D.goals.push({id:uid(),title,desc,deadline,days:goalDays,milestones});
   }
   save();closeGoalModal();render();
 }
@@ -1751,9 +1821,11 @@ function editGoal(id){
   document.getElementById('goalMsList').innerHTML='';
   (g.milestones||[]).forEach(m=>{
     const div=document.createElement('div');div.style.cssText='display:flex;gap:8px;margin-bottom:6px;align-items:center';
-    div.innerHTML=`<input class="form-input gms-input" value="${esc(m.text)}" style="flex:1"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
+    div.innerHTML=`<input class="form-input gms-input" value="${esc(m.text)}" style="flex:1">${m.suggestedDate?`<input type="date" class="form-input gms-date" value="${m.suggestedDate}" style="width:130px;padding:6px 8px;font-size:0.75rem">`:`<input type="date" class="form-input gms-date" value="" style="width:130px;padding:6px 8px;font-size:0.75rem">`}<button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
     document.getElementById('goalMsList').appendChild(div);
   });
+  buildDayPicker('fGDays', g.days || [1,2,3,4,5]);
+  document.getElementById('goalScheduleAlert').style.display='none';
   document.getElementById('goalModal').classList.add('show');
 }
 function deleteGoal(id){D.goals=D.goals.filter(x=>x.id!==id);save();render();}
@@ -1814,7 +1886,7 @@ function renderObjetivos(H, C) {
               <div style="display:flex;align-items:center;gap:10px">
                 <span style="font-size:0.68rem;color:var(--text3);min-width:20px;text-align:right">${i+1}</span>
                 <div onclick="event.stopPropagation();toggleMilestone('${g.id}',${i})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${mpColor};background:${mp>=100?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700;cursor:pointer">${mp>=100?'&#10003;':''}</div>
-                <span style="flex:1;font-size:0.88rem;${mp>=100?'text-decoration:line-through':''}">${esc(m.text)}</span>
+                <span style="flex:1;font-size:0.88rem;${mp>=100?'text-decoration:line-through':''}">${esc(m.text)}${m.suggestedDate?` <span style="font-size:0.68rem;color:${isOverdue(m.suggestedDate)&&mp<100?'var(--red)':'var(--text3)'};font-weight:400">📅 ${fmtDate(m.suggestedDate)}</span>`:''}</span>
                 <input type="range" min="0" max="100" step="1" value="${mp}" oninput="this.nextElementSibling.textContent=this.value+'%'" onchange="event.stopPropagation();setMilestoneProgress('${g.id}',${i},this.value)" style="width:80px;accent-color:${mpColor};cursor:pointer">
                 <span style="font-size:0.75rem;font-weight:700;min-width:36px;text-align:right;color:${mpColor}">${mp}%</span>
               </div>
