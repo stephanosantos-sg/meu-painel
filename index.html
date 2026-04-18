@@ -614,7 +614,9 @@ function doPost(e) {
       </div>
       <div class="form-actions" style="justify-content:space-between">
         <button class="btn btn-ghost" onclick="testSync()" id="btnTestSync">Testar conexao</button>
-        <button class="btn btn-primary" onclick="forcePush()" style="background:var(--green)">Enviar tudo para nuvem</button>
+        <button class="btn btn-primary" onclick="forcePush()" style="background:var(--green)">Enviar para nuvem</button>
+        <button class="btn btn-ghost" onclick="exportBackup()">💾 Exportar JSON</button>
+        <label class="btn btn-ghost" style="cursor:pointer">📂 Importar JSON<input type="file" accept=".json" style="display:none" onchange="importBackup(this)"></label>
         <button class="btn btn-ghost" onclick="forcePull()">Baixar da nuvem</button>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost" onclick="removeSyncUrl()">Desconectar</button>
@@ -3067,7 +3069,25 @@ function postViaForm(url, data) {
 async function syncSave() {
   if (!syncUrl) return;
   setSyncStatus('syncing');
-  var payload = JSON.stringify(D);
+  // Save core data (without heavy media posters) to keep under 50KB limit
+  var saveData = JSON.parse(JSON.stringify(D));
+  // Strip poster URLs to save space
+  if (saveData.media) {
+    for (var cat in saveData.media) {
+      if (Array.isArray(saveData.media[cat])) {
+        saveData.media[cat].forEach(function(item) {
+          delete item.poster; delete item.genre; delete item.pages; delete item.runtime; delete item.director;
+        });
+      }
+    }
+  }
+  var payload = JSON.stringify(saveData);
+  // If still too big, remove media entirely
+  if (payload.length > 49000 && saveData.media) {
+    saveData._mediaTooLarge = true;
+    delete saveData.media;
+    payload = JSON.stringify(saveData);
+  }
   var timeStr = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 
   try {
@@ -3135,6 +3155,35 @@ async function syncLoad() {
   }
 }
 
+function exportBackup() {
+  var data = JSON.stringify(D, null, 2);
+  var blob = new Blob([data], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'orbita_backup_' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importBackup(input) {
+  if (!input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var imported = JSON.parse(e.target.result);
+      if (!imported.tasks && !imported.media) { alert('Arquivo invalido'); return; }
+      if (!confirm('Importar backup? Isso substituira todos os dados atuais.\n\nTarefas: '+(imported.tasks||[]).length+'\nHabitos: '+(imported.habits||[]).length+'\nLivros: '+((imported.media||{}).livros||[]).length)) return;
+      D = imported;
+      if (!D.categories) D.categories = [...DEFAULT_CATS];
+      localStorage.setItem(SK, JSON.stringify(D));
+      render();
+      alert('Importado com sucesso!');
+    } catch(err) { alert('Erro ao ler arquivo: ' + err.message); }
+  };
+  reader.readAsText(input.files[0]);
+  input.value = '';
+}
+
 function forceSync() {
   if (!syncUrl) { openSyncModal(); return; }
   syncLoad();
@@ -3189,10 +3238,16 @@ async function forcePull() {
     }
     const remote = JSON.parse(text);
     if (!remote.categories) remote.categories = [...DEFAULT_CATS];
+    // Preserve local media if cloud doesn't have it (too large for cloud)
+    if (remote._mediaTooLarge || !remote.media || Object.keys(remote.media||{}).every(k=>!remote.media[k].length)) {
+      remote.media = D.media || {};
+      delete remote._mediaTooLarge;
+    }
     D = remote;
     localStorage.setItem(SK, JSON.stringify(D));
     render();
-    const msg = D.tasks.length + ' tarefas, ' + (D.habits||[]).length + ' habitos, ' + (D.goals||[]).length + ' objetivos';
+    const mediaCount = Object.values(D.media||{}).reduce((a,v)=>a+(Array.isArray(v)?v.length:0),0);
+    const msg = D.tasks.length + ' tarefas, ' + (D.habits||[]).length + ' habitos, ' + (D.goals||[]).length + ' objetivos, ' + mediaCount + ' midias';
     if (res) { res.style.color = 'var(--green)'; res.textContent = 'Carregado! ' + msg; }
     setSyncStatus('ok', 'Carregado');
   } catch(e) {
