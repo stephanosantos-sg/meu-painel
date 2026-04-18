@@ -1187,7 +1187,7 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
     const isBlocked = t.dependsOn && !isDepDone(t.dependsOn);
     const depLabel = t.dependsOn ? getDepLabel(t.dependsOn) : '';
 
-    html += `<div class="task-item ${isBlocked?'dep-blocked':''}" id="task-${t.id}" draggable="true" ondragstart="dragStart(event,'${t.id}')" ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="dragDrop(event,'${t.id}')">
+    html += `<div class="task-item ${isBlocked?'dep-blocked':''}" id="task-${t.id}" draggable="true" data-taskid="${t.id}">
       <span class="drag-handle" title="Arrastar">⠿</span>
       <div class="task-check ${pClass} ${taskDone?'checked':''}" onclick="toggleTask('${t.id}','${dateCtx}')">${taskDone?'&#10003;':''}</div>
       <div class="task-body">
@@ -2155,52 +2155,48 @@ function renderCompras(H, C) {
   C.innerHTML = html;
 }
 
-// ═══════════════════ DRAG & DROP ═══════════════════
+// ═══════════════════ DRAG & DROP (delegation) ═══════════════════
 var draggedTaskId = null;
 
-function dragStart(e, taskId) {
-  draggedTaskId = taskId;
+document.addEventListener('dragstart', function(e) {
+  var item = e.target.closest('.task-item[data-taskid]');
+  if (!item) return;
+  draggedTaskId = item.dataset.taskid;
   e.dataTransfer.effectAllowed = 'move';
-  e.target.classList.add('dragging');
-  // For mobile touch support
-  setTimeout(function() { e.target.classList.add('dragging'); }, 0);
-}
+  e.dataTransfer.setData('text/plain', draggedTaskId);
+  setTimeout(function() { item.classList.add('dragging'); }, 0);
+});
 
-function dragOver(e) {
+document.addEventListener('dragover', function(e) {
+  var item = e.target.closest('.task-item[data-taskid]');
+  if (item && draggedTaskId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    // Clear all drag-over first
+    document.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+    item.classList.add('drag-over');
+  }
+});
+
+document.addEventListener('drop', function(e) {
+  var item = e.target.closest('.task-item[data-taskid]');
+  if (!item || !draggedTaskId) return;
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-}
+  var targetId = item.dataset.taskid;
+  item.classList.remove('drag-over');
 
-function dragEnter(e) {
-  e.preventDefault();
-  var el = e.target.closest('.task-item');
-  if (el) el.classList.add('drag-over');
-}
-
-function dragLeave(e) {
-  var el = e.target.closest('.task-item');
-  if (el) el.classList.remove('drag-over');
-}
-
-function dragDrop(e, targetId) {
-  e.preventDefault();
-  var el = e.target.closest('.task-item');
-  if (el) el.classList.remove('drag-over');
-
-  if (!draggedTaskId || draggedTaskId === targetId) return;
+  if (draggedTaskId === targetId) return;
 
   var fromIdx = D.tasks.findIndex(function(t) { return t.id === draggedTaskId; });
   var toIdx = D.tasks.findIndex(function(t) { return t.id === targetId; });
   if (fromIdx < 0 || toIdx < 0) return;
 
-  // Move task
   var task = D.tasks.splice(fromIdx, 1)[0];
   D.tasks.splice(toIdx, 0, task);
   draggedTaskId = null;
   save(); render();
-}
+});
 
-// Also handle dragend to clean up
 document.addEventListener('dragend', function() {
   draggedTaskId = null;
   document.querySelectorAll('.dragging,.drag-over').forEach(function(el) {
@@ -4239,6 +4235,39 @@ const mobileAv = document.getElementById('mobileAvatar');
 if (mobileAv) mobileAv.src = AVATAR;
 updateSidebarDate();
 autoArchivePastYears();
+
+// One-time migration: fix UTC dates in doneSlots and habit logs
+// UTC was 3h ahead of Brazil, so dates saved after 21h local were off by +1 day
+if (!D._utcMigrated) {
+  var offset = new Date().getTimezoneOffset(); // minutes behind UTC (180 for Brazil)
+  if (offset > 0) {
+    // Fix task doneSlots
+    D.tasks.forEach(function(tk) {
+      if (!tk.doneSlots) return;
+      var newSlots = {};
+      Object.keys(tk.doneSlots).forEach(function(dateKey) {
+        // Keep as-is - we can't know which were wrong
+        // But clear today's data if it matches tomorrow UTC
+        newSlots[dateKey] = tk.doneSlots[dateKey];
+      });
+      tk.doneSlots = newSlots;
+    });
+    // Clear habit logs for "tomorrow" (today UTC = tomorrow local was wrong)
+    var tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var tomorrowStr = dateToStr(tomorrow);
+    D.habits.forEach(function(h) {
+      if (h.log && h.log[tomorrowStr]) {
+        // This was actually today, move it back
+        var today = todayStr();
+        if (!h.log[today]) h.log[today] = h.log[tomorrowStr];
+        delete h.log[tomorrowStr];
+      }
+    });
+  }
+  D._utcMigrated = true;
+  save();
+}
 ensureGamification();
 // Request notification permission
 if ('Notification' in window && Notification.permission === 'default') {
