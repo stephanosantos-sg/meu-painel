@@ -267,7 +267,9 @@ textarea.form-input{min-height:50px;resize:vertical}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:49;backdrop-filter:blur(2px)}
 .sidebar-overlay.show{display:block}
 
+#globalToolbar{display:flex}
 @media(max-width:768px){
+  #globalToolbar{display:none !important}
   body{display:block;overflow:auto}
   .sidebar{width:280px;position:fixed;left:-280px;top:0;z-index:50;height:100vh;transition:left 0.25s ease;background:var(--bg2);overflow-y:auto}
   .sidebar.open{left:0;box-shadow:0 0 30px rgba(0,0,0,0.6)}
@@ -864,6 +866,15 @@ function render() {
       case 'graficos': renderGraficos(H,C); break;
     }
   }
+  // Add global toolbar to header
+  var toolbar = document.getElementById('globalToolbar');
+  if (!toolbar) {
+    toolbar = document.createElement('div');
+    toolbar.id = 'globalToolbar';
+    toolbar.style.cssText = 'position:fixed;top:12px;right:24px;display:flex;align-items:center;gap:8px;z-index:30';
+    document.querySelector('.main').appendChild(toolbar);
+  }
+  toolbar.innerHTML = '<span style="font-size:0.88rem;color:var(--accent2);font-weight:700;letter-spacing:0.08em">🪐 ORBITA</span><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar" style="font-size:1rem;padding:8px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar" style="font-size:1rem;padding:8px">☁️</button><button class="btn btn-primary btn-sm" onclick="openAddTask()" style="padding:8px 14px">+ Tarefa</button>';
   if (typeof updateMobileNav === 'function') updateMobileNav();
 }
 
@@ -915,7 +926,7 @@ function renderHoje(H, C) {
   const habitsForToday = D.habits.filter(h => { const days = h.days || [0,1,2,3,4,5,6]; return days.includes(todayDowStat); });
   const habitsToday = habitsForToday.filter(h => h.log && h.log[t]).length;
 
-  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:0.88rem;color:var(--accent2);font-weight:700;letter-spacing:0.08em">🪐 ORBITA</span><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar" style="font-size:1rem;padding:8px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar" style="font-size:1rem;padding:8px">☁️</button><button class="btn btn-primary" onclick="openAddTask()">+ Tarefa</button></div></div>`;
+  H.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between"><div><h2>${greet}, Stephano</h2><div class="subtitle">${fmtDate(t)} &mdash; ${allPending} tarefa${allPending!==1?'s':''} pendente${allPending!==1?'s':''}</div></div></div>`;
 
   let html = `<div class="stats-row">
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
