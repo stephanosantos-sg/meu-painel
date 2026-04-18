@@ -7,8 +7,27 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#101014">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%237c5cfc' width='100' height='100' rx='20'/><text x='50' y='65' font-size='60' text-anchor='middle'>🪐</text></svg>">
+<link rel="apple-touch-icon" id="appleTouchIcon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%237c5cfc' width='100' height='100' rx='20'/><text x='50' y='65' font-size='60' text-anchor='middle'>🪐</text></svg>">
 <title>Orbita</title>
+<script>
+// Generate PNG apple-touch-icon (iOS doesn't support SVG)
+(function(){
+  var c=document.createElement('canvas');c.width=180;c.height=180;
+  var x=c.getContext('2d');
+  // Gradient background
+  var g=x.createLinearGradient(0,0,180,180);g.addColorStop(0,'#7c5cfc');g.addColorStop(1,'#64d2ff');
+  x.beginPath();x.roundRect(0,0,180,180,32);x.fillStyle=g;x.fill();
+  // Planet emoji
+  x.font='100px serif';x.textAlign='center';x.textBaseline='middle';
+  x.fillText('\u{1FA90}',90,95);
+  // Set as apple-touch-icon
+  try{
+    var url=c.toDataURL('image/png');
+    var link=document.getElementById('appleTouchIcon');
+    if(link)link.href=url;
+  }catch(e){}
+})();
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
