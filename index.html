@@ -314,6 +314,22 @@ textarea.form-input{min-height:50px;resize:vertical}
 .gallery-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color 0.15s}
 .gallery-card:hover{border-color:var(--accent)}
 .gallery-cover{width:100%;height:180px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* Pomodoro */
+.pomo-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;backdrop-filter:blur(8px)}
+.pomo-timer{font-size:5rem;font-weight:800;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
+.pomo-label{font-size:1.2rem;margin-bottom:20px;font-weight:600}
+.pomo-task{font-size:0.9rem;color:var(--text2);margin-bottom:30px;max-width:300px;text-align:center}
+.pomo-controls{display:flex;gap:12px}
+.pomo-btn{padding:12px 28px;border-radius:10px;border:none;font-size:0.95rem;font-weight:700;cursor:pointer;transition:all 0.15s}
+/* Contributions grid */
+.contrib-grid{display:flex;gap:2px;flex-wrap:wrap;padding:4px 0}
+.contrib-cell{width:12px;height:12px;border-radius:2px;background:var(--surface2)}
+/* Notes */
+.note-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;transition:border-color 0.15s}
+.note-card:hover{border-color:var(--accent)}
+/* Gamification */
+.xp-bar{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.xp-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--cyan));transition:width 0.4s}
 .hidden{display:none !important}
 </style>
 </head>
@@ -338,6 +354,7 @@ textarea.form-input{min-height:50px;resize:vertical}
     <span style="color:var(--text3);font-size:0.7rem">&#9662;</span>
   </div>
   <div id="profileMenu" class="hidden" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:0 8px 8px;padding:14px;box-shadow:var(--shadow)">
+    <div id="xpDisplay" style="margin-bottom:12px"></div>
     <div style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Tema</div>
     <div id="themePickerArea" style="display:flex;gap:6px;flex-wrap:wrap"></div>
   </div>
@@ -557,6 +574,23 @@ textarea.form-input{min-height:50px;resize:vertical}
       </div>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeShopListModal()">Cancelar</button><button class="btn btn-primary" onclick="saveShopList()">Criar</button></div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ Pomodoro Overlay ═══ -->
+<div class="pomo-overlay" id="pomoOverlay" style="display:none">
+  <div class="pomo-label" id="pomoLabel">🍅 FOCO</div>
+  <div class="pomo-timer" id="pomoTimer">25:00</div>
+  <div class="pomo-task" id="pomoTask"></div>
+  <div class="pomo-controls">
+    <button class="pomo-btn" onclick="togglePomo()" id="pomoPlayBtn" style="background:var(--accent);color:#fff">▶ Iniciar</button>
+    <button class="pomo-btn" onclick="resetPomo()" style="background:var(--surface2);color:var(--text)">⟳ Reset</button>
+    <button class="pomo-btn" onclick="closePomo()" style="background:var(--surface2);color:var(--text)">✕ Fechar</button>
+  </div>
+  <div style="margin-top:20px;display:flex;gap:8px">
+    <button class="pomo-btn" onclick="setPomoTime(25)" style="background:var(--surface2);color:var(--text);padding:8px 16px;font-size:0.8rem">25min</button>
+    <button class="pomo-btn" onclick="setPomoTime(15)" style="background:var(--surface2);color:var(--text);padding:8px 16px;font-size:0.8rem">15min</button>
+    <button class="pomo-btn" onclick="setPomoTime(5)" style="background:var(--green);color:#fff;padding:8px 16px;font-size:0.8rem">5min pausa</button>
   </div>
 </div>
 
@@ -820,6 +854,7 @@ function renderSidebar() {
       <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
       <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
       <div class="nav-item ${currentView==='compras'?'active':''}" data-view="compras"><span class="icon">🛒</span>Compras</div>
+      <div class="nav-item ${currentView==='notas'?'active':''}" data-view="notas"><span class="icon">📝</span>Notas</div>
       <div class="nav-item ${currentView==='midia'?'active':''}" data-view="midia"><span class="icon">🎬</span>Midia</div>
       <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Graficos</div>
     </div>
@@ -869,9 +904,17 @@ function render() {
       case 'objetivos': renderObjetivos(H,C); break;
       case 'eventos': renderEventos(H,C); break;
       case 'compras': renderCompras(H,C); break;
+      case 'notas': renderNotas(H,C); break;
       case 'midia': renderMidia(H,C); break;
       case 'graficos': renderGraficos(H,C); break;
     }
+  }
+  // XP display
+  ensureGamification();
+  var xpEl = document.getElementById('xpDisplay');
+  if (xpEl) {
+    var pct = getXPProgress();
+    xpEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:0.85rem;font-weight:800;color:var(--accent2)">Lvl '+D.xp.level+'</span><span style="font-size:0.7rem;color:var(--text3)">'+D.xp.total+' XP</span></div><div class="xp-bar"><div class="xp-fill" style="width:'+pct+'%"></div></div>';
   }
   // Add global toolbar
   var toolbar = document.getElementById('globalToolbar');
@@ -881,7 +924,7 @@ function render() {
     toolbar.style.cssText = 'position:fixed;top:12px;right:24px;display:flex;align-items:center;gap:8px;z-index:30';
     document.querySelector('.main').appendChild(toolbar);
   }
-  toolbar.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar" style="font-size:1rem;padding:8px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar" style="font-size:1rem;padding:8px">☁️</button><button class="btn btn-primary btn-sm" onclick="openAddTask()" style="padding:8px 14px">+ Tarefa</button>';
+  toolbar.innerHTML = '<span style="font-size:0.72rem;color:var(--accent2);font-weight:700;opacity:0.7">Lvl '+(D.xp?D.xp.level:1)+'</span><button class="btn btn-ghost btn-sm" onclick="showTemplates()" title="Templates" style="font-size:1rem;padding:8px">📋</button><button class="btn btn-ghost btn-sm" onclick="startPomo()" title="Pomodoro" style="font-size:1rem;padding:8px">🍅</button><button class="btn btn-ghost btn-sm" onclick="syncSave()" title="Salvar" style="font-size:1rem;padding:8px">💾</button><button class="btn btn-ghost btn-sm" onclick="forcePull()" title="Baixar" style="font-size:1rem;padding:8px">☁️</button><button class="btn btn-primary btn-sm" onclick="openAddTask()" style="padding:8px 14px">+ Tarefa</button>';
   if (typeof updateMobileNav === 'function') updateMobileNav();
 }
 
@@ -1140,6 +1183,7 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
 
     html += `</div>
       <div class="task-actions">
+        <button class="task-action" onclick="startPomo('${esc(t.text).replace(/'/g,'')}')" title="Pomodoro">🍅</button>
         <button class="task-action" onclick="editTask('${t.id}')" title="Editar">✏️</button>
         <button class="task-action del" onclick="deleteTask('${t.id}')" title="Excluir">&#10005;</button>
       </div>
@@ -1317,7 +1361,7 @@ function toggleSlot(taskId, dateCtx, time) {
   const arr = t.doneSlots[dateCtx];
   const idx = arr.indexOf(time);
   if (idx >= 0) arr.splice(idx, 1);
-  else arr.push(time);
+  else { arr.push(time); addXP(5); } // +5 XP per slot
   if (arr.length === 0) delete t.doneSlots[dateCtx];
   save(); render();
 }
@@ -1531,9 +1575,10 @@ function getChip(groupId) {
 
 // ═══════════════════ HABITS ═══════════════════
 function toggleHabitDay(id, dateStr) {
-  const h=D.habits.find(x=>x.id===id);if(!h)return;
+  var h=D.habits.find(function(x){return x.id===id;});if(!h)return;
   if(!h.log)h.log={};
-  if(h.log[dateStr])delete h.log[dateStr];else h.log[dateStr]=true;
+  if(h.log[dateStr]){delete h.log[dateStr];}
+  else{h.log[dateStr]=true;addXP(10);} // +10 XP per habit done
   save();render();
 }
 function getStreak(h) {
@@ -1658,7 +1703,8 @@ function renderHabitos(H, C) {
         const isDone=h.log&&h.log[d.date];
         return `<div class="habit-day ${isDone?'done':''} ${d.isToday?'is-today':''}" onclick="toggleHabitDay('${h.id}','${d.date}')" style="${isDone?`background:var(--${color});border-color:var(--${color})`:''};${!isActive&&!isDone?'border-style:dashed':''}" ><span class="dlabel">${d.label}</span><span class="dnum">${d.date.split('-')[2]}</span></div>`;
       }).join('')}</div>
-      <div class="habit-heatmap">${last30.map(d=>`<div class="hm-cell" title="${fmtDate(d)}" style="${h.log&&h.log[d]?`background:var(--${color})`:''}" ></div>`).join('')}</div>
+      <div style="font-size:0.68rem;color:var(--text3);margin-top:10px;margin-bottom:4px;font-weight:600">CONTRIBUICOES ${new Date().getFullYear()}</div>
+      ${renderContribGrid(h)}
       <div style="margin-top:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-size:0.72rem;color:var(--text3);font-weight:600">Progresso semanal</span>
@@ -2057,6 +2103,250 @@ function renderCompras(H, C) {
 
   html += `</div>`;
   C.innerHTML = html;
+}
+
+// ═══════════════════ SHOW TEMPLATES ═══════════════════
+function showTemplates() {
+  var templates = getTemplates();
+  var html = '<h3 style="margin-bottom:16px">📋 Templates de Rotina</h3>';
+  html += '<p style="color:var(--text3);font-size:0.85rem;margin-bottom:16px">Crie uma tarefa diaria com rotina pronta em 1 clique</p>';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+  templates.forEach(function(tpl, i) {
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'" onclick="applyTemplate('+i+')">';
+    html += '<div style="font-weight:700;margin-bottom:8px;font-size:1rem">'+tpl.name+'</div>';
+    tpl.tasks.forEach(function(t) {
+      html += '<div style="font-size:0.78rem;color:var(--text2);padding:2px 0">'+t.time+' — '+t.text+'</div>';
+    });
+    html += '<div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();applyTemplate('+i+')">Usar template</button></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  document.getElementById('mainContent').innerHTML = html;
+}
+
+function applyTemplate(idx) {
+  var tpl = getTemplates()[idx];
+  if (!tpl) return;
+  if (!confirm('Criar tarefa diaria "'+tpl.name+'" com '+tpl.tasks.length+' horarios?')) return;
+  var times = tpl.tasks.map(function(t) { return {time:t.time, label:t.text}; });
+  D.tasks.push({
+    id:uid(), text:tpl.name, desc:'Criado a partir de template', freq:'diaria',
+    date:todayStr(), times:times, doneSlots:{},
+    cat:'pessoal', prio:3, done:false, createdAt:new Date().toISOString()
+  });
+  save(); currentView='hoje'; render();
+  alert('Template "'+tpl.name+'" criado!');
+}
+
+// ═══════════════════ POMODORO ═══════════════════
+var pomoInterval = null;
+var pomoSeconds = 25*60;
+var pomoRunning = false;
+var pomoTaskText = '';
+
+function startPomo(taskText) {
+  pomoTaskText = taskText || '';
+  pomoSeconds = 25*60;
+  pomoRunning = false;
+  document.getElementById('pomoTask').textContent = pomoTaskText;
+  document.getElementById('pomoLabel').textContent = '🍅 FOCO';
+  document.getElementById('pomoLabel').style.color = 'var(--red)';
+  document.getElementById('pomoPlayBtn').textContent = '▶ Iniciar';
+  updatePomoDisplay();
+  document.getElementById('pomoOverlay').style.display = 'flex';
+}
+
+function setPomoTime(min) {
+  if (pomoRunning) togglePomo();
+  pomoSeconds = min * 60;
+  document.getElementById('pomoLabel').textContent = min <= 5 ? '☕ PAUSA' : '🍅 FOCO';
+  document.getElementById('pomoLabel').style.color = min <= 5 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('pomoPlayBtn').textContent = '▶ Iniciar';
+  updatePomoDisplay();
+}
+
+function togglePomo() {
+  if (pomoRunning) {
+    clearInterval(pomoInterval);
+    pomoRunning = false;
+    document.getElementById('pomoPlayBtn').textContent = '▶ Continuar';
+  } else {
+    pomoRunning = true;
+    document.getElementById('pomoPlayBtn').textContent = '⏸ Pausar';
+    pomoInterval = setInterval(function() {
+      pomoSeconds--;
+      updatePomoDisplay();
+      if (pomoSeconds <= 0) {
+        clearInterval(pomoInterval);
+        pomoRunning = false;
+        document.getElementById('pomoLabel').textContent = '✅ CONCLUIDO!';
+        document.getElementById('pomoPlayBtn').textContent = '▶ Novo';
+        // Sound alert
+        try { new Audio('data:audio/wav;base64,UklGRl9vT19teleUFMQQBAAAABAAEARAAA').play(); } catch(e){}
+        // Notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('🍅 Pomodoro concluido!', {body: pomoTaskText || 'Hora de descansar!'});
+        }
+        // Add XP
+        addXP(25);
+      }
+    }, 1000);
+  }
+}
+
+function resetPomo() {
+  if (pomoRunning) { clearInterval(pomoInterval); pomoRunning = false; }
+  pomoSeconds = 25*60;
+  document.getElementById('pomoLabel').textContent = '🍅 FOCO';
+  document.getElementById('pomoPlayBtn').textContent = '▶ Iniciar';
+  updatePomoDisplay();
+}
+
+function closePomo() {
+  if (pomoRunning) { clearInterval(pomoInterval); pomoRunning = false; }
+  document.getElementById('pomoOverlay').style.display = 'none';
+}
+
+function updatePomoDisplay() {
+  var m = Math.floor(pomoSeconds/60);
+  var s = pomoSeconds % 60;
+  document.getElementById('pomoTimer').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  // Color based on time
+  var el = document.getElementById('pomoTimer');
+  if (pomoSeconds <= 60) el.style.color = 'var(--red)';
+  else if (pomoSeconds <= 5*60) el.style.color = 'var(--orange)';
+  else el.style.color = 'var(--text)';
+}
+
+// ═══════════════════ NOTAS ═══════════════════
+function ensureNotes() { if (!D.notes) D.notes = []; }
+
+function renderNotas(H, C) {
+  ensureNotes();
+  H.innerHTML = '<h2>📝 Notas</h2><div class="subtitle">Brain dump - capture ideias rapidamente</div>';
+
+  var html = '<div style="background:var(--bg2);border-radius:10px;padding:12px;margin-bottom:16px">';
+  html += '<textarea class="form-input" id="newNoteText" rows="3" placeholder="Escreva uma ideia, pensamento, lembrete..." style="margin-bottom:8px;font-size:0.9rem"></textarea>';
+  html += '<div style="display:flex;gap:8px;justify-content:flex-end">';
+  html += '<select class="form-input" id="newNoteColor" style="width:auto;padding:6px 10px;font-size:0.8rem"><option value="accent">🟣 Ideia</option><option value="green">🟢 Importante</option><option value="orange">🟠 Lembrete</option><option value="red">🔴 Urgente</option><option value="blue">🔵 Referencia</option></select>';
+  html += '<button class="btn btn-primary btn-sm" onclick="addNote()">+ Salvar nota</button>';
+  html += '</div></div>';
+
+  if (!D.notes.length) {
+    html += '<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📝</div><p>Nenhuma nota. Comece a escrever!</p></div>';
+  } else {
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">';
+    D.notes.slice().reverse().forEach(function(n, ri) {
+      var i = D.notes.length - 1 - ri;
+      var color = n.color || 'accent';
+      html += '<div class="note-card" style="border-left:3px solid var(--'+color+')">';
+      html += '<div style="font-size:0.88rem;white-space:pre-wrap;line-height:1.5;margin-bottom:8px">'+esc(n.text)+'</div>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+      html += '<span style="font-size:0.65rem;color:var(--text3)">'+fmtDate(n.date)+' '+( n.time||'')+'</span>';
+      html += '<button onclick="deleteNote('+i+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem;opacity:0.5">✕</button>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+  C.innerHTML = html;
+}
+
+function addNote() {
+  ensureNotes();
+  var text = document.getElementById('newNoteText').value.trim();
+  if (!text) return;
+  var color = document.getElementById('newNoteColor').value;
+  var now = new Date();
+  D.notes.push({text:text, color:color, date:todayStr(), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+  save();
+  document.getElementById('newNoteText').value = '';
+  render();
+}
+
+function deleteNote(i) {
+  ensureNotes();
+  D.notes.splice(i, 1);
+  save(); render();
+}
+
+// ═══════════════════ GAMIFICATION ═══════════════════
+function ensureGamification() {
+  if (!D.xp) D.xp = {total:0, level:1};
+}
+
+function addXP(amount) {
+  ensureGamification();
+  D.xp.total += amount;
+  // Level up every 500 XP
+  D.xp.level = Math.floor(D.xp.total / 500) + 1;
+  save();
+}
+
+function getXPForLevel(lvl) { return (lvl - 1) * 500; }
+function getXPProgress() {
+  ensureGamification();
+  var lvlXP = getXPForLevel(D.xp.level);
+  var nextXP = getXPForLevel(D.xp.level + 1);
+  return Math.round(((D.xp.total - lvlXP) / (nextXP - lvlXP)) * 100);
+}
+
+// Add XP when completing habits and tasks
+var _origToggleHabitDay = toggleHabitDay;
+// We'll hook into save() to track XP - done in the habit/task toggle functions
+
+// ═══════════════════ TEMPLATES ═══════════════════
+function getTemplates() {
+  return [
+    {name:'🌅 Rotina Matinal', tasks:[
+      {text:'Acordar e se hidratar',time:'06:00'},
+      {text:'Exercicio/Alongamento',time:'06:15'},
+      {text:'Banho',time:'06:45'},
+      {text:'Cafe da manha',time:'07:15'},
+      {text:'Planejamento do dia',time:'07:45'}
+    ]},
+    {name:'🌙 Rotina Noturna', tasks:[
+      {text:'Jantar',time:'19:00'},
+      {text:'Revisar tarefas do dia',time:'20:30'},
+      {text:'Leitura',time:'21:00'},
+      {text:'Meditacao/Gratidao',time:'21:30'},
+      {text:'Preparar para dormir',time:'22:00'}
+    ]},
+    {name:'💼 Dia de Trabalho', tasks:[
+      {text:'Check emails',time:'08:00'},
+      {text:'Standup/Daily',time:'09:00'},
+      {text:'Bloco de foco 1',time:'09:30'},
+      {text:'Almoco',time:'12:00'},
+      {text:'Bloco de foco 2',time:'14:00'},
+      {text:'Revisao e follow-ups',time:'17:00'}
+    ]},
+    {name:'🏠 Limpeza Semanal', tasks:[
+      {text:'Aspirar/Varrer',time:'09:00'},
+      {text:'Limpar banheiro',time:'10:00'},
+      {text:'Trocar roupas de cama',time:'10:30'},
+      {text:'Lavar roupas',time:'11:00'},
+      {text:'Organizar cozinha',time:'11:30'}
+    ]}
+  ];
+}
+
+// ═══════════════════ CONTRIBUTIONS GRID ═══════════════════
+function renderContribGrid(habit) {
+  var today = new Date();
+  var startOfYear = new Date(today.getFullYear(), 0, 1);
+  var dayOfYear = Math.floor((today - startOfYear) / 86400000);
+  var color = habit.color || 'green';
+  var colorMap = {green:'#30d158',blue:'#0a84ff',orange:'#ff9500',pink:'#ff375f',accent:'#7c5cfc',cyan:'#64d2ff',red:'#ff5555',yellow:'#ffd60a'};
+  var hex = colorMap[color] || colorMap.accent;
+
+  var html = '<div style="display:flex;gap:2px;flex-wrap:wrap">';
+  for (var d = 0; d <= dayOfYear; d++) {
+    var date = new Date(today.getFullYear(), 0, d + 1);
+    var key = date.toISOString().split('T')[0];
+    var done = habit.log && habit.log[key];
+    html += '<div style="width:11px;height:11px;border-radius:2px;background:'+(done?hex:'var(--surface2)')+'" title="'+fmtDate(key)+(done?' ✅':'')+'"></div>';
+  }
+  html += '</div>';
+  return html;
 }
 
 // ═══════════════════ HABIT YEAR STATS ═══════════════════
@@ -3774,7 +4064,7 @@ function mobileNav(view) {
 }
 function updateMobileNav() {
   document.querySelectorAll('.mob-nav').forEach(b => b.classList.toggle('active', b.dataset.mv === currentView));
-  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',midia:'Midia',graficos:'Graficos'};
+  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',notas:'Notas',midia:'Midia',graficos:'Graficos'};
   const el = document.getElementById('mobileTitle');
   if (el) el.textContent = titles[currentView] || currentView;
 }
@@ -3785,6 +4075,11 @@ const mobileAv = document.getElementById('mobileAvatar');
 if (mobileAv) mobileAv.src = AVATAR;
 updateSidebarDate();
 autoArchivePastYears();
+ensureGamification();
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
 
 // Populate theme picker in profile menu
 function renderThemePicker() {
