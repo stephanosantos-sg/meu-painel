@@ -571,58 +571,73 @@ textarea.form-input{min-height:50px;resize:vertical}
 <!-- ═══ Sync Modal ═══ -->
 <div class="modal-overlay" id="syncModal">
   <div class="modal">
-    <div class="modal-header"><h3>Sincronizacao na Nuvem</h3><button class="modal-close" onclick="closeSyncModal()">&times;</button></div>
+    <div class="modal-header"><h3>🪐 Sync & Backup</h3><button class="modal-close" onclick="closeSyncModal()">&times;</button></div>
     <div class="modal-body">
-      <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.82rem;color:var(--text2);line-height:1.5">
-        <strong style="color:var(--text)">Como configurar:</strong><br>
-        1. Crie uma <strong>Google Sheets</strong> nova<br>
-        2. Renomeie a primeira aba para <strong>Data</strong><br>
-        3. Va em <strong>Extensoes > Apps Script</strong><br>
-        4. Apague tudo e cole o codigo abaixo:<br>
+
+      <!-- URL Config -->
+      <div class="form-group">
+        <label>URL do Google Apps Script</label>
+        <input class="form-input" id="fSyncUrl" placeholder="https://script.google.com/macros/s/.../exec">
       </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:0.68rem;color:var(--cyan);margin-bottom:12px;white-space:pre;overflow-x:auto;line-height:1.4" id="appsScriptCode">function doGet(e) {
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <button class="btn btn-primary" onclick="saveSyncUrl()" style="flex:1">Salvar URL</button>
+        <button class="btn btn-ghost" onclick="testSync()">Testar</button>
+        <button class="btn btn-ghost" onclick="removeSyncUrl()" style="color:var(--red)">✕</button>
+      </div>
+
+      <!-- Cloud Sync -->
+      <div style="font-size:0.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px">☁️ Nuvem (tarefas, habitos, objetivos)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+        <button class="btn btn-primary" onclick="forcePush()" style="background:var(--green);padding:14px 10px;font-size:0.85rem">⬆️ Enviar</button>
+        <button class="btn btn-ghost" onclick="forcePull()" style="padding:14px 10px;font-size:0.85rem">⬇️ Baixar</button>
+      </div>
+
+      <!-- JSON Backup -->
+      <div style="font-size:0.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px">💾 Backup completo (inclui midia)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+        <button class="btn btn-ghost" onclick="exportBackup()" style="padding:14px 10px;font-size:0.85rem">💾 Exportar JSON</button>
+        <label class="btn btn-ghost" style="cursor:pointer;padding:14px 10px;font-size:0.85rem;text-align:center">📂 Importar JSON<input type="file" accept=".json" style="display:none" onchange="importBackup(this)"></label>
+      </div>
+
+      <!-- Setup instructions (collapsible) -->
+      <details style="margin-bottom:12px">
+        <summary style="font-size:0.78rem;color:var(--text3);cursor:pointer;padding:8px 0">📋 Como configurar o Apps Script</summary>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-top:8px;font-size:0.78rem;color:var(--text2);line-height:1.5">
+          1. Crie uma Google Sheets nova<br>
+          2. Renomeie a aba para <strong>Data</strong><br>
+          3. Extensoes > Apps Script<br>
+          4. Cole o codigo e faca Deploy > App da Web
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px;font-family:monospace;font-size:0.62rem;color:var(--cyan);white-space:pre;overflow-x:auto;line-height:1.3;max-height:150px;overflow-y:auto" id="appsScriptCode">function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
   if (action === 'events') {
-    var now = new Date();
-    var end = new Date();
+    var now = new Date(); var end = new Date();
     end.setDate(now.getDate() + 15);
     var cal = CalendarApp.getDefaultCalendar();
     var evs = cal.getEvents(now, end);
     var result = evs.map(function(ev) {
-      return {title:ev.getTitle(),start:ev.getStartTime().toISOString(),end:ev.getEndTime().toISOString(),allDay:ev.isAllDayEvent(),location:ev.getLocation()||'',description:ev.getDescription()||''};
+      return {title:ev.getTitle(),start:ev.getStartTime().toISOString(),
+        end:ev.getEndTime().toISOString(),allDay:ev.isAllDayEvent(),
+        location:ev.getLocation()||''};
     });
-    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(
+      JSON.stringify(result)).setMimeType(
+      ContentService.MimeType.JSON);
   }
-  var s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data');
-  return ContentService.createTextOutput(s.getRange('A1').getValue()).setMimeType(ContentService.MimeType.JSON);
+  var s = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName('Data');
+  return ContentService.createTextOutput(
+    s.getRange('A1').getValue()).setMimeType(
+    ContentService.MimeType.JSON);
 }
 function doPost(e) {
-  var s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data');
+  var s = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName('Data');
   s.getRange('A1').setValue(e.postData.contents);
   return ContentService.createTextOutput('ok');
 }</div>
-      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('appsScriptCode').textContent)" style="margin-bottom:16px">Copiar codigo</button>
-      <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.82rem;color:var(--text2);line-height:1.5">
-        5. Clique <strong>Implantar > Nova implantacao</strong><br>
-        6. Tipo: <strong>App da Web</strong><br>
-        7. Executar como: <strong>Eu</strong> / Acesso: <strong>Qualquer pessoa</strong><br>
-        8. Copie a URL gerada e cole abaixo:
-      </div>
-      <div class="form-group">
-        <label>URL do Apps Script</label>
-        <input class="form-input" id="fSyncUrl" placeholder="https://script.google.com/macros/s/...../exec">
-      </div>
-      <div class="form-actions" style="justify-content:space-between">
-        <button class="btn btn-ghost" onclick="testSync()" id="btnTestSync">Testar conexao</button>
-        <button class="btn btn-primary" onclick="forcePush()" style="background:var(--green)">Enviar para nuvem</button>
-        <button class="btn btn-ghost" onclick="exportBackup()">💾 Exportar JSON</button>
-        <label class="btn btn-ghost" style="cursor:pointer">📂 Importar JSON<input type="file" accept=".json" style="display:none" onchange="importBackup(this)"></label>
-        <button class="btn btn-ghost" onclick="forcePull()">Baixar da nuvem</button>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost" onclick="removeSyncUrl()">Desconectar</button>
-          <button class="btn btn-primary" onclick="saveSyncUrl()">Salvar</button>
-        </div>
-      </div>
+        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('appsScriptCode').textContent)" style="margin-top:8px">📋 Copiar codigo</button>
+      </details>
       <div id="syncTestResult" style="margin-top:12px;font-size:0.82rem;display:none"></div>
     </div>
   </div>
