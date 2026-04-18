@@ -421,11 +421,11 @@ textarea.form-input{min-height:50px;resize:vertical}
         <input class="form-input" id="fText" placeholder="O que voce precisa fazer?">
       </div>
       <div class="form-group">
-        <label>Descricao (opcional)</label>
+        <label>Descrição (opcional)</label>
         <textarea class="form-input" id="fDesc" placeholder="Detalhes..."></textarea>
       </div>
       <div class="form-group">
-        <label>Frequencia</label>
+        <label>Frequência</label>
         <div class="form-chips" id="fFreq">
           <button class="form-chip active" data-v="pontual">Pontual</button>
           <button class="form-chip" data-v="diaria">Diaria</button>
@@ -440,7 +440,7 @@ textarea.form-input{min-height:50px;resize:vertical}
           <input type="date" class="form-input" id="fDate">
         </div>
         <div class="form-group">
-          <label>Hora (tarefa unica)</label>
+          <label>Hora (tarefa única)</label>
           <input type="time" class="form-input" id="fTime">
         </div>
       </div>
@@ -453,10 +453,10 @@ textarea.form-input{min-height:50px;resize:vertical}
 
       <!-- Multi-time area -->
       <div class="form-group" id="multiTimeArea" style="display:none">
-        <label>Horarios do dia <span style="font-weight:400;text-transform:none;color:var(--text3)">&mdash; ex: beber agua 6x/dia</span></label>
+        <label>Horários do dia <span style="font-weight:400;text-transform:none;color:var(--text3)">&mdash; ex: beber agua 6x/dia</span></label>
         <div class="times-area">
           <div class="times-list" id="timesList"></div>
-          <button class="btn btn-ghost btn-sm" onclick="addTimeEntry()" style="margin-top:8px">+ Horario</button>
+          <button class="btn btn-ghost btn-sm" onclick="addTimeEntry()" style="margin-top:8px">+ Horário</button>
         </div>
       </div>
 
@@ -485,7 +485,7 @@ textarea.form-input{min-height:50px;resize:vertical}
       <div class="form-group">
         <label>Depende de (tarefa que precisa ser feita antes)</label>
         <select class="form-input" id="fTaskDep">
-          <option value="">Nenhuma dependencia</option>
+          <option value="">Nenhuma dependência</option>
         </select>
       </div>
       <div class="form-actions">
@@ -499,7 +499,7 @@ textarea.form-input{min-height:50px;resize:vertical}
 <!-- ═══ Habit Modal ═══ -->
 <div class="modal-overlay" id="habitModal">
   <div class="modal">
-    <div class="modal-header"><h3>Novo Habito</h3><button class="modal-close" onclick="closeHabitModal()">&times;</button></div>
+    <div class="modal-header"><h3>Novo Hábito</h3><button class="modal-close" onclick="closeHabitModal()">&times;</button></div>
     <div class="modal-body">
       <div class="form-group"><label>Nome</label><input class="form-input" id="fHName" placeholder="Ex: Exercicio, Leitura..."></div>
       <div class="form-group"><label>Dias da semana</label>
@@ -533,8 +533,8 @@ textarea.form-input{min-height:50px;resize:vertical}
   <div class="modal">
     <div class="modal-header"><h3>Novo Objetivo</h3><button class="modal-close" onclick="closeGoalModal()">&times;</button></div>
     <div class="modal-body">
-      <div class="form-group"><label>Titulo</label><input class="form-input" id="fGTitle" placeholder="Qual o seu objetivo?"></div>
-      <div class="form-group"><label>Descricao</label><textarea class="form-input" id="fGDesc" placeholder="Por que e importante?"></textarea></div>
+      <div class="form-group"><label>Título</label><input class="form-input" id="fGTitle" placeholder="Qual o seu objetivo?"></div>
+      <div class="form-group"><label>Descrição</label><textarea class="form-input" id="fGDesc" placeholder="Por que e importante?"></textarea></div>
       <div class="form-group"><label>Prazo final</label><input type="date" class="form-input" id="fGDeadline" onchange="calcGoalSchedule()"></div>
       <div class="form-group"><label>Dias disponiveis para trabalhar</label><div id="fGDays" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
       <div id="goalScheduleAlert" style="display:none;background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:10px;margin-bottom:12px;font-size:0.82rem;color:var(--red)"></div>
@@ -555,13 +555,13 @@ textarea.form-input{min-height:50px;resize:vertical}
     <div class="modal-header"><h3 id="bulkImportTitle">Importar Lista</h3><button class="modal-close" onclick="closeBulkImport()">&times;</button></div>
     <div class="modal-body">
       <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.82rem;color:var(--text2);line-height:1.5">
-        Cole a lista de titulos, <strong>um por linha</strong>.<br>
+        Cole a lista de títulos, <strong>um por linha</strong>.<br>
         Para livros, use <strong>titulo[TAB]autor</strong> por linha.<br>
         Duplicatas serao ignoradas automaticamente.
       </div>
       <div class="form-group">
         <label>Colar lista ou carregar arquivo .txt</label>
-        <textarea class="form-input" id="fBulkText" rows="12" placeholder="Titulo 1&#10;Titulo 2&#10;Titulo 3&#10;&#10;Ou para livros:&#10;Titulo do livro&#9;Autor&#10;Outro livro&#9;Outro autor" style="font-family:monospace;font-size:0.82rem"></textarea>
+        <textarea class="form-input" id="fBulkText" rows="12" placeholder="Título 1&#10;Título 2&#10;Título 3&#10;&#10;Ou para livros:&#10;Título do livro&#9;Autor&#10;Outro livro&#9;Outro autor" style="font-family:monospace;font-size:0.82rem"></textarea>
       </div>
       <div class="form-group">
         <label>Ou carregar arquivo .txt</label>
@@ -579,9 +579,9 @@ textarea.form-input{min-height:50px;resize:vertical}
 <!-- ═══ Edit Media Modal ═══ -->
 <div class="modal-overlay" id="editMediaModal">
   <div class="modal">
-    <div class="modal-header"><h3>Editar Midia</h3><button class="modal-close" onclick="closeEditMediaModal()">&times;</button></div>
+    <div class="modal-header"><h3>Editar Mídia</h3><button class="modal-close" onclick="closeEditMediaModal()">&times;</button></div>
     <div class="modal-body">
-      <div class="form-group"><label>Titulo</label><input class="form-input" id="fMediaTitle"></div>
+      <div class="form-group"><label>Título</label><input class="form-input" id="fMediaTitle"></div>
       <div class="form-group"><label>Autor / Diretor</label><input class="form-input" id="fMediaAuthor"></div>
       <div class="form-group"><label>Ano</label><input class="form-input" id="fMediaYear" type="text"></div>
       <div class="form-group"><label>Genero</label><input class="form-input" id="fMediaGenre" type="text"></div>
@@ -665,7 +665,7 @@ textarea.form-input{min-height:50px;resize:vertical}
 <!-- Global Search -->
 <div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeGlobalSearch()">
   <div class="search-box">
-    <input id="globalSearchInput" placeholder="Buscar tarefas, hábitos, objetivos, notas..." oninput="doGlobalSearch(this.value)" onkeydown="searchKeyNav(event)">
+    <input id="globalSearchInput" placeholder="Buscar tarefas, habitos, objetivos, notas..." oninput="doGlobalSearch(this.value)" onkeydown="searchKeyNav(event)">
     <div class="search-results" id="searchResults"></div>
   </div>
 </div>
@@ -753,8 +753,8 @@ function doPost(e) {
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="ideaModalTitle">Nova Ideia</h3><button class="modal-close" onclick="closeIdeaModal()">&times;</button></div>
     <div class="modal-body">
-      <div class="form-group"><label>Titulo</label><input class="form-input" id="fIdeaTitle" placeholder="Nome do projeto..."></div>
-      <div class="form-group"><label>Descricao</label><textarea class="form-input" id="fIdeaDesc" rows="3" placeholder="Descreva a ideia..."></textarea></div>
+      <div class="form-group"><label>Título</label><input class="form-input" id="fIdeaTitle" placeholder="Nome do projeto..."></div>
+      <div class="form-group"><label>Descrição</label><textarea class="form-input" id="fIdeaDesc" rows="3" placeholder="Descreva a ideia..."></textarea></div>
       <div class="form-group"><label>Imagem de capa</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="file" id="fIdeaCover" accept="image/*" onchange="previewIdeaCover(this)" style="font-size:0.78rem">
@@ -767,9 +767,9 @@ function doPost(e) {
       </div>
       <div class="form-group"><label>Dificuldade</label>
         <div id="fIdeaDiff" style="display:flex;gap:6px">
-          <span class="form-chip" data-v="facil" onclick="setIdeaDiff('facil')">🟢 Facil</span>
-          <span class="form-chip" data-v="medio" onclick="setIdeaDiff('medio')">🟡 Medio</span>
-          <span class="form-chip" data-v="dificil" onclick="setIdeaDiff('dificil')">🔴 Dificil</span>
+          <span class="form-chip" data-v="facil" onclick="setIdeaDiff('facil')">🟢 Fácil</span>
+          <span class="form-chip" data-v="medio" onclick="setIdeaDiff('medio')">🟡 Médio</span>
+          <span class="form-chip" data-v="dificil" onclick="setIdeaDiff('dificil')">🔴 Difícil</span>
         </div>
       </div>
       <div class="form-group"><label>Etapas</label>
@@ -868,7 +868,7 @@ function fmtDate(d) {
   const t = todayStr();
   if (d===t) return 'Hoje';
   const n=new Date(), tm=new Date(n); tm.setDate(n.getDate()+1);
-  if (d===dateToStr(tm)) return 'Amanha';
+  if (d===dateToStr(tm)) return 'Amanhã';
   const y=new Date(n); y.setDate(n.getDate()-1);
   if (d===dateToStr(y)) return 'Ontem';
   const [yy,mm,dd]=d.split('-');
@@ -968,7 +968,7 @@ function renderSidebar() {
       <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
       <div class="nav-item ${currentView==='compras'?'active':''}" data-view="compras"><span class="icon">🛒</span>Compras</div>
       <div class="nav-item ${currentView==='notas'?'active':''}" data-view="notas"><span class="icon">📝</span>Notas</div>
-      <div class="nav-item ${currentView==='midia'?'active':''}" data-view="midia"><span class="icon">🎬</span>Midia</div>
+      <div class="nav-item ${currentView==='midia'?'active':''}" data-view="midia"><span class="icon">🎬</span>Mídia</div>
       <div class="nav-item ${currentView==='ideias'?'active':''}" data-view="ideias"><span class="icon">💡</span>Ideias</div>
       <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Gráficos</div>
     </div>
@@ -1048,7 +1048,7 @@ function updateSidebarDate() {
 }
 
 // Frequency tag HTML
-const FREQ_LABELS = {pontual:'Pontual',diaria:'Diaria',semanal:'Semanal',mensal:'Mensal',anual:'Anual'};
+const FREQ_LABELS = {pontual:'Pontual',diaria:'Diária',semanal:'Semanal',mensal:'Mensal',anual:'Anual'};
 const FREQ_ICONS = {pontual:'',diaria:'&#8635;',semanal:'&#8635;',mensal:'&#8635;',anual:'&#8635;'};
 function freqTag(f) { return f ? `<span class="tag tag-${f}">${FREQ_ICONS[f]||''} ${FREQ_LABELS[f]||f}</span>` : ''; }
 function catTag(c) { if(!c) return ''; const cat=getCat(c); return `<span class="tag" style="background:var(--${cat.color}-bg, var(--surface2));color:var(--${cat.color})">${cat.icon} ${esc(cat.name)}</span>`; }
@@ -1096,7 +1096,7 @@ function renderHoje(H, C) {
   let html = `<div class="stats-row">
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
     <div class="stat-card accent"><div class="stat-label">Pendentes</div><div class="stat-value">${allPending}</div></div>
-    <div class="stat-card green"><div class="stat-label">Concluidas hoje</div><div class="stat-value">${countDoneToday()}</div></div>
+    <div class="stat-card green"><div class="stat-label">Concluídas hoje</div><div class="stat-value">${countDoneToday()}</div></div>
     <div class="stat-card orange"><div class="stat-label">Hábitos</div><div class="stat-value">${habitsToday}/${habitsForToday.length}</div></div>
   </div>`;
 
@@ -1155,7 +1155,7 @@ function renderHoje(H, C) {
     html += `</div></div>`;
   }
 
-  // Historico de tarefas recorrentes (7 dias)
+  // Histórico de tarefas recorrentes (7 dias)
   if (viewMode === 'lista') {
     const recTasks = D.tasks.filter(tk => tk.freq && tk.freq !== 'pontual');
     if (recTasks.length) {
@@ -1249,7 +1249,7 @@ function renderTodas(H, C) {
     html += renderCalendar(D.tasks);
   } else {
     if (pending.length) html += renderTaskGroup(`Ativas (${pending.length})`, pending, t, '');
-    if (done.length) html += renderTaskGroup(`Concluidas (${done.length})`, done, t, '', true);
+    if (done.length) html += renderTaskGroup(`Concluídas (${done.length})`, done, t, '', true);
     if (!D.tasks.length) html += emptyState('Nenhuma tarefa');
   }
   C.innerHTML = html;
@@ -1270,7 +1270,7 @@ function renderCat(H, C, catId) {
     html += renderCalendar(tasks);
   } else {
     if (pending.length) html += renderTaskGroup(`Pendentes (${pending.length})`, pending, t, '');
-    if (done.length) html += renderTaskGroup(`Concluidas (${done.length})`, done, t, '', true);
+    if (done.length) html += renderTaskGroup(`Concluídas (${done.length})`, done, t, '', true);
     if (!tasks.length) html += emptyState('Nenhuma tarefa nesta categoria');
   }
   C.innerHTML = html;
@@ -1320,7 +1320,7 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
       if (!Array.isArray(ds)) ds = [];
       const slotsDone = ds.length;
       const slotsHidden = isCollapsed(t,'slots');
-      html += `<div onclick="toggleCollapse('${t.id}','slots')" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:3px 10px;border-radius:6px;background:var(--surface2);font-size:0.72rem;color:var(--accent2);font-weight:600">${slotsHidden?'&#9656;':'&#9662;'} ${slotsDone}/${t.times.length} horarios</div>`;
+      html += `<div onclick="toggleCollapse('${t.id}','slots')" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:3px 10px;border-radius:6px;background:var(--surface2);font-size:0.72rem;color:var(--accent2);font-weight:600">${slotsHidden?'&#9656;':'&#9662;'} ${slotsDone}/${t.times.length} horários</div>`;
       html += `<div class="time-slots" style="${slotsHidden?'display:none':''}">`;
       t.times.forEach(s => {
         const sd = ds.includes(s.time);
@@ -1651,7 +1651,7 @@ function onFreqChange(freq) {
 function addTimeEntry(time, label) {
   const div = document.createElement('div');
   div.className = 'time-entry';
-  div.innerHTML = `<input type="time" class="te-time" value="${time||''}"><input type="text" class="te-label" placeholder="Descricao (ex: Copo 3 pos almoco)..." value="${esc(label||'')}"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
+  div.innerHTML = `<input type="time" class="te-time" value="${time||''}"><input type="text" class="te-label" placeholder="Descrição (ex: Copo 3 pós almoço)..." value="${esc(label||'')}"><button class="task-action del" onclick="this.parentElement.remove()">&times;</button>`;
   document.getElementById('timesList').appendChild(div);
   div.querySelector('.te-time').focus();
 }
@@ -1786,7 +1786,7 @@ function openHabitModal(editId){
   const h = editId ? D.habits.find(x=>x.id===editId) : null;
   document.getElementById('fHName').value = h ? h.name : '';
   document.getElementById('habitModal').dataset.editId = editId || '';
-  document.querySelector('#habitModal .modal-header h3').textContent = h ? 'Editar Habito' : 'Novo Habito';
+  document.querySelector('#habitModal .modal-header h3').textContent = h ? 'Editar Hábito' : 'Novo Hábito';
   buildDayPicker('fHDays', h ? h.days : [0,1,2,3,4,5,6]);
 
   // Icon picker
@@ -1834,9 +1834,9 @@ function renderHabitos(H, C) {
   });
 
   let html = `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-    <button class="btn btn-primary" onclick="openHabitModal()">+ Novo Habito</button>
+    <button class="btn btn-primary" onclick="openHabitModal()">+ Novo Hábito</button>
     <button class="btn btn-ghost btn-sm" onclick="showYearStats()">📊 Resumo ${yr}</button>
-    ${D._habitArchive ? `<button class="btn btn-ghost btn-sm" onclick="showArchivedYears()">📁 Historico</button>` : ''}
+    ${D._habitArchive ? `<button class="btn btn-ghost btn-sm" onclick="showArchivedYears()">📁 Histórico</button>` : ''}
   </div>`;
 
   if (D.habits.length && totalYearDone > 0) {
@@ -1849,7 +1849,7 @@ function renderHabitos(H, C) {
       }).join('')}
     </div>`;
   }
-  if (!D.habits.length) { C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">⭐</div><p>Nenhum hábito cadastrado</p><button class="btn btn-primary" style="margin-top:16px" onclick="openHabitModal()">+ Novo Habito</button></div>`; return; }
+  if (!D.habits.length) { C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">⭐</div><p>Nenhum hábito cadastrado</p><button class="btn btn-primary" style="margin-top:16px" onclick="openHabitModal()">+ Novo Hábito</button></div>`; return; }
   const week=getWeekDays(), last30=getLast30(), t=todayStr();
   html += `<div class="habits-grid">`;
   D.habits.forEach(h => {
@@ -1897,7 +1897,7 @@ function renderHabitos(H, C) {
         </div>
       </div>` : ''}
       <div class="habit-stats">
-        <div class="habit-stat"><div class="hs-val">${streak}</div><div class="hs-label">🔥 Sequencia</div></div>
+        <div class="habit-stat"><div class="hs-val">${streak}</div><div class="hs-label">🔥 Sequência</div></div>
         <div class="habit-stat"><div class="hs-val">${Math.min(100,Math.round(weekDone/(h.goal||7)*100))}%</div><div class="hs-label">Semana</div></div>
         <div class="habit-stat"><div class="hs-val">${totalDone}</div><div class="hs-label">Total</div></div>
         ${h.yearGoal && h.yearGoal > 0 ? `<div class="habit-stat"><div class="hs-val">${Math.min(100,Math.round(yearDone/h.yearGoal*100))}%</div><div class="hs-label">Ano</div></div>` : ''}
@@ -2237,7 +2237,7 @@ function renderCompras(H, C) {
         </div>
         <div style="display:flex;gap:4px">
           <button class="task-action" onclick="openShopListModal('${sl.id}')" title="Editar" style="opacity:0.6">✏️</button>
-          ${done>0?`<button class="task-action" onclick="clearDoneItems('${sl.id}')" title="Limpar concluidos" style="opacity:0.6">🧹</button>`:''}
+          ${done>0?`<button class="task-action" onclick="clearDoneItems('${sl.id}')" title="Limpar concluídos" style="opacity:0.6">🧹</button>`:''}
           <button class="task-action del" onclick="deleteShopList('${sl.id}')" title="Excluir" style="opacity:0.6">✕</button>
         </div>
       </div>
@@ -2414,7 +2414,7 @@ function notifyUnblocked(taskId) {
 function populateDepSelect(currentTaskId) {
   var sel = document.getElementById('fTaskDep');
   if (!sel) return;
-  sel.innerHTML = '<option value="">Nenhuma dependencia</option>';
+  sel.innerHTML = '<option value="">Nenhuma dependência</option>';
   D.tasks.forEach(function(t) {
     if (t.id === currentTaskId) return; // can't depend on self
     sel.innerHTML += '<option value="'+t.id+'">'+(t.icon||'')+ ' ' +esc(t.text).substring(0,40)+'</option>';
@@ -2425,7 +2425,7 @@ function populateDepSelect(currentTaskId) {
 function showTemplates() {
   var templates = getTemplates();
   var html = '<h3 style="margin-bottom:16px">📋 Templates de Rotina</h3>';
-  html += '<p style="color:var(--text3);font-size:0.85rem;margin-bottom:16px">Crie uma tarefa diaria com rotina pronta em 1 clique</p>';
+  html += '<p style="color:var(--text3);font-size:0.85rem;margin-bottom:16px">Crie uma tarefa diária com rotina pronta em 1 clique</p>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
   templates.forEach(function(tpl, i) {
     html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'" onclick="applyTemplate('+i+')">';
@@ -2443,7 +2443,7 @@ function showTemplates() {
 function applyTemplate(idx) {
   var tpl = getTemplates()[idx];
   if (!tpl) return;
-  if (!confirm('Criar tarefa diaria "'+tpl.name+'" com '+tpl.tasks.length+' horarios?')) return;
+  if (!confirm('Criar tarefa diária "'+tpl.name+'" com '+tpl.tasks.length+' horários?')) return;
   var times = tpl.tasks.map(function(t) { return {time:t.time, label:t.text}; });
   D.tasks.push({
     id:uid(), text:tpl.name, desc:'Criado a partir de template', freq:'diaria',
@@ -2849,11 +2849,11 @@ function showArchivedYears() {
   var years = Object.keys(archive).sort().reverse();
   var months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-  var html = breadcrumb([{label:'⭐ Habitos',view:'habitos'},{label:'📁 Historico'}]);
-  html += '<h3 style="margin-bottom:16px">📁 Historico de Hábitos</h3>';
+  var html = breadcrumb([{label:'⭐ Habitos',view:'habitos'},{label:'📁 Histórico'}]);
+  html += '<h3 style="margin-bottom:16px">📁 Histórico de Hábitos</h3>';
 
   if (!years.length) {
-    html += '<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📁</div><p>O historico sera preenchido automaticamente ao virar o ano.</p></div>';
+    html += '<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📁</div><p>O histórico sera preenchido automaticamente ao virar o ano.</p></div>';
     C.innerHTML = html; return;
   }
 
@@ -2947,7 +2947,7 @@ function renderMidia(H, C) {
   ensureMedia();
   const allTotal = Object.values(D.media).reduce((a,v)=>a+v.length,0);
   const allDone = Object.values(D.media).reduce((a,v)=>a+v.filter(x=>x.done).length,0);
-  H.innerHTML = `<h2>🎬 Midia</h2><div class="subtitle">${allDone}/${allTotal} concluidos</div>`;
+  H.innerHTML = `<h2>🎬 Mídia</h2><div class="subtitle">${allDone}/${allTotal} concluídos</div>`;
 
   const tabs = [
     {key:'livros',icon:'📚',label:'Livros'},
@@ -2983,8 +2983,8 @@ function renderMidia(H, C) {
       <button onclick="D._mediaView='galeria';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${mediaView==='galeria'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">🖼️ Galeria</button>
     </div>
     <span style="font-size:0.72rem;color:var(--text3)">Ordenar:</span>
-    <button onclick="D._mediaSort='default';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='default'?'background:var(--accent);color:#fff':''}">Padrao</button>
-    <button onclick="D._mediaSort='title';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='title'?'background:var(--accent);color:#fff':''}">Titulo A-Z</button>
+    <button onclick="D._mediaSort='default';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='default'?'background:var(--accent);color:#fff':''}">Padrão</button>
+    <button onclick="D._mediaSort='title';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='title'?'background:var(--accent);color:#fff':''}">Título A-Z</button>
     ${activeTab==='livros'?`<button onclick="D._mediaSort='author';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='author'?'background:var(--accent);color:#fff':''}">Autor A-Z</button>`:''}
     ${activeTab!=='livros'?`<button onclick="D._mediaSort='rating';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='rating'?'background:var(--accent);color:#fff':''}">Rating</button>`:''}
     <button onclick="D._mediaSort='userRating';render()" class="btn btn-ghost btn-sm" style="font-size:0.7rem;${sortMode==='userRating'?'background:var(--accent);color:#fff':''}">Minha Nota</button>
@@ -3000,7 +3000,7 @@ function renderMidia(H, C) {
   html += `<div style="display:flex;gap:8px;margin-bottom:8px"><button onclick="openBulkImport('${activeTab}')" class="btn btn-ghost btn-sm" style="font-size:0.72rem">📋 Importar lista</button></div>`;
   html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
   if (activeTab === 'livros') {
-    html += `<input class="form-input" id="mediaTitle" placeholder="Titulo do livro..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem">
+    html += `<input class="form-input" id="mediaTitle" placeholder="Título do livro..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem">
       <div style="display:flex;gap:6px">
         <input class="form-input" id="mediaAuthor" placeholder="Autor" style="flex:1;padding:6px 10px;font-size:0.78rem">
         <button class="btn btn-ghost btn-sm" onclick="fetchBookMeta()">🔍 Buscar</button>
@@ -3600,7 +3600,7 @@ function renderGraficos(H, C) {
 
   // ── 5. Completion rate by frequency ──
   const freqs = ['diaria','semanal','mensal','anual','pontual'];
-  const freqNames = {diaria:'Diaria',semanal:'Semanal',mensal:'Mensal',anual:'Anual',pontual:'Pontual'};
+  const freqNames = {diaria:'Diária',semanal:'Semanal',mensal:'Mensal',anual:'Anual',pontual:'Pontual'};
   const freqStats = {};
   freqs.forEach(f => {
     const tasks = D.tasks.filter(x => x.freq===f);
@@ -3618,9 +3618,9 @@ function renderGraficos(H, C) {
 
   let html = `<div class="charts-grid">`;
 
-  // Chart 1: Tarefas concluidas por dia
+  // Chart 1: Tarefas concluídas por dia
   html += `<div class="chart-card">
-    <h4>✅ Tarefas concluidas (7 dias)</h4>
+    <h4>✅ Tarefas concluídas (7 dias)</h4>
     <div class="chart-week-grid" style="height:140px;align-items:flex-end">
       ${last7.map((d,i) => {
         const h = donePerDay[i] > 0 ? Math.max(20, (donePerDay[i]/maxDone)*120) : 4;
@@ -3773,12 +3773,12 @@ function renderGraficos(H, C) {
         </h4>
 
         <div style="display:flex;gap:20px;margin-bottom:14px">
-          <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--${color})">${streak}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">Sequencia</div></div>
+          <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--${color})">${streak}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">Sequência</div></div>
           <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--text)">${doneCount30}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">${hasSlots?'Slots feitos':'Dias feitos'}</div></div>
           <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--${color})">${pct30}%</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">30 dias</div></div>
         </div>
 
-        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px;font-weight:600">ULTIMOS 7 DIAS</div>
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px;font-weight:600">ÚLTIMOS 7 DIAS</div>
         <div class="chart-week-grid" style="height:100px;align-items:flex-end">
           ${days7.map(d => {
             const h = d.done > 0 ? Math.max(16, (d.done/maxBar)*80) : (d.active ? 4 : 0);
@@ -3803,7 +3803,44 @@ function renderGraficos(H, C) {
           }).join('')}
         </div>
 
-        ${hasSlots ? `<div style="font-size:0.72rem;color:var(--text3);margin:12px 0 6px;font-weight:600">HORARIOS</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">
+          ${(function(){
+            // Weekly stats (current week mon-sun)
+            const now=new Date(),dow=now.getDay(),mon=new Date(now);mon.setDate(now.getDate()-((dow+6)%7));
+            let wDone=0,wTotal=0;
+            for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const ds=dateToStr(d);
+              if(isTaskForDate(tk,ds)){wTotal+=hasSlots?tk.times.length:1;const sl=tk.doneSlots&&tk.doneSlots[ds];if(sl){wDone+=hasSlots?(Array.isArray(sl)?sl.length:0):(sl?1:0);}}}
+            const wPct=wTotal?Math.round(wDone/wTotal*100):0;
+            // Monthly stats
+            const mStart=new Date(now.getFullYear(),now.getMonth(),1);let mDone=0,mTotal=0;
+            for(let d=new Date(mStart);d<=now;d.setDate(d.getDate()+1)){const ds=dateToStr(d);
+              if(isTaskForDate(tk,ds)){mTotal+=hasSlots?tk.times.length:1;const sl=tk.doneSlots&&tk.doneSlots[ds];if(sl){mDone+=hasSlots?(Array.isArray(sl)?sl.length:0):(sl?1:0);}}}
+            const mPct=mTotal?Math.round(mDone/mTotal*100):0;
+            // Yearly stats
+            const yStart=new Date(now.getFullYear(),0,1);let yDone=0,yTotal=0;
+            for(let d=new Date(yStart);d<=now;d.setDate(d.getDate()+1)){const ds=dateToStr(d);
+              if(isTaskForDate(tk,ds)){yTotal+=hasSlots?tk.times.length:1;const sl=tk.doneSlots&&tk.doneSlots[ds];if(sl){yDone+=hasSlots?(Array.isArray(sl)?sl.length:0):(sl?1:0);}}}
+            const yPct=yTotal?Math.round(yDone/yTotal*100):0;
+            return `
+              <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.6rem;color:var(--text3);text-transform:uppercase;font-weight:600;margin-bottom:4px">Semana</div>
+                <div style="font-size:1.1rem;font-weight:800;color:var(--${color})">${wPct}%</div>
+                <div style="font-size:0.6rem;color:var(--text3)">${wDone}/${wTotal}</div>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.6rem;color:var(--text3);text-transform:uppercase;font-weight:600;margin-bottom:4px">Mês</div>
+                <div style="font-size:1.1rem;font-weight:800;color:var(--${color})">${mPct}%</div>
+                <div style="font-size:0.6rem;color:var(--text3)">${mDone}/${mTotal}</div>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.6rem;color:var(--text3);text-transform:uppercase;font-weight:600;margin-bottom:4px">Ano</div>
+                <div style="font-size:1.1rem;font-weight:800;color:var(--${color})">${yPct}%</div>
+                <div style="font-size:0.6rem;color:var(--text3)">${yDone}/${yTotal}</div>
+              </div>`;
+          })()}
+        </div>
+
+        ${hasSlots ? `<div style="font-size:0.72rem;color:var(--text3);margin:12px 0 6px;font-weight:600">HORÁRIOS</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${tk.times.map(s => {
             const todaySlots = (tk.doneSlots && tk.doneSlots[t]) || [];
@@ -3855,7 +3892,7 @@ function renderGraficos(H, C) {
         <h4 style="color:var(--${color})">&#9679; ${esc(h.name)} <span style="font-weight:400;color:var(--text3);font-size:0.75rem;margin-left:6px">meta: ${goal}x/semana</span></h4>
 
         <div style="display:flex;gap:20px;margin-bottom:14px">
-          <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--${color})">${streak}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">Sequencia</div></div>
+          <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--${color})">${streak}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">Sequência</div></div>
           <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--text)">${totalDone}</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">Total</div></div>
           <div style="text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--${color})">${pct30}%</div><div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase">30 dias</div></div>
         </div>
@@ -4238,7 +4275,7 @@ async function forcePull() {
     localStorage.setItem(SK, JSON.stringify(D));
     render();
     const mediaCount = Object.values(D.media||{}).reduce((a,v)=>a+(Array.isArray(v)?v.length:0),0);
-    const msg = D.tasks.length + ' tarefas, ' + (D.habits||[]).length + ' habitos, ' + (D.goals||[]).length + ' objetivos, ' + mediaCount + ' midias';
+    const msg = D.tasks.length + ' tarefas, ' + (D.habits||[]).length + ' hábitos, ' + (D.goals||[]).length + ' objetivos, ' + mediaCount + ' mídias';
     if (res) { res.style.color = 'var(--green)'; res.textContent = 'Carregado! ' + msg; }
     setSyncStatus('ok', 'Carregado');
     showToast('☁️ Dados carregados!', 'success');
@@ -4749,7 +4786,7 @@ function mobileNav(view) {
 }
 function updateMobileNav() {
   document.querySelectorAll('.mob-nav').forEach(b => b.classList.toggle('active', b.dataset.mv === currentView));
-  const titles = {hoje:'Hoje',proximos:'Próximos',todas:'Todas',habitos:'Hábitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',notas:'Notas',midia:'Midia',graficos:'Gráficos'};
+  const titles = {hoje:'Hoje',proximos:'Próximos',todas:'Todas',habitos:'Hábitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',notas:'Notas',midia:'Mídia',graficos:'Gráficos'};
   const el = document.getElementById('mobileTitle');
   if (el) el.textContent = titles[currentView] || currentView;
 }
