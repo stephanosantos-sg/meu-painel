@@ -2060,6 +2060,17 @@ function renderCompras(H, C) {
 }
 
 // ═══════════════════ HABIT YEAR STATS ═══════════════════
+function breadcrumb(items) {
+  // items: [{label, view}, {label}]  - last one is current page (no link)
+  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:16px;font-size:0.85rem">' +
+    items.map(function(item, i) {
+      var isLast = i === items.length - 1;
+      if (isLast) return '<span style="color:var(--text);font-weight:600">' + item.label + '</span>';
+      return '<a href="#" onclick="event.preventDefault();currentView=\'' + item.view + '\';render()" style="color:var(--accent2);text-decoration:none;font-weight:500">' + item.label + '</a><span style="color:var(--text3)">›</span>';
+    }).join('') +
+  '</div>';
+}
+
 function smoothLine(points) {
   // Generate smooth bezier curve path
   if (points.length < 2) return '';
@@ -2077,7 +2088,8 @@ function showYearStats() {
   var yr = new Date().getFullYear();
   var months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   var currentMonth = new Date().getMonth();
-  var html = '<h3 style="margin-bottom:16px">📊 Resumo '+yr+'</h3>';
+  var html = breadcrumb([{label:'⭐ Habitos',view:'habitos'},{label:'📊 Resumo '+yr}]);
+  html += '<h3 style="margin-bottom:16px">📊 Resumo '+yr+'</h3>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px">';
 
   // CSS colors map
@@ -2203,7 +2215,8 @@ function showArchivedYears() {
   var years = Object.keys(archive).sort().reverse();
   var months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-  var html = '<h3 style="margin-bottom:16px">📁 Historico de Habitos</h3>';
+  var html = breadcrumb([{label:'⭐ Habitos',view:'habitos'},{label:'📁 Historico'}]);
+  html += '<h3 style="margin-bottom:16px">📁 Historico de Habitos</h3>';
 
   if (!years.length) {
     html += '<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📁</div><p>O historico sera preenchido automaticamente ao virar o ano.</p></div>';
