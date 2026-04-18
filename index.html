@@ -1988,50 +1988,91 @@ function renderCompras(H, C) {
 }
 
 // ═══════════════════ HABIT YEAR STATS ═══════════════════
+function smoothLine(points) {
+  // Generate smooth bezier curve path
+  if (points.length < 2) return '';
+  var d = 'M ' + points[0][0] + ' ' + points[0][1];
+  for (var i = 0; i < points.length - 1; i++) {
+    var x0 = points[i][0], y0 = points[i][1];
+    var x1 = points[i+1][0], y1 = points[i+1][1];
+    var cpx = (x0 + x1) / 2;
+    d += ' C ' + cpx + ' ' + y0 + ', ' + cpx + ' ' + y1 + ', ' + x1 + ' ' + y1;
+  }
+  return d;
+}
+
 function showYearStats() {
   var yr = new Date().getFullYear();
   var months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var currentMonth = new Date().getMonth();
   var html = '<h3 style="margin-bottom:16px">📊 Resumo '+yr+'</h3>';
+
+  // CSS colors map
+  var colorMap = {green:'#30d158',blue:'#0a84ff',orange:'#ff9500',pink:'#ff375f',accent:'#7c5cfc',cyan:'#64d2ff',red:'#ff5555',yellow:'#ffd60a'};
 
   D.habits.forEach(function(h) {
     var color = h.color || 'green';
+    var hexColor = colorMap[color] || colorMap.accent;
     var yearDays = Object.keys(h.log||{}).filter(function(d){return d.startsWith(yr+'');});
     var total = yearDays.length;
 
-    // Per month breakdown
     var perMonth = [];
     for (var m=0; m<12; m++) {
       var prefix = yr + '-' + String(m+1).padStart(2,'0');
-      var count = yearDays.filter(function(d){return d.startsWith(prefix);}).length;
-      perMonth.push(count);
+      perMonth.push(yearDays.filter(function(d){return d.startsWith(prefix);}).length);
     }
     var maxMonth = Math.max.apply(null, perMonth.concat([1]));
 
-    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">';
-    html += '<div style="font-weight:700;margin-bottom:10px">'+(h.icon||'')+' '+esc(h.name)+' <span style="color:var(--'+color+');font-size:0.85rem">'+total+' dias em '+yr+'</span></div>';
-    html += '<div style="display:flex;gap:4px;align-items:flex-end;height:60px">';
+    // SVG line chart
+    var W = 500, H = 120, padX = 30, padY = 20;
+    var chartW = W - padX*2, chartH = H - padY*2;
+    var points = [];
     for (var m=0; m<12; m++) {
-      var barH = perMonth[m] > 0 ? Math.max(8, (perMonth[m]/maxMonth)*50) : 2;
-      var now = new Date().getMonth();
-      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">';
-      html += '<div style="font-size:0.6rem;color:var(--text3)">'+perMonth[m]+'</div>';
-      html += '<div style="width:100%;height:'+barH+'px;background:var(--'+color+');border-radius:3px;opacity:'+(m<=now?'1':'0.2')+'"></div>';
-      html += '<div style="font-size:0.55rem;color:var(--text3)">'+months[m]+'</div>';
-      html += '</div>';
+      var x = padX + (m / 11) * chartW;
+      var y = padY + chartH - (perMonth[m] / maxMonth) * chartH;
+      points.push([x, y]);
     }
+
+    // Gradient fill area
+    var areaPath = smoothLine(points);
+    areaPath += ' L ' + points[11][0] + ' ' + (H-padY) + ' L ' + points[0][0] + ' ' + (H-padY) + ' Z';
+
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+    html += '<span style="font-weight:700">'+(h.icon||'')+' '+esc(h.name)+'</span>';
+    html += '<span style="font-size:0.9rem;font-weight:800;color:'+hexColor+'">'+total+' dias</span>';
     html += '</div>';
+
+    html += '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">';
+    // Grid lines
+    html += '<line x1="'+padX+'" y1="'+(H-padY)+'" x2="'+(W-padX)+'" y2="'+(H-padY)+'" stroke="var(--border)" stroke-width="0.5"/>';
+    html += '<line x1="'+padX+'" y1="'+padY+'" x2="'+(W-padX)+'" y2="'+padY+'" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="4"/>';
+    // Fill area
+    html += '<path d="'+areaPath+'" fill="'+hexColor+'" fill-opacity="0.1"/>';
+    // Line
+    html += '<path d="'+smoothLine(points)+'" fill="none" stroke="'+hexColor+'" stroke-width="2.5" stroke-linecap="round"/>';
+    // Dots + labels
+    for (var m=0; m<12; m++) {
+      var opacity = m <= currentMonth ? '1' : '0.25';
+      html += '<circle cx="'+points[m][0]+'" cy="'+points[m][1]+'" r="3.5" fill="'+hexColor+'" opacity="'+opacity+'"/>';
+      // Value label above dot
+      if (perMonth[m] > 0) {
+        html += '<text x="'+points[m][0]+'" y="'+(points[m][1]-8)+'" text-anchor="middle" fill="'+hexColor+'" font-size="9" font-weight="700" opacity="'+opacity+'">'+perMonth[m]+'</text>';
+      }
+      // Month label below
+      html += '<text x="'+points[m][0]+'" y="'+(H-4)+'" text-anchor="middle" fill="var(--text3)" font-size="8" opacity="'+opacity+'">'+months[m]+'</text>';
+    }
+    html += '</svg>';
+
     if (h.yearGoal && h.yearGoal > 0) {
       var pct = Math.round(total/h.yearGoal*100);
-      html += '<div style="margin-top:10px;display:flex;align-items:center;gap:8px"><div style="flex:1;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:var(--'+color+');border-radius:4px"></div></div><span style="font-size:0.72rem;font-weight:700;color:var(--'+color+')">'+pct+'% meta</span></div>';
+      html += '<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><div style="flex:1;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+hexColor+';border-radius:4px"></div></div><span style="font-size:0.72rem;font-weight:700;color:'+hexColor+'">'+pct+'% meta ('+h.yearGoal+')</span></div>';
     }
     html += '</div>';
   });
 
-  // Archive button
   html += '<div style="margin-top:12px;font-size:0.75rem;color:var(--text3)">📁 O historico e arquivado automaticamente ao virar o ano.</div>';
-
-  var C = document.getElementById('mainContent');
-  C.innerHTML = html;
+  document.getElementById('mainContent').innerHTML = html;
 }
 
 // Auto-archive: runs on app load, checks if there are logs from previous years
@@ -2120,18 +2161,21 @@ function showArchivedYears() {
         html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;background:var(--bg);border-radius:4px;height:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:var(--'+color+');border-radius:4px"></div></div><span style="font-size:0.72rem;color:var(--'+color+');font-weight:700">'+pct+'% da meta ('+h.yearGoal+')</span></div>';
       }
 
-      // Monthly bar chart
-      html += '<div style="display:flex;gap:3px;align-items:flex-end;height:40px">';
-      months.forEach(function(m) {
-        var v = pm[m] || 0;
-        var bh = v > 0 ? Math.max(6, (v/maxM)*35) : 2;
-        html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">';
-        html += '<div style="font-size:0.55rem;color:var(--text3)">'+v+'</div>';
-        html += '<div style="width:100%;height:'+bh+'px;background:var(--'+color+');border-radius:2px"></div>';
-        html += '<div style="font-size:0.5rem;color:var(--text3)">'+m+'</div>';
-        html += '</div>';
-      });
-      html += '</div>';
+      // Monthly line chart
+      var hexC = ({green:'#30d158',blue:'#0a84ff',orange:'#ff9500',pink:'#ff375f',accent:'#7c5cfc',cyan:'#64d2ff',red:'#ff5555',yellow:'#ffd60a'})[color] || '#7c5cfc';
+      var vals = months.map(function(m){return pm[m]||0;});
+      var W2=400,H2=80,pX=25,pY=15;var cW=W2-pX*2,cH=H2-pY*2;
+      var pts=[];for(var mi=0;mi<12;mi++){pts.push([pX+(mi/11)*cW, pY+cH-(vals[mi]/maxM)*cH]);}
+      var area=smoothLine(pts)+' L '+pts[11][0]+' '+(H2-pY)+' L '+pts[0][0]+' '+(H2-pY)+' Z';
+      html += '<svg viewBox="0 0 '+W2+' '+H2+'" style="width:100%;height:auto">';
+      html += '<path d="'+area+'" fill="'+hexC+'" fill-opacity="0.1"/>';
+      html += '<path d="'+smoothLine(pts)+'" fill="none" stroke="'+hexC+'" stroke-width="2" stroke-linecap="round"/>';
+      for(var mi=0;mi<12;mi++){
+        html += '<circle cx="'+pts[mi][0]+'" cy="'+pts[mi][1]+'" r="2.5" fill="'+hexC+'"/>';
+        if(vals[mi]>0) html += '<text x="'+pts[mi][0]+'" y="'+(pts[mi][1]-6)+'" text-anchor="middle" fill="'+hexC+'" font-size="7" font-weight="700">'+vals[mi]+'</text>';
+        html += '<text x="'+pts[mi][0]+'" y="'+(H2-3)+'" text-anchor="middle" fill="var(--text3)" font-size="6.5">'+months[mi]+'</text>';
+      }
+      html += '</svg>';
       html += '</div>';
     });
     html += '</div>';
