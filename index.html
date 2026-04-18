@@ -1614,7 +1614,7 @@ function renderHabitos(H, C) {
         const dow=new Date(d.date+'T12:00:00').getDay();
         const isActive=days.includes(dow);
         const isDone=h.log&&h.log[d.date];
-        return `<div class="habit-day ${isDone?'done':''} ${d.isToday?'is-today':''}" onclick="toggleHabitDay('${h.id}','${d.date}')" style="${isDone?`background:var(--${color});border-color:var(--${color})`:''};${!isActive&&!isDone?'opacity:0.45':''}" ><span class="dlabel">${d.label}</span><span class="dnum">${d.date.split('-')[2]}</span></div>`;
+        return `<div class="habit-day ${isDone?'done':''} ${d.isToday?'is-today':''}" onclick="toggleHabitDay('${h.id}','${d.date}')" style="${isDone?`background:var(--${color});border-color:var(--${color})`:''};${!isActive&&!isDone?'border-style:dashed':''}" ><span class="dlabel">${d.label}</span><span class="dnum">${d.date.split('-')[2]}</span></div>`;
       }).join('')}</div>
       <div class="habit-heatmap">${last30.map(d=>`<div class="hm-cell" title="${fmtDate(d)}" style="${h.log&&h.log[d]?`background:var(--${color})`:''}" ></div>`).join('')}</div>
       <div style="margin-top:10px">
