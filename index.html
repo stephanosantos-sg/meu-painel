@@ -1155,6 +1155,38 @@ function renderHoje(H, C) {
     html += `</div></div>`;
   }
 
+  // Historico de tarefas recorrentes (7 dias)
+  if (viewMode === 'lista') {
+    const recTasks = D.tasks.filter(tk => tk.freq && tk.freq !== 'pontual');
+    if (recTasks.length) {
+      const days7 = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate()-i); days7.push(dateToStr(d)); }
+      const dayLabels = days7.map(d => { const dt=new Date(d+'T12:00:00'); return ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'][dt.getDay()]; });
+      html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('hidden')"><span class="arrow">&#9662;</span><span class="task-group-title" style="color:var(--cyan)">📅 Histórico (7 dias)</span></div><div class="task-group-items">`;
+      html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.75rem">`;
+      html += `<thead><tr><th style="text-align:left;padding:6px 8px;color:var(--text3);font-weight:600;min-width:120px">Tarefa</th>`;
+      days7.forEach((d,i) => { const isT=d===t; html += `<th style="text-align:center;padding:6px 4px;color:${isT?'var(--accent2)':'var(--text3)'};font-weight:${isT?'700':'600'};min-width:36px">${dayLabels[i]}<br><span style="font-size:0.6rem;opacity:0.7">${d.slice(8)}</span></th>`; });
+      html += `</tr></thead><tbody>`;
+      recTasks.forEach(tk => {
+        html += `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px">${tk.icon?tk.icon+' ':''}${esc(tk.text)}</td>`;
+        days7.forEach(d => {
+          let done = false;
+          if (isTaskForDate(tk, d)) {
+            if (tk.times && tk.times.length) done = isMultiDone(tk, d);
+            else done = isTaskDone(tk, d);
+          } else {
+            done = null; // not scheduled for this day
+          }
+          const cell = done===null ? '<span style="opacity:0.15">—</span>' : done ? '<span style="color:var(--green)">✅</span>' : '<span style="opacity:0.3">⬜</span>';
+          html += `<td style="text-align:center;padding:6px 4px">${cell}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div>`;
+      html += `</div></div>`;
+    }
+  }
+
   C.innerHTML = html;
 
   // Load today's events async and append
@@ -2999,7 +3031,7 @@ function renderMidia(H, C) {
       gitems.forEach(function(item) {
         var idx = origItems.indexOf(item);
         var cover = item.poster || '';
-        g += '<div class="gallery-card">';
+        g += '<div class="gallery-card" style="cursor:pointer" onclick="editMediaItem(\''+activeTab+'\','+idx+')">';
         g += '<div class="gallery-cover">';
         if (cover) g += '<img src="'+cover+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">';
         else g += '<span style="font-size:3rem;opacity:0.3">'+icon+'</span>';
