@@ -594,7 +594,7 @@ textarea.form-input{min-height:50px;resize:vertical}
   </div>
 </div>
 
-<!-- ═══ Pomodoro Overlay ═══ -->
+<!-- ═══ Pomodoro Overlay (fullscreen) ═══ -->
 <div class="pomo-overlay" id="pomoOverlay" style="display:none">
   <div class="pomo-label" id="pomoLabel">🍅 FOCO</div>
   <div class="pomo-timer" id="pomoTimer">25:00</div>
@@ -602,6 +602,7 @@ textarea.form-input{min-height:50px;resize:vertical}
   <div class="pomo-controls">
     <button class="pomo-btn" onclick="togglePomo()" id="pomoPlayBtn" style="background:var(--accent);color:#fff">▶ Iniciar</button>
     <button class="pomo-btn" onclick="resetPomo()" style="background:var(--surface2);color:var(--text)">⟳ Reset</button>
+    <button class="pomo-btn" onclick="minimizePomo()" style="background:var(--surface2);color:var(--text)">▽ Minimizar</button>
     <button class="pomo-btn" onclick="closePomo()" style="background:var(--surface2);color:var(--text)">✕ Fechar</button>
   </div>
   <div style="margin-top:20px;display:flex;gap:8px">
@@ -609,6 +610,15 @@ textarea.form-input{min-height:50px;resize:vertical}
     <button class="pomo-btn" onclick="setPomoTime(15)" style="background:var(--surface2);color:var(--text);padding:8px 16px;font-size:0.8rem">15min</button>
     <button class="pomo-btn" onclick="setPomoTime(5)" style="background:var(--green);color:#fff;padding:8px 16px;font-size:0.8rem">5min pausa</button>
   </div>
+</div>
+
+<!-- ═══ Pomodoro Mini Bar (minimized) ═══ -->
+<div id="pomoMini" style="display:none;position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:100;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:8px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.4);display:none;align-items:center;gap:12px;cursor:pointer" onclick="expandPomo()">
+  <span id="pomoMiniLabel" style="font-size:0.82rem;font-weight:700;color:var(--red)">🍅</span>
+  <span id="pomoMiniTimer" style="font-size:1.1rem;font-weight:800;font-variant-numeric:tabular-nums"></span>
+  <span id="pomoMiniTask" style="font-size:0.75rem;color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  <button onclick="event.stopPropagation();togglePomo()" id="pomoMiniPlayBtn" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:1.1rem;padding:2px">⏸</button>
+  <button onclick="event.stopPropagation();closePomo()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.9rem;padding:2px">✕</button>
 </div>
 
 <!-- Mobile FAB -->
@@ -2290,6 +2300,8 @@ function togglePomo() {
         pomoRunning = false;
         document.getElementById('pomoLabel').textContent = '✅ CONCLUIDO!';
         document.getElementById('pomoPlayBtn').textContent = '▶ Novo';
+        document.getElementById('pomoMiniLabel').textContent = '✅';
+        document.title = 'Orbita';
         // Sound alert
         try { new Audio('data:audio/wav;base64,UklGRl9vT19teleUFMQQBAAAABAAEARAAA').play(); } catch(e){}
         // Notification
@@ -2311,20 +2323,46 @@ function resetPomo() {
   updatePomoDisplay();
 }
 
+function minimizePomo() {
+  document.getElementById('pomoOverlay').style.display = 'none';
+  document.getElementById('pomoMini').style.display = 'flex';
+  document.getElementById('pomoMiniTask').textContent = pomoTaskText;
+  updatePomoDisplay();
+}
+
+function expandPomo() {
+  document.getElementById('pomoMini').style.display = 'none';
+  document.getElementById('pomoOverlay').style.display = 'flex';
+}
+
 function closePomo() {
   if (pomoRunning) { clearInterval(pomoInterval); pomoRunning = false; }
   document.getElementById('pomoOverlay').style.display = 'none';
+  document.getElementById('pomoMini').style.display = 'none';
 }
 
 function updatePomoDisplay() {
   var m = Math.floor(pomoSeconds/60);
   var s = pomoSeconds % 60;
-  document.getElementById('pomoTimer').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  // Color based on time
+  var timeStr = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+  // Update fullscreen
+  document.getElementById('pomoTimer').textContent = timeStr;
   var el = document.getElementById('pomoTimer');
   if (pomoSeconds <= 60) el.style.color = 'var(--red)';
   else if (pomoSeconds <= 5*60) el.style.color = 'var(--orange)';
   else el.style.color = 'var(--text)';
+
+  // Update mini bar
+  var miniTimer = document.getElementById('pomoMiniTimer');
+  if (miniTimer) {
+    miniTimer.textContent = timeStr;
+    miniTimer.style.color = pomoSeconds <= 60 ? 'var(--red)' : pomoSeconds <= 5*60 ? 'var(--orange)' : 'var(--text)';
+  }
+  var miniPlay = document.getElementById('pomoMiniPlayBtn');
+  if (miniPlay) miniPlay.textContent = pomoRunning ? '⏸' : '▶';
+  // Update page title with timer
+  document.title = pomoRunning ? timeStr + ' 🍅 Orbita' : 'Orbita';
 }
 
 // ═══════════════════ NOTAS ═══════════════════
