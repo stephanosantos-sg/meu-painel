@@ -627,9 +627,9 @@ textarea.form-input{min-height:50px;resize:vertical}
 <!-- Mobile Bottom Nav -->
 <div class="mobile-bottom" id="mobileBottom">
   <button class="mob-nav active" data-mv="hoje" onclick="mobileNav('hoje')"><span class="mn-icon">☀️</span>Hoje</button>
-  <button class="mob-nav" data-mv="habitos" onclick="mobileNav('habitos')"><span class="mn-icon">⭐</span>Habitos</button>
+  <button class="mob-nav" data-mv="habitos" onclick="mobileNav('habitos')"><span class="mn-icon">⭐</span>Hábitos</button>
   <button class="mob-nav" data-mv="objetivos" onclick="mobileNav('objetivos')"><span class="mn-icon">🎯</span>Objetivos</button>
-  <button class="mob-nav" data-mv="graficos" onclick="mobileNav('graficos')"><span class="mn-icon">📊</span>Graficos</button>
+  <button class="mob-nav" data-mv="graficos" onclick="mobileNav('graficos')"><span class="mn-icon">📊</span>Gráficos</button>
   <button class="mob-nav" data-mv="menu" onclick="toggleMobileMenu()"><span class="mn-icon">☰</span>Mais</button>
 </div>
 
@@ -864,7 +864,7 @@ function renderSidebar() {
   let html = `
     <div class="nav-section">
       <div class="nav-item ${currentView==='hoje'?'active':''}" data-view="hoje"><span class="icon">☀️</span>Hoje<span class="badge">${hojeCount}</span></div>
-      <div class="nav-item ${currentView==='proximos'?'active':''}" data-view="proximos"><span class="icon">&#128197;</span>Proximos</div>
+      <div class="nav-item ${currentView==='proximos'?'active':''}" data-view="proximos"><span class="icon">&#128197;</span>Próximos</div>
       <div class="nav-item ${currentView==='todas'?'active':''}" data-view="todas"><span class="icon">📋</span>Todas</div>
     </div>
     <div class="nav-section">
@@ -878,13 +878,13 @@ function renderSidebar() {
   html += `</div>
     <div class="nav-section">
       <div class="nav-section-title">Acompanhamento</div>
-      <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">⭐</span>Habitos</div>
+      <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">⭐</span>Hábitos</div>
       <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
       <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
       <div class="nav-item ${currentView==='compras'?'active':''}" data-view="compras"><span class="icon">🛒</span>Compras</div>
       <div class="nav-item ${currentView==='notas'?'active':''}" data-view="notas"><span class="icon">📝</span>Notas</div>
       <div class="nav-item ${currentView==='midia'?'active':''}" data-view="midia"><span class="icon">🎬</span>Midia</div>
-      <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Graficos</div>
+      <div class="nav-item ${currentView==='graficos'?'active':''}" data-view="graficos"><span class="icon">📊</span>Gráficos</div>
     </div>
   `;
 
@@ -892,7 +892,7 @@ function renderSidebar() {
   const holidays = getUpcomingHolidays();
   if (holidays.length) {
     html += `<div class="nav-section" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
-      <div class="nav-section-title">Proximos feriados</div>`;
+      <div class="nav-section-title">Próximos feriados</div>`;
     holidays.forEach(h => {
       html += `<div style="padding:3px 12px;font-size:0.72rem;color:var(--text3);display:flex;gap:8px;align-items:center">
         <span style="color:var(--text2);font-weight:600;min-width:42px">${h.dateStr}</span>
@@ -1010,7 +1010,7 @@ function renderHoje(H, C) {
     <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value">${overdueTasks.length}</div></div>
     <div class="stat-card accent"><div class="stat-label">Pendentes</div><div class="stat-value">${allPending}</div></div>
     <div class="stat-card green"><div class="stat-label">Concluidas hoje</div><div class="stat-value">${countDoneToday()}</div></div>
-    <div class="stat-card orange"><div class="stat-label">Habitos</div><div class="stat-value">${habitsToday}/${habitsForToday.length}</div></div>
+    <div class="stat-card orange"><div class="stat-label">Hábitos</div><div class="stat-value">${habitsToday}/${habitsForToday.length}</div></div>
   </div>`;
 
   html += viewSwitcher();
@@ -1034,7 +1034,7 @@ function renderHoje(H, C) {
     const todayHabits = D.habits.filter(h => { const days = h.days || [0,1,2,3,4,5,6]; return days.includes(todayDow); });
     if (todayHabits.length) {
       const todayDone = todayHabits.filter(h=>h.log&&h.log[t]).length;
-      html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--orange)">⭐ Habitos de hoje</span><span class="task-group-count">${todayDone}/${todayHabits.length}</span></div><div class="task-group-items">`;
+      html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--orange)">⭐ Hábitos de hoje</span><span class="task-group-count">${todayDone}/${todayHabits.length}</span></div><div class="task-group-items">`;
       todayHabits.forEach(h => {
         const done = h.log&&h.log[t];
         const streak = getStreak(h);
@@ -1107,7 +1107,7 @@ function countDoneToday() {
 
 // ─── Proximos ───
 function renderProximos(H, C) {
-  H.innerHTML = `<h2>Proximos</h2><div class="subtitle">Tarefas futuras</div>`;
+  H.innerHTML = `<h2>Próximos</h2><div class="subtitle">Tarefas futuras</div>`;
   const future = D.tasks.filter(x => !x.done && x.freq==='pontual' && isFuture(x.date));
   const groups = {};
   future.forEach(t => {const d=t.date||'sem-data';if(!groups[d])groups[d]=[];groups[d].push(t);});
@@ -1690,7 +1690,7 @@ function saveHabit(){
 
 function renderHabitos(H, C) {
   const yr = new Date().getFullYear();
-  H.innerHTML = `<h2>Habitos</h2><div class="subtitle">Consistencia e o segredo &mdash; ${yr}</div>`;
+  H.innerHTML = `<h2>Hábitos</h2><div class="subtitle">Consistência é o segredo &mdash; ${yr}</div>`;
 
   // Annual summary
   let totalYearDone = 0, totalYearGoal = 0;
@@ -1716,7 +1716,7 @@ function renderHabitos(H, C) {
       }).join('')}
     </div>`;
   }
-  if (!D.habits.length) { C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">⭐</div><p>Nenhum habito cadastrado</p><button class="btn btn-primary" style="margin-top:16px" onclick="openHabitModal()">+ Novo Habito</button></div>`; return; }
+  if (!D.habits.length) { C.innerHTML = html + `<div class="empty-state"><div class="empty-icon" style="font-size:3rem">⭐</div><p>Nenhum hábito cadastrado</p><button class="btn btn-primary" style="margin-top:16px" onclick="openHabitModal()">+ Novo Habito</button></div>`; return; }
   const week=getWeekDays(), last30=getLast30(), t=todayStr();
   html += `<div class="habits-grid">`;
   D.habits.forEach(h => {
@@ -2595,7 +2595,7 @@ function showYearStats() {
   });
 
   html += '</div>'; // close grid
-  html += '<div style="margin-top:12px;font-size:0.75rem;color:var(--text3)">📁 O historico e arquivado automaticamente ao virar o ano.</div>';
+  html += '<div style="margin-top:12px;font-size:0.75rem;color:var(--text3)">📁 O histórico é arquivado automaticamente ao virar o ano.</div>';
   document.getElementById('mainContent').innerHTML = html;
 }
 
@@ -2654,7 +2654,7 @@ function showArchivedYears() {
   var months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   var html = breadcrumb([{label:'⭐ Habitos',view:'habitos'},{label:'📁 Historico'}]);
-  html += '<h3 style="margin-bottom:16px">📁 Historico de Habitos</h3>';
+  html += '<h3 style="margin-bottom:16px">📁 Historico de Hábitos</h3>';
 
   if (!years.length) {
     html += '<div class="empty-state"><div class="empty-icon" style="font-size:3rem">📁</div><p>O historico sera preenchido automaticamente ao virar o ano.</p></div>';
@@ -3347,7 +3347,7 @@ async function getUpcomingEventsForToday() {
 
 // ═══════════════════ GRAFICOS ═══════════════════
 function renderGraficos(H, C) {
-  H.innerHTML = `<h2>Graficos</h2><div class="subtitle">Acompanhamento do seu progresso</div>`;
+  H.innerHTML = `<h2>Gráficos</h2><div class="subtitle">Acompanhamento do seu progresso</div>`;
   const t = todayStr();
   const week = getWeekDays();
   const last7 = [];
@@ -3422,7 +3422,7 @@ function renderGraficos(H, C) {
 
   // Chart 2: Habitos por dia
   html += `<div class="chart-card">
-    <h4>⭐ Habitos feitos (7 dias)</h4>
+    <h4>⭐ Hábitos feitos (7 dias)</h4>
     <div class="chart-week-grid" style="height:140px;align-items:flex-end">
       ${last7.map((d,i) => {
         const h = habitsPerDay[i] > 0 ? Math.max(20, (habitsPerDay[i]/maxHab)*120) : 4;
@@ -3500,7 +3500,7 @@ function renderGraficos(H, C) {
   // ── Section: Tarefas recorrentes detalhado ──
   const recurringTasks = D.tasks.filter(tk => tk.freq && tk.freq !== 'pontual');
   if (recurringTasks.length > 0) {
-    html += `<h3 style="font-size:1rem;font-weight:700;margin:28px 0 16px">Tarefas Recorrentes - Historico</h3>`;
+    html += `<h3 style="font-size:1rem;font-weight:700;margin:28px 0 16px">Tarefas Recorrentes - Histórico</h3>`;
     html += `<div class="charts-grid">`;
 
     recurringTasks.forEach(tk => {
@@ -3605,7 +3605,7 @@ function renderGraficos(H, C) {
 
   // ── Section: Habitos detalhado ──
   if (D.habits.length > 0) {
-    html += `<h3 style="font-size:1rem;font-weight:700;margin:28px 0 16px">Habitos - Detalhamento Individual</h3>`;
+    html += `<h3 style="font-size:1rem;font-weight:700;margin:28px 0 16px">Hábitos - Detalhamento Individual</h3>`;
     html += `<div class="charts-grid">`;
 
     D.habits.forEach(h => {
@@ -3940,7 +3940,7 @@ function importBackup(input) {
     try {
       var imported = JSON.parse(e.target.result);
       if (!imported.tasks && !imported.media) { alert('Arquivo invalido'); return; }
-      if (!confirm('Importar backup? Isso substituira todos os dados atuais.\n\nTarefas: '+(imported.tasks||[]).length+'\nHabitos: '+(imported.habits||[]).length+'\nLivros: '+((imported.media||{}).livros||[]).length)) return;
+      if (!confirm('Importar backup? Isso substituirá todos os dados atuais.\n\nTarefas: '+(imported.tasks||[]).length+'\nHabitos: '+(imported.habits||[]).length+'\nLivros: '+((imported.media||{}).livros||[]).length)) return;
       D = imported;
       if (!D.categories) D.categories = [...DEFAULT_CATS];
       localStorage.setItem(SK, JSON.stringify(D));
@@ -4006,11 +4006,16 @@ async function forcePull() {
     }
     const remote = JSON.parse(text);
     if (!remote.categories) remote.categories = [...DEFAULT_CATS];
-    // Preserve local media if cloud doesn't have it (too large for cloud)
-    if (remote._mediaTooLarge || !remote.media || Object.keys(remote.media||{}).every(k=>!remote.media[k].length)) {
+    // Preserve local data that cloud might not have
+    if (remote._mediaTooLarge || !remote.media || Object.keys(remote.media||{}).every(function(k){return !remote.media[k].length;})) {
       remote.media = D.media || {};
       delete remote._mediaTooLarge;
     }
+    // Preserve shopLists, notes, xp, _habitArchive if cloud doesn't have them
+    if (!remote.shopLists || !remote.shopLists.length) remote.shopLists = D.shopLists || [];
+    if (!remote.notes || !remote.notes.length) remote.notes = D.notes || [];
+    if (!remote.xp) remote.xp = D.xp || {total:0,level:1};
+    if (!remote._habitArchive) remote._habitArchive = D._habitArchive || {};
     D = remote;
     localStorage.setItem(SK, JSON.stringify(D));
     render();
@@ -4212,7 +4217,7 @@ function mobileNav(view) {
 }
 function updateMobileNav() {
   document.querySelectorAll('.mob-nav').forEach(b => b.classList.toggle('active', b.dataset.mv === currentView));
-  const titles = {hoje:'Hoje',proximos:'Proximos',todas:'Todas',habitos:'Habitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',notas:'Notas',midia:'Midia',graficos:'Graficos'};
+  const titles = {hoje:'Hoje',proximos:'Próximos',todas:'Todas',habitos:'Hábitos',objetivos:'Objetivos',eventos:'Eventos',compras:'Compras',notas:'Notas',midia:'Midia',graficos:'Gráficos'};
   const el = document.getElementById('mobileTitle');
   if (el) el.textContent = titles[currentView] || currentView;
 }
