@@ -773,7 +773,8 @@ function getCat(id) { return D.categories.find(c=>c.id===id) || {id,name:id,icon
 */
 
 // ═══════════════════ DATE HELPERS ═══════════════════
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function dateToStr(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayStr() { return dateToStr(new Date()); }
 function isOverdue(d) { return d && d < todayStr(); }
 function isToday(d) { return d === todayStr(); }
 function isFuture(d) { return d > todayStr(); }
@@ -782,9 +783,9 @@ function fmtDate(d) {
   const t = todayStr();
   if (d===t) return 'Hoje';
   const n=new Date(), tm=new Date(n); tm.setDate(n.getDate()+1);
-  if (d===tm.toISOString().split('T')[0]) return 'Amanha';
+  if (d===dateToStr(tm)) return 'Amanha';
   const y=new Date(n); y.setDate(n.getDate()-1);
-  if (d===y.toISOString().split('T')[0]) return 'Ontem';
+  if (d===dateToStr(y)) return 'Ontem';
   const [yy,mm,dd]=d.split('-');
   const M=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   return `${parseInt(dd)} ${M[parseInt(mm)-1]}`;
@@ -793,12 +794,12 @@ function getWeekDays() {
   const days=[], today=new Date(), dow=today.getDay();
   const mon=new Date(today); mon.setDate(today.getDate()-((dow+6)%7));
   const L=['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
-  for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push({date:d.toISOString().split('T')[0],label:L[i],isToday:d.toDateString()===today.toDateString()});}
+  for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push({date:dateToStr(d),label:L[i],isToday:d.toDateString()===today.toDateString()});}
   return days;
 }
 function getLast30() {
   const days=[], today=new Date();
-  for(let i=29;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);days.push(d.toISOString().split('T')[0]);}
+  for(let i=29;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);days.push(dateToStr(d));}
   return days;
 }
 
@@ -855,7 +856,7 @@ function renderSidebar() {
     if (tk.freq === 'diaria') { if (isTaskForDate(tk,t) && !isTaskDone(tk,t)) hojeCount++; return; }
     if (tk.freq === 'pontual' && isOverdue(tk.date) && !tk.done) { hojeCount++; return; }
     if (tk.freq !== 'pontual' && tk.date) {
-      for (let i=1;i<=7;i++) { const pd=new Date();pd.setDate(pd.getDate()-i);const pds=pd.toISOString().split('T')[0]; if(isTaskForDate(tk,pds)&&!isTaskDone(tk,pds)){hojeCount++;return;} }
+      for (let i=1;i<=7;i++) { const pd=new Date();pd.setDate(pd.getDate()-i);const pds=dateToStr(pd); if(isTaskForDate(tk,pds)&&!isTaskDone(tk,pds)){hojeCount++;return;} }
     }
     if (isTaskForDate(tk,t) && !isTaskDone(tk,t)) hojeCount++;
   });
@@ -988,7 +989,7 @@ function renderHoje(H, C) {
       // Check past occurrences (last 7 days) for overdue
       for (let i = 1; i <= 7; i++) {
         const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - i);
-        const pd = pastDate.toISOString().split('T')[0];
+        const pd = dateToStr(pastDate);
         if (isTaskForDate(tk, pd) && !isTaskDone(tk, pd)) {
           if (!overdueTasks.includes(tk)) overdueTasks.push(tk);
           break;
@@ -1622,7 +1623,7 @@ function toggleHabitDay(id, dateStr) {
 function getStreak(h) {
   let s=0;const d=new Date();const days=h.days||[0,1,2,3,4,5,6];
   for(let i=0;i<365;i++){
-    const k=d.toISOString().split('T')[0];
+    const k=dateToStr(d);
     const dow=d.getDay();
     if(days.includes(dow)){
       if(h.log&&h.log[k]) s++;
@@ -2488,7 +2489,7 @@ function renderContribGrid(habit) {
   var html = '<div style="display:flex;gap:2px;flex-wrap:wrap">';
   for (var d = 0; d <= dayOfYear; d++) {
     var date = new Date(today.getFullYear(), 0, d + 1);
-    var key = date.toISOString().split('T')[0];
+    var key = dateToStr(date);
     var done = habit.log && habit.log[key];
     html += '<div style="width:11px;height:11px;border-radius:2px;background:'+(done?hex:'var(--surface2)')+'" title="'+fmtDate(key)+(done?' ✅':'')+'"></div>';
   }
@@ -3350,7 +3351,7 @@ function renderGraficos(H, C) {
   const t = todayStr();
   const week = getWeekDays();
   const last7 = [];
-  for (let i=6;i>=0;i--){ const d=new Date();d.setDate(d.getDate()-i);last7.push(d.toISOString().split('T')[0]); }
+  for (let i=6;i>=0;i--){ const d=new Date();d.setDate(d.getDate()-i);last7.push(dateToStr(d)); }
   const last30 = getLast30();
   const dayLabels = ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
   const shortDay = d => { const dt=new Date(d+'T12:00:00'); return dayLabels[dt.getDay()]; };
@@ -3538,7 +3539,7 @@ function renderGraficos(H, C) {
       let streak = 0;
       const sd = new Date();
       while(true) {
-        const k = sd.toISOString().split('T')[0];
+        const k = dateToStr(sd);
         if (!isTaskForDate(tk, k)) break;
         if (hasSlots) {
           const sl = (tk.doneSlots && tk.doneSlots[k]);
@@ -3622,7 +3623,7 @@ function renderGraficos(H, C) {
         for (let d = 0; d < 7; d++) {
           const day = new Date(weekStart);
           day.setDate(weekStart.getDate() + d);
-          const key = day.toISOString().split('T')[0];
+          const key = dateToStr(day);
           if (h.log && h.log[key]) count++;
         }
         const wLabel = w === 0 ? 'Esta' : w === 1 ? 'Passada' : w + ' atras';
