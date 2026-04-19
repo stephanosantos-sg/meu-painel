@@ -3771,8 +3771,9 @@ async function getUpcomingEventsForToday() {
 }
 
 // ═══════════════════ GRAFICOS ═══════════════════
-function showDayDetail(dayLabel, itemsJson) {
-  const items = JSON.parse(itemsJson);
+var _chartDayData = [];
+function showDayDetail(dayLabel, items) {
+  if (typeof items === 'string') items = JSON.parse(items);
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay show';
   overlay.style.zIndex = '1100';
@@ -3860,6 +3861,7 @@ function renderGraficos(H, C) {
     });
     return items;
   });
+  _chartDayData = taskDetailPerDay;
   html += `<div class="chart-card">
     <h4>✅ Tarefas concluídas (7 dias)</h4>
     <div class="chart-week-grid" style="height:140px;align-items:flex-end">
@@ -3881,7 +3883,7 @@ function renderGraficos(H, C) {
         return `<div style="flex:1;min-width:80px;background:var(--surface2);border-radius:8px;padding:8px;font-size:0.65rem;${isT?'border:1px solid var(--accent)':'border:1px solid var(--border)'}">
           <div style="font-weight:700;color:${isT?'var(--accent2)':'var(--text3)'};margin-bottom:4px">${shortDay(d)} ${d.slice(8)}</div>
           ${taskDetailPerDay[i].slice(0,5).map(item => `<div style="color:var(--text2);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item}</div>`).join('')}
-          ${taskDetailPerDay[i].length>5?`<div onclick="showDayDetail('${shortDay(d)} ${d.slice(8)}',${JSON.stringify(JSON.stringify(taskDetailPerDay[i]))})" style="color:var(--accent2);cursor:pointer;font-weight:600;margin-top:2px">+${taskDetailPerDay[i].length-5} mais</div>`:''}
+          ${taskDetailPerDay[i].length>5?`<div onclick="showDayDetail('${shortDay(d)} ${d.slice(8)}',_chartDayData[${i}])" style="color:var(--accent2);cursor:pointer;font-weight:600;margin-top:2px">+${taskDetailPerDay[i].length-5} mais</div>`:''}
         </div>`;
       }).join('')}
     </div>
