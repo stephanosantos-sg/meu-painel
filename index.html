@@ -3662,6 +3662,65 @@ function promptAddMedia(cat) {
   if (!title || !title.trim()) return;
   const extra = cat==='livros'?{status:'Fila',progress:0}:cat==='series'?{seasons:0,currentSeason:0}:{};
   addMediaItem(cat, title.trim(), extra);
+  if (cat === 'livros') {
+    const idx = D.media.livros.length - 1;
+    fetchBookMetaForItem(idx, title.trim());
+  } else if (cat === 'series') {
+    fetchSeriesMetaForItem(D.media.series.length - 1, title.trim());
+  } else if (cat === 'filmes') {
+    fetchFilmMetaForItem(D.media.filmes.length - 1, title.trim());
+  }
+}
+
+async function fetchBookMetaForItem(idx, title) {
+  try {
+    const r = await fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(title)+'&limit=1');
+    const data = await r.json();
+    if (data.docs && data.docs[0]) {
+      const book = data.docs[0];
+      const item = D.media.livros[idx];
+      if (!item) return;
+      if (book.author_name) item.author = book.author_name[0];
+      if (book.title) item.title = book.title;
+      if (book.first_publish_year) item.year = book.first_publish_year;
+      if (book.number_of_pages_median) item.pages = book.number_of_pages_median;
+      if (book.subject) item.genre = (book.subject.slice(0,3)).join(', ');
+      if (book.cover_i) item.poster = 'https://covers.openlibrary.org/b/id/'+book.cover_i+'-M.jpg';
+      save(); render();
+      showToast('📚 Metadados carregados!', 'success');
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function fetchSeriesMetaForItem(idx, title) {
+  try {
+    const r = await fetch('https://www.omdbapi.com/?t='+encodeURIComponent(title)+'&type=series&apikey='+OMDB_KEY);
+    const data = await r.json();
+    if (data.Response==='True') {
+      const item = D.media.series[idx];
+      if (!item) return;
+      item.title = data.Title; item.seasons = parseInt(data.totalSeasons)||0;
+      item.year = data.Year; item.rating = data.imdbRating;
+      if (data.Poster && data.Poster!=='N/A') item.poster = data.Poster;
+      save(); render();
+    }
+  } catch(e) {}
+}
+
+async function fetchFilmMetaForItem(idx, title) {
+  try {
+    const r = await fetch('https://www.omdbapi.com/?t='+encodeURIComponent(title)+'&type=movie&apikey='+OMDB_KEY);
+    const data = await r.json();
+    if (data.Response==='True') {
+      const item = D.media.filmes[idx];
+      if (!item) return;
+      item.title = data.Title; item.year = data.Year;
+      item.rating = data.imdbRating; item.genre = data.Genre;
+      item.director = data.Director; item.runtime = data.Runtime;
+      if (data.Poster && data.Poster!=='N/A') item.poster = data.Poster;
+      save(); render();
+    }
+  } catch(e) {}
 }
 
 function addMediaItem(cat, title, extra) {
