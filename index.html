@@ -2537,6 +2537,41 @@ function deleteShopItem(listId, idx) {
   if (sl) { sl.items.splice(idx, 1); save(); render(); }
 }
 
+function editShopItem(listId, idx) {
+  ensureShopLists();
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (!sl || !sl.items[idx]) return;
+  const item = sl.items[idx];
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show';
+  overlay.style.zIndex = '1100';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `<div class="modal" style="width:420px">
+    <div class="modal-header"><h3>Editar Produto</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Nome</label><input class="form-input" id="editShopName" value="${esc(item.text)}"></div>
+      <div class="form-group"><label>Link</label><input class="form-input" id="editShopLink" value="${esc(item.link||'')}"></div>
+      <div class="form-group"><label>Preço</label><input class="form-input" id="editShopPrice" value="${esc(item.price||'')}" oninput="formatPrice(this)"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditShopItem('${listId}',${idx})">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>document.getElementById('editShopName').focus(),100);
+}
+
+function saveEditShopItem(listId, idx) {
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (!sl || !sl.items[idx]) return;
+  sl.items[idx].text = document.getElementById('editShopName').value.trim() || sl.items[idx].text;
+  sl.items[idx].link = document.getElementById('editShopLink').value.trim();
+  sl.items[idx].price = document.getElementById('editShopPrice').value.trim();
+  save(); render();
+  document.querySelector('body > .modal-overlay')?.remove();
+}
+
 function clearDoneItems(listId) {
   ensureShopLists();
   const sl = D.shopLists.find(x=>x.id===listId);
@@ -2622,6 +2657,7 @@ function renderCompras(H, C) {
               ${hasLink?`<a href="${esc(item.link)}" target="_blank" rel="noopener" style="font-size:0.68rem;color:var(--accent2);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px">${esc(item.link.replace('https://','').replace('http://','').slice(0,40))}...</a>`:''}
             </div>
             ${item.price?`<span style="font-size:0.82rem;font-weight:700;color:var(--green);white-space:nowrap">${esc(item.price)}</span>`:''}
+            <button onclick="event.stopPropagation();editShopItem('${sl.id}',${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:2px 4px;opacity:0.4">✏️</button>
             <button onclick="event.stopPropagation();deleteShopItem('${sl.id}',${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:2px 4px;opacity:0.5">✕</button>
           </div>`;
         }).join('')}
