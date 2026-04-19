@@ -1549,8 +1549,6 @@ function renderWeekTimeline() {
   });
 
   const currentHour = now.getHours();
-  const ROW_H = 48;
-
   let html = `<div style="overflow-x:auto;margin-bottom:16px">
     <div style="display:grid;grid-template-columns:40px repeat(7,1fr);min-width:600px">`;
 
@@ -1569,11 +1567,11 @@ function renderWeekTimeline() {
   hours.forEach(h => {
     const hStr = String(h).padStart(2, '0');
     const isNow = h === currentHour;
-    html += `<div style="height:${ROW_H}px;display:flex;align-items:flex-start;justify-content:flex-end;padding:0 4px;font-size:0.6rem;color:${isNow ? 'var(--accent2)' : 'var(--text3)'};font-weight:${isNow ? '700' : '400'};border-top:1px solid var(--border)">${hStr}:00</div>`;
+    html += `<div style="min-height:28px;display:flex;align-items:flex-start;justify-content:flex-end;padding:2px 4px 0;font-size:0.6rem;color:${isNow ? 'var(--accent2)' : 'var(--text3)'};font-weight:${isNow ? '700' : '400'};border-top:1px solid var(--border)">${hStr}:00</div>`;
     weekDates.forEach((d, di) => {
       const isT = d === t;
       const dayEvts = eventsByDay[di].filter(e => e.time.startsWith(hStr));
-      html += `<div style="height:${ROW_H}px;border-top:1px solid var(--border);border-left:1px solid var(--border);padding:1px 2px;overflow:hidden;${isT ? 'background:var(--accent-bg)' : ''}${isNow && isT ? ';box-shadow:inset 0 2px 0 var(--accent)' : ''}">`;
+      html += `<div style="min-height:28px;border-top:1px solid var(--border);border-left:1px solid var(--border);padding:1px 2px;${isT ? 'background:var(--accent-bg)' : ''}${isNow && isT ? ';box-shadow:inset 0 2px 0 var(--accent)' : ''}">`;
       dayEvts.forEach(e => {
         const cat = getCat(e.cat);
         const onClick = e.slot ? `toggleSlot('${e.taskId}','${e.dateCtx}','${e.slot}')` : `toggleTask('${e.taskId}','${e.dateCtx}')`;
