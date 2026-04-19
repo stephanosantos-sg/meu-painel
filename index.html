@@ -4098,7 +4098,7 @@ function renderMidia(H, C) {
     {key:'livros',icon:'📚',label:'Livros'},
     {key:'filmes',icon:'🎬',label:'Filmes'},
     {key:'series',icon:'📺',label:'Series'},
-    {key:'docs',icon:'🎞️',label:'Docs'},
+    {key:'docs',icon:'🎞️',label:'Documentários'},
   ];
 
   const activeTab = D._mediaTab || 'livros';
@@ -4274,12 +4274,41 @@ function renderMidia(H, C) {
     }
     if (lidos.length) { html += mediaGroup('✅ LIDOS',lidos,origItems,activeTab,'var(--green)',true); }
   } else if (activeTab === 'series') {
-    const assistindo = items.filter(x=>x.currentSeason>0&&!x.done);
-    const pending = items.filter(x=>!x.done&&(!x.currentSeason||x.currentSeason===0));
-    const done = items.filter(x=>x.done);
-    if (assistindo.length) { html += mediaGroup('📺 ASSISTINDO',assistindo,origItems,activeTab,'var(--accent2)'); }
-    if (pending.length) { html += mediaGroup('📋 PARA ASSISTIR',pending,origItems,activeTab,'var(--orange)'); }
-    if (done.length) { html += mediaGroup('✅ ASSISTIDAS',done,origItems,activeTab,'var(--green)',true); }
+    const assistindo = items.filter(x=>(x.currentSeason>0||x.queued===true)&&!x.done);
+    const filaS = items.filter(x=>!x.done&&!x.queued&&(!x.currentSeason||x.currentSeason===0));
+    const doneS = items.filter(x=>x.done);
+    if (assistindo.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-size:0.8rem;font-weight:700;color:var(--accent2);margin-bottom:8px">📺 ASSISTINDO AGORA (${assistindo.length})</div>`;
+      assistindo.forEach(s => {
+        const idx = origItems.indexOf(s);
+        html += `<div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:6px;display:flex;align-items:center;gap:12px">
+          ${s.poster?`<img src="${s.poster}" style="width:50px;height:70px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:''}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:0.95rem">${esc(s.title)}</div>
+            <div style="font-size:0.72rem;color:var(--text3)">${s.year||''} ${s.rating?'⭐ '+s.rating:''}</div>
+            ${s.seasons?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <span style="font-size:0.72rem;color:var(--text3)">Temporada</span>
+              <button onclick="event.stopPropagation();updateSeriesSeason('series',${idx},-1)" style="background:var(--surface2);border:none;color:var(--text2);cursor:pointer;width:22px;height:22px;border-radius:4px;font-size:0.8rem">-</button>
+              <span style="font-size:0.88rem;font-weight:800;color:var(--accent2)">${s.currentSeason||0}/${s.seasons}</span>
+              <button onclick="event.stopPropagation();updateSeriesSeason('series',${idx},1)" style="background:var(--surface2);border:none;color:var(--text2);cursor:pointer;width:22px;height:22px;border-radius:4px;font-size:0.8rem">+</button>
+              <div style="flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-left:4px"><div style="height:100%;width:${s.seasons?Math.round((s.currentSeason||0)/s.seasons*100):0}%;background:var(--accent);border-radius:2px"></div></div>
+            </div>`:''}
+          </div>
+          <div style="display:flex;gap:1px" title="Avaliar">${[1,2,3,4,5].map(st=>`<span onclick="event.stopPropagation();rateMedia('series',${idx},${st})" style="cursor:pointer;font-size:0.8rem;${(s.userRating||0)>=st?'':'opacity:0.2'}">${(s.userRating||0)>=st?'★':'☆'}</span>`).join('')}</div>
+          <button onclick="event.stopPropagation();editMediaItem('series',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✏️</button>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    if (filaS.length) { html += mediaGroup('📋 PARA ASSISTIR',filaS,origItems,activeTab,'var(--orange)'); }
+    if (doneS.length) { html += mediaGroup('✅ ASSISTIDAS',doneS,origItems,activeTab,'var(--green)',true); }
+  } else if (activeTab === 'filmes') {
+    const fQueued = items.filter(x=>x.queued&&!x.done);
+    const fPending = items.filter(x=>!x.done&&!x.queued);
+    const fDone = items.filter(x=>x.done);
+    if (fQueued.length) { html += mediaGroup('📋 PRÓXIMOS',fQueued,origItems,activeTab,'var(--orange)'); }
+    if (fPending.length) { html += mediaGroup('🎬 PARA ASSISTIR',fPending,origItems,activeTab,'var(--text2)',fPending.length>20); }
+    if (fDone.length) { html += mediaGroup('✅ ASSISTIDOS',fDone,origItems,activeTab,'var(--green)',true); }
   } else {
     const pending = items.filter(x=>!x.done);
     const done = items.filter(x=>x.done);
@@ -6108,8 +6137,9 @@ function exitFocusMode() { document.getElementById('focusOverlay').style.display
 // ═══════════════════ KEYBOARD ═══════════════════
 let _showingShortcuts = false;
 document.addEventListener('keydown', e => {
-  const tag = document.activeElement.tagName;
-  const inInput = tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT';
+  const ae = document.activeElement;
+  const tag = ae ? ae.tagName : '';
+  const inInput = tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || (ae && ae.isContentEditable) || (ae && ae.getAttribute('role')==='textbox');
   const modalOpen = !!document.querySelector('.modal-overlay.show');
   if (e.key==='Escape') {
     // First: remove any dynamic popups appended to body
