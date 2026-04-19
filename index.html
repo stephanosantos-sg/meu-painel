@@ -1063,6 +1063,7 @@ function renderSidebar() {
       <div class="nav-item ${currentView==='habitos'?'active':''}" data-view="habitos"><span class="icon">⭐</span>Hábitos</div>
       <div class="nav-item ${currentView==='objetivos'?'active':''}" data-view="objetivos"><span class="icon">🎯</span>Objetivos</div>
       <div class="nav-item ${currentView==='eventos'?'active':''}" data-view="eventos"><span class="icon">📆</span>Eventos</div>
+      <div class="nav-item ${currentView==='recorrentes'?'active':''}" data-view="recorrentes"><span class="icon">🔄</span>Recorrentes</div>
       <div class="nav-item ${currentView==='compras'?'active':''}" data-view="compras"><span class="icon">🛒</span>Compras</div>
       <div class="nav-item ${currentView==='notas'?'active':''}" data-view="notas"><span class="icon">📝</span>Notas</div>
       <div class="nav-item ${currentView==='midia'?'active':''}" data-view="midia"><span class="icon">🎬</span>Mídia</div>
@@ -1118,6 +1119,7 @@ function render() {
       case 'notas': renderNotas(H,C); break;
       case 'midia': renderMidia(H,C); break;
       case 'ideias': renderIdeias(H,C); break;
+      case 'recorrentes': renderRecorrentes(H,C); break;
       case 'graficos': renderGraficos(H,C); break;
       case 'semdata': renderSemData(H,C); break;
       case 'perfil': renderPerfil(H,C); break;
@@ -1363,6 +1365,35 @@ function renderTodas(H, C) {
     if (pending.length) html += renderTaskGroup(`Ativas (${pending.length})`, pending, t, '');
     if (done.length) html += renderTaskGroup(`Concluídas (${done.length})`, done, t, '', true);
     if (!D.tasks.length) html += emptyState('Nenhuma tarefa');
+  }
+  C.innerHTML = html;
+}
+
+// ─── Recorrentes ───
+function renderRecorrentes(H, C) {
+  const recurring = D.tasks.filter(x => x.freq && x.freq !== 'pontual');
+  H.innerHTML = `<h2>🔄 Recorrentes</h2><div class="subtitle">${recurring.length} tarefa${recurring.length!==1?'s':''} recorrente${recurring.length!==1?'s':''}</div>`;
+  const t = todayStr();
+  let html = viewSwitcher();
+  if (viewMode === 'painel') {
+    html += recurring.length ? renderBoard(recurring, t) : emptyState('Nenhuma tarefa recorrente');
+  } else if (viewMode === 'calendario') {
+    const calSub = D._calView || 'semanal';
+    html += `<div style="display:flex;gap:4px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px;width:fit-content">
+      <button onclick="D._calView='diaria';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='diaria'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Dia</button>
+      <button onclick="D._calView='semanal';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='semanal'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Semana</button>
+      <button onclick="D._calView='mensal';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='mensal'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Mês</button>
+    </div>`;
+    if (calSub === 'diaria') html += renderDayTimeline();
+    else if (calSub === 'mensal') html += renderCalendar(recurring);
+    else html += renderWeekTimeline();
+  } else {
+    const byFreq = {diaria:[],semanal:[],mensal:[],anual:[],periodica:[]};
+    recurring.forEach(tk => { if(byFreq[tk.freq]) byFreq[tk.freq].push(tk); });
+    Object.entries(byFreq).forEach(([f,tasks]) => {
+      if (tasks.length) html += renderTaskGroup((FREQ_LABELS[f]||f) + ' (' + tasks.length + ')', tasks, t, '');
+    });
+    if (!recurring.length) html += emptyState('Nenhuma tarefa recorrente');
   }
   C.innerHTML = html;
 }
@@ -2572,6 +2603,52 @@ function saveEditShopItem(listId, idx) {
   document.querySelector('body > .modal-overlay')?.remove();
 }
 
+// Shop item drag & drop between lists
+var _dragShopItem = null;
+document.addEventListener('dragstart', function(e) {
+  var el = e.target.closest('[data-shoplist][data-shopidx]');
+  if (!el) return;
+  _dragShopItem = { listId: el.dataset.shoplist, idx: parseInt(el.dataset.shopidx) };
+  el.style.opacity = '0.4';
+  e.dataTransfer.setData('text/plain', 'shop');
+  e.stopPropagation();
+});
+document.addEventListener('dragover', function(e) {
+  if (!_dragShopItem) return;
+  var target = e.target.closest('.goal-card[data-listid]');
+  if (target) { e.preventDefault(); target.style.borderColor = 'var(--accent)'; }
+});
+document.addEventListener('dragleave', function(e) {
+  if (!_dragShopItem) return;
+  var target = e.target.closest('.goal-card[data-listid]');
+  if (target) target.style.borderColor = '';
+});
+document.addEventListener('drop', function(e) {
+  if (!_dragShopItem) return;
+  var target = e.target.closest('.goal-card[data-listid]');
+  if (!target) { _dragShopItem = null; return; }
+  e.preventDefault();
+  var toListId = target.dataset.listid;
+  var fromListId = _dragShopItem.listId;
+  var fromIdx = _dragShopItem.idx;
+  _dragShopItem = null;
+  target.style.borderColor = '';
+  if (fromListId === toListId) return;
+  ensureShopLists();
+  var fromList = D.shopLists.find(function(x){return x.id===fromListId});
+  var toList = D.shopLists.find(function(x){return x.id===toListId});
+  if (!fromList || !toList || !fromList.items[fromIdx]) return;
+  var item = fromList.items.splice(fromIdx, 1)[0];
+  toList.items.push(item);
+  save(); render();
+  showToast('Movido para ' + toList.name, 'success');
+});
+document.addEventListener('dragend', function(e) {
+  _dragShopItem = null;
+  document.querySelectorAll('[data-shoplist]').forEach(function(el){ el.style.opacity = '1'; });
+  document.querySelectorAll('.goal-card').forEach(function(el){ el.style.borderColor = ''; });
+});
+
 function clearDoneItems(listId) {
   ensureShopLists();
   const sl = D.shopLists.find(x=>x.id===listId);
@@ -2616,7 +2693,7 @@ function renderCompras(H, C) {
     const pct = total > 0 ? Math.round((done/total)*100) : 0;
     const pctColor = pct>=100?'var(--green)':pct>0?'var(--accent)':'var(--text3)';
 
-    html += `<div class="goal-card" style="border-left:4px solid ${pctColor}">
+    html += `<div class="goal-card" data-listid="${sl.id}" style="border-left:4px solid ${pctColor}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:1.5rem">${sl.icon}</span>
@@ -2649,7 +2726,7 @@ function renderCompras(H, C) {
           const hasLink = item.link && item.link.startsWith('http');
           const favicon = hasLink ? getThumb(item.link) : '';
           return `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);border:1px solid ${item.done?'var(--green)':'var(--border)'};${item.done?'opacity:0.45':''}">
+          <div draggable="true" data-shoplist="${sl.id}" data-shopidx="${i}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);border:1px solid ${item.done?'var(--green)':'var(--border)'};${item.done?'opacity:0.45':''};cursor:grab">
             <div onclick="event.stopPropagation();toggleShopItem('${sl.id}',${i})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${item.done?'var(--green)':'var(--border2)'};background:${item.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">${item.done?'&#10003;':''}</div>
             ${hasLink?`<img src="${favicon}" style="width:24px;height:24px;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">`:''}
             <div style="flex:1;min-width:0">
