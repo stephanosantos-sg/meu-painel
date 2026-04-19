@@ -2380,6 +2380,47 @@ function editGoal(id){
 }
 function deleteGoal(id){D.goals=D.goals.filter(x=>x.id!==id);save();render();}
 
+// Milestone drag & drop
+var _dragMs = null;
+document.addEventListener('dragstart', function(e) {
+  var el = e.target.closest('[data-goalid][data-msidx]');
+  if (!el) return;
+  _dragMs = { goalId: el.dataset.goalid, idx: parseInt(el.dataset.msidx) };
+  el.style.opacity = '0.4';
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+});
+document.addEventListener('dragover', function(e) {
+  if (!_dragMs) return;
+  var el = e.target.closest('[data-goalid][data-msidx]');
+  if (el && el.dataset.goalid === _dragMs.goalId) { e.preventDefault(); e.stopPropagation(); el.style.borderLeft = '3px solid var(--accent)'; }
+}, true);
+document.addEventListener('dragleave', function(e) {
+  if (!_dragMs) return;
+  var el = e.target.closest('[data-goalid][data-msidx]');
+  if (el) el.style.borderLeft = '';
+});
+document.addEventListener('drop', function(e) {
+  if (!_dragMs) return;
+  var el = e.target.closest('[data-goalid][data-msidx]');
+  if (!el || el.dataset.goalid !== _dragMs.goalId) { _dragMs = null; return; }
+  e.preventDefault(); e.stopPropagation();
+  var toIdx = parseInt(el.dataset.msidx);
+  var fromIdx = _dragMs.idx;
+  var goalId = _dragMs.goalId;
+  _dragMs = null;
+  if (fromIdx === toIdx) return;
+  var goal = D.goals.find(function(g){return g.id===goalId;});
+  if (!goal || !goal.milestones) return;
+  var item = goal.milestones.splice(fromIdx, 1)[0];
+  goal.milestones.splice(toIdx, 0, item);
+  save(); render();
+}, true);
+document.addEventListener('dragend', function(e) {
+  _dragMs = null;
+  document.querySelectorAll('[data-goalid][data-msidx]').forEach(function(el){ el.style.opacity='1'; el.style.borderLeft=''; });
+});
+
 function renderObjetivos(H, C) {
   H.innerHTML = `<h2>🎯 Objetivos</h2><div class="subtitle">Metas de longo prazo</div>`;
   let html = `<button class="btn btn-primary" onclick="openGoalModal()" style="margin-bottom:20px">+ Novo Objetivo</button>`;
@@ -2432,8 +2473,9 @@ function renderObjetivos(H, C) {
             const mp = getMsProgress(m);
             const mpColor = mp>=100?'var(--green)':mp>=50?'var(--accent)':mp>0?'var(--orange)':'var(--border2)';
             return `
-            <div style="padding:8px 10px;border-radius:8px;margin-bottom:2px;transition:background 0.15s;${mp>=100?'opacity:0.55':''}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+            <div draggable="true" data-goalid="${g.id}" data-msidx="${i}" style="padding:8px 10px;border-radius:8px;margin-bottom:2px;transition:background 0.15s;${mp>=100?'opacity:0.55':''};cursor:grab" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
               <div style="display:flex;align-items:center;gap:10px">
+                <span class="drag-handle" style="font-size:0.65rem;opacity:0.3;cursor:grab">⠿</span>
                 <span style="font-size:0.68rem;color:var(--text3);min-width:20px;text-align:right">${i+1}</span>
                 <div onclick="event.stopPropagation();toggleMilestone('${g.id}',${i})" style="width:20px;height:20px;border-radius:50%;border:2px solid ${mpColor};background:${mp>=100?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700;cursor:pointer">${mp>=100?'&#10003;':''}</div>
                 <span style="flex:1;font-size:0.88rem;${mp>=100?'text-decoration:line-through':''}">${esc(m.text)}${m.suggestedDate?` <span style="font-size:0.68rem;color:${isOverdue(m.suggestedDate)&&mp<100?'var(--red)':'var(--text3)'};font-weight:400">📅 ${fmtDate(m.suggestedDate)}</span>`:''}</span>
@@ -6296,6 +6338,21 @@ function updateMobileNav() {
 }
 
 // ═══════════════════ INIT ═══════════════════
+// One-time: reorder Viver de Renda milestones (aulas first, lives last)
+if (!D._viverDeRendaReordered) {
+  var vdrGoal = D.goals.find(function(g){return g.title && g.title.toLowerCase().includes('viver de renda');});
+  if (vdrGoal && vdrGoal.milestones && vdrGoal.milestones.length > 10) {
+    var aulas = vdrGoal.milestones.filter(function(m){return /aula/i.test(m.text);});
+    var lives = vdrGoal.milestones.filter(function(m){return /live|monitoria/i.test(m.text) && !/aula/i.test(m.text);});
+    var extras = vdrGoal.milestones.filter(function(m){return !/aula/i.test(m.text) && !/live|monitoria/i.test(m.text);});
+    if (aulas.length > 0 && lives.length > 0) {
+      vdrGoal.milestones = [].concat(aulas, extras, lives);
+      D._viverDeRendaReordered = true;
+      save();
+    }
+  }
+}
+
 // Remove duplicate "compras" category (conflicts with Compras section)
 if (D.categories) {
   const had = D.categories.length;
