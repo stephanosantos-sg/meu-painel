@@ -2425,6 +2425,27 @@ function clearDoneItems(listId) {
   if (sl) { sl.items = sl.items.filter(x=>!x.done); save(); render(); }
 }
 
+function archiveShopList(listId) {
+  ensureShopLists();
+  if (!D._shopArchive) D._shopArchive = [];
+  const sl = D.shopLists.find(x=>x.id===listId);
+  if (!sl) return;
+  const total = sl.items.length, done = sl.items.filter(x=>x.done).length;
+  const totalPrice = sl.items.reduce((a,item) => {
+    if (!item.price) return a;
+    const v = parseFloat(item.price.replace(/[^\d,]/g,'').replace(',','.')) || 0;
+    return a + v;
+  }, 0);
+  D._shopArchive.unshift({
+    name: sl.name, icon: sl.icon, items: [...sl.items],
+    archivedAt: new Date().toISOString(),
+    stats: { total, done, totalPrice }
+  });
+  D.shopLists = D.shopLists.filter(x=>x.id!==listId);
+  save(); render();
+  showToast('📦 Lista arquivada!', 'success');
+}
+
 function renderCompras(H, C) {
   ensureShopLists();
   H.innerHTML = `<h2>🛒 Compras</h2><div class="subtitle">Listas de compras</div>`;
@@ -2454,6 +2475,7 @@ function renderCompras(H, C) {
         <div style="display:flex;gap:4px">
           <button class="task-action" onclick="openShopListModal('${sl.id}')" title="Editar" style="opacity:0.6">✏️</button>
           ${done>0?`<button class="task-action" onclick="clearDoneItems('${sl.id}')" title="Limpar concluídos" style="opacity:0.6">🧹</button>`:''}
+          <button class="task-action" onclick="archiveShopList('${sl.id}')" title="Arquivar lista" style="opacity:0.6">📦</button>
           <button class="task-action del" onclick="deleteShopList('${sl.id}')" title="Excluir" style="opacity:0.6">✕</button>
         </div>
       </div>
@@ -2490,7 +2512,54 @@ function renderCompras(H, C) {
   });
 
   html += `</div>`;
+
+  // Archived lists
+  if (D._shopArchive && D._shopArchive.length) {
+    html += `<div style="margin-top:24px">
+      <div style="font-size:0.85rem;font-weight:700;color:var(--text3);margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">📦 Arquivo (${D._shopArchive.length}) ▾</div>
+      <div style="display:none">`;
+    D._shopArchive.forEach((arc, ai) => {
+      const dt = new Date(arc.archivedAt);
+      const dateStr = dt.toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+      const priceStr = arc.stats.totalPrice > 0 ? `R$ ${arc.stats.totalPrice.toFixed(2).replace('.',',')}` : '';
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.2rem">${arc.icon||'🛒'}</span>
+            <div>
+              <div style="font-weight:700;font-size:0.95rem">${esc(arc.name)}</div>
+              <div style="font-size:0.68rem;color:var(--text3)">${dateStr} · ${arc.stats.done}/${arc.stats.total} itens ${priceStr?'· '+priceStr:''}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button onclick="restoreShopArchive(${ai})" class="btn btn-ghost btn-sm" style="font-size:0.68rem" title="Restaurar">♻️</button>
+            <button onclick="D._shopArchive.splice(${ai},1);save();render()" class="task-action del" style="opacity:0.5" title="Excluir">✕</button>
+          </div>
+        </div>
+        <div style="display:none" id="shopArc_${ai}">
+          ${arc.items.map(item => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.8rem;${item.done?'opacity:0.45;text-decoration:line-through':''}">
+            <span style="color:${item.done?'var(--green)':'var(--text3)'};font-size:0.7rem">${item.done?'✅':'⬜'}</span>
+            <span style="flex:1">${esc(item.text)}</span>
+            ${item.price?`<span style="font-size:0.75rem;color:var(--green);font-weight:600">${esc(item.price)}</span>`:''}
+          </div>`).join('')}
+        </div>
+        <button onclick="var el=document.getElementById('shopArc_${ai}');el.style.display=el.style.display==='none'?'':'none';this.textContent=el.style.display==='none'?'Ver itens':'Esconder'" class="btn btn-ghost btn-sm" style="font-size:0.68rem;margin-top:4px">Ver itens</button>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
   C.innerHTML = html;
+}
+
+function restoreShopArchive(idx) {
+  if (!D._shopArchive || !D._shopArchive[idx]) return;
+  ensureShopLists();
+  const arc = D._shopArchive[idx];
+  D.shopLists.push({ id: uid(), name: arc.name, icon: arc.icon || '🛒', items: arc.items || [] });
+  D._shopArchive.splice(idx, 1);
+  save(); render();
+  showToast('♻️ Lista restaurada!', 'success');
 }
 
 // ═══════════════════ DRAG & DROP (delegation) ═══════════════════
@@ -3319,7 +3388,7 @@ function renderMidia(H, C) {
     }
     // Queue with drag & drop (limited to 20)
     if (fila.length) {
-      const filaShow = fila.slice(0, 20);
+      const filaShow = fila.slice(0, 10);
       html += `<div style="margin-bottom:16px">
         <div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 NA FILA (${fila.length}) <span style="font-weight:400;font-size:0.68rem;color:var(--text3)">— arraste para reordenar</span></div>
         <div id="bookQueue">`;
@@ -3341,8 +3410,8 @@ function renderMidia(H, C) {
         </div>`;
       });
       html += `</div>`;
-      if (fila.length > 20) {
-        html += mediaGroup('📚 BIBLIOTECA', fila.slice(20), origItems, activeTab, 'var(--text3)', true);
+      if (fila.length > 10) {
+        html += mediaGroup('📚 BIBLIOTECA', fila.slice(10), origItems, activeTab, 'var(--text3)', true);
       }
       html += `</div>`;
     }
