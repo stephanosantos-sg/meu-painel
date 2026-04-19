@@ -3866,7 +3866,11 @@ function renderGraficos(H, C) {
     D.tasks.forEach(tk => {
       if (tk.doneSlots && tk.doneSlots[d]) {
         if (Array.isArray(tk.doneSlots[d])) {
-          tk.doneSlots[d].forEach(slot => items.push((tk.icon||'')+ ' ' + esc(tk.text) + ' (' + slot + ')'));
+          tk.doneSlots[d].forEach(slot => {
+            const slotInfo = tk.times && tk.times.find(s => s.time === slot);
+            const label = slotInfo && slotInfo.label ? esc(slotInfo.label) : esc(tk.text);
+            items.push((tk.icon||'') + ' ' + label + ' (' + slot + ')');
+          });
         } else items.push((tk.icon||'') + ' ' + esc(tk.text));
       }
       if (tk.freq==='pontual' && tk.done && tk.doneAt===d) items.push((tk.icon||'') + ' ' + esc(tk.text));
