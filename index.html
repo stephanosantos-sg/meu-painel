@@ -5996,7 +5996,16 @@ document.addEventListener('keydown', e => {
   const tag = document.activeElement.tagName;
   const inInput = tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT';
   const modalOpen = !!document.querySelector('.modal-overlay.show');
-  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); closeBulkImport(); closeIdeaModal(); hideShortcutsOverlay(); closeGlobalSearch(); exitFocusMode(); closeEmojiPicker(); document.querySelectorAll('.modal-overlay.show').forEach(el=>el.classList.remove('show')); document.querySelectorAll('body > .modal-overlay').forEach(el=>el.remove()); return; }
+  if (e.key==='Escape') {
+    // First: remove any dynamic popups appended to body
+    var dynOverlays = document.querySelectorAll('body > .modal-overlay');
+    if (dynOverlays.length) { dynOverlays.forEach(el=>el.remove()); return; }
+    // Then: close named modals
+    closeEmojiPicker();
+    document.querySelectorAll('.modal-overlay.show').forEach(el=>el.classList.remove('show'));
+    closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); closeBulkImport(); closeIdeaModal(); hideShortcutsOverlay(); closeGlobalSearch(); exitFocusMode();
+    return;
+  }
   if (inInput || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k==='q' || k==='n') { openAddTask(); e.preventDefault(); }
