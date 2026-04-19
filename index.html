@@ -4045,11 +4045,9 @@ function renderMidia(H, C) {
 
   // Render items by status (list view)
   if (activeTab === 'livros') {
-    const allFila = origItems.filter(x=>x.status==='Fila'&&!x.done);
-    const filaSet = new Set(allFila.slice(0, 10));
     const lendo = items.filter(x=>x.status==='Lendo');
-    const fila = items.filter(x=>filaSet.has(x));
-    const biblioteca = items.filter(x=>x.status==='Fila'&&!x.done&&!filaSet.has(x));
+    const fila = items.filter(x=>x.status==='Fila'&&!x.done&&x.queued);
+    const biblioteca = items.filter(x=>x.status==='Fila'&&!x.done&&!x.queued);
     const lidos = items.filter(x=>x.status==='Lido'||x.done);
     // Hero card for currently reading
     if (lendo.length) {
@@ -4087,7 +4085,7 @@ function renderMidia(H, C) {
     }
     // Queue with drag & drop (limited to 20)
     if (fila.length) {
-      const filaShow = fila.slice(0, 10);
+      const filaShow = fila;
       html += `<div style="margin-bottom:16px">
         <div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 PRÓXIMOS (${filaShow.length}) <span style="font-weight:400;font-size:0.68rem;color:var(--text3)">— arraste para reordenar</span></div>
         <div id="bookQueue">`;
@@ -4195,6 +4193,9 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
       </div>`;
     }
 
+    if (cat==='livros' && !item.queued && item.status==='Fila' && !isDone) {
+      html += `<button onclick="event.stopPropagation();addToQueue(${idx})" title="Adicionar à fila" style="background:none;border:none;color:var(--orange);cursor:pointer;font-size:0.75rem;opacity:0.7;white-space:nowrap">📋 Fila</button>`;
+    }
     html += `<button onclick="event.stopPropagation();editMediaItem('${cat}',${idx})" title="Editar" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✏️</button>`;
     html += `<button id="fetchBtn_${cat}_${idx}" onclick="event.stopPropagation();fetchMetaForItem('${cat}',${idx})" title="Buscar metadados" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">🔍</button>`;
     html += `<button onclick="event.stopPropagation();deleteMediaItem('${cat}',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✕</button>`;
@@ -4208,8 +4209,17 @@ function moveToLibrary(idx) {
   ensureMedia();
   const book = D.media.livros[idx];
   if (!book) return;
-  D.media.livros.splice(idx, 1);
-  D.media.livros.push(book);
+  book.queued = false;
+  save(); render();
+}
+
+function addToQueue(idx) {
+  ensureMedia();
+  const book = D.media.livros[idx];
+  if (!book) return;
+  const queueCount = D.media.livros.filter(b => b.queued && b.status === 'Fila' && !b.done).length;
+  if (queueCount >= 10) { showToast('Fila cheia (máx 10)', 'error'); return; }
+  book.queued = true;
   save(); render();
 }
 
