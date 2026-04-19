@@ -6261,6 +6261,7 @@ function cycleBookStatus(idx) {
   item.done = next === 'Lido';
   if (next === 'Lido') item.progress = 100;
   save(); render();
+  if (next === 'Lendo' && !item.pages) fetchBookMetaForItem(idx, item.title);
 }
 
 // ═══════════════════ EVENTOS ═══════════════════
