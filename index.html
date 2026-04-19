@@ -3771,6 +3771,24 @@ async function getUpcomingEventsForToday() {
 }
 
 // ═══════════════════ GRAFICOS ═══════════════════
+function showDayDetail(dayLabel, itemsJson) {
+  const items = JSON.parse(itemsJson);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show';
+  overlay.style.zIndex = '1100';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `<div class="modal" style="width:400px;max-height:70vh;display:flex;flex-direction:column">
+    <div class="modal-header"><h3>${dayLabel} — ${items.length} itens</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button></div>
+    <div style="padding:16px 24px 24px;overflow-y:auto;flex:1">
+      ${items.map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.85rem">
+        <span style="color:var(--text3);min-width:20px;text-align:right;font-size:0.72rem">${i+1}</span>
+        <span style="color:var(--text)">${item}</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
 function renderGraficos(H, C) {
   H.innerHTML = `<h2>Gráficos</h2><div class="subtitle">Acompanhamento do seu progresso</div>`;
   const t = todayStr();
@@ -3863,7 +3881,7 @@ function renderGraficos(H, C) {
         return `<div style="flex:1;min-width:80px;background:var(--surface2);border-radius:8px;padding:8px;font-size:0.65rem;${isT?'border:1px solid var(--accent)':'border:1px solid var(--border)'}">
           <div style="font-weight:700;color:${isT?'var(--accent2)':'var(--text3)'};margin-bottom:4px">${shortDay(d)} ${d.slice(8)}</div>
           ${taskDetailPerDay[i].slice(0,5).map(item => `<div style="color:var(--text2);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item}</div>`).join('')}
-          ${taskDetailPerDay[i].length>5?`<div style="color:var(--text3)">+${taskDetailPerDay[i].length-5} mais</div>`:''}
+          ${taskDetailPerDay[i].length>5?`<div onclick="showDayDetail('${shortDay(d)} ${d.slice(8)}',${JSON.stringify(JSON.stringify(taskDetailPerDay[i]))})" style="color:var(--accent2);cursor:pointer;font-weight:600;margin-top:2px">+${taskDetailPerDay[i].length-5} mais</div>`:''}
         </div>`;
       }).join('')}
     </div>
