@@ -3005,60 +3005,211 @@ function getXPRemaining() {
 const TITLES = ['Novato','Aprendiz','Explorador','Aventureiro','Guerreiro','Cavaleiro','Mestre','Campeão','Lenda','Imortal'];
 function getTitle(lvl) { return TITLES[Math.min(Math.floor((lvl-1)/3), TITLES.length-1)]; }
 
-function pixelAvatar(lvl) {
-  const s = 6;
-  function px(x,y,c) { return `<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${c}"/>`; }
-  let svg = '';
-  const skin = '#f4c78e', hair = lvl>=10?'#ffd700':lvl>=7?'#c0392b':lvl>=4?'#5b3a1a':'#2c1810';
-  const body = lvl>=15?'#ffd700':lvl>=10?'#8e44ad':lvl>=7?'#2980b9':lvl>=4?'#27ae60':'#7f8c8d';
-  const boots = lvl>=7?'#8b4513':'#555';
-  // Hair
-  for (let x=3;x<=8;x++) svg += px(x,0,hair);
-  for (let x=2;x<=9;x++) svg += px(x,1,hair);
-  // Face
-  for (let x=3;x<=8;x++) svg += px(x,2,skin);
-  for (let x=3;x<=8;x++) svg += px(x,3,skin);
-  svg += px(4,3,'#222') + px(7,3,'#222'); // eyes
-  for (let x=4;x<=7;x++) svg += px(x,4,skin); // mouth area
-  svg += px(5,4,'#c0392b') + px(6,4,'#c0392b'); // smile
-  // Body
-  for (let x=3;x<=8;x++) svg += px(x,5,body);
-  for (let x=3;x<=8;x++) svg += px(x,6,body);
-  for (let x=3;x<=8;x++) svg += px(x,7,body);
-  // Arms
-  svg += px(2,5,skin) + px(2,6,skin) + px(9,5,skin) + px(9,6,skin);
-  // Weapon (level 4+)
-  if (lvl >= 4) { svg += px(10,4,'#aaa') + px(10,5,'#aaa') + px(10,6,'#888'); }
-  // Shield (level 7+)
-  if (lvl >= 7) { svg += px(1,5,'#c0392b') + px(1,6,'#c0392b') + px(1,7,'#c0392b'); }
-  // Crown (level 10+)
-  if (lvl >= 10) { svg += px(4,0,'#ffd700') + px(5,0,'#ffd700') + px(6,0,'#ffd700') + px(7,0,'#ffd700'); svg += px(3,0,'#ffd700') + px(8,0,'#ffd700'); }
-  // Aura (level 15+)
-  if (lvl >= 15) { for (let x=2;x<=9;x++) svg += `<rect x="${x*s}" y="0" width="${s}" height="${s}" fill="#ffd700" opacity="0.3"/>`; }
-  // Legs
-  for (let x=4;x<=5;x++) svg += px(x,8,boots) + px(x,9,boots);
-  for (let x=6;x<=7;x++) svg += px(x,8,boots) + px(x,9,boots);
-  // Belt (level 4+)
-  if (lvl >= 4) { for (let x=3;x<=8;x++) svg += px(x,7,'#8b4513'); svg += px(5,7,'#ffd700'); }
-  return `<svg viewBox="0 0 ${12*s} ${10*s}" width="96" height="80" style="image-rendering:pixelated">${svg}</svg>`;
+function pixelAvatar(lvl, size) {
+  const W=16,H=22,s=3;
+  const sz=size||96;
+  function px(x,y,c){return `<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${c}"/>`;}
+  function row(y,x1,x2,c){let r='';for(let x=x1;x<=x2;x++)r+=px(x,y,c);return r;}
+  let svg='';
+  const skin='#f4c78e',skinS='#d4a76e',eye='#2c1810';
+
+  if(lvl<4){
+    // Novato: simple green tunic, brown hair, no weapon
+    const hair='#5b3a1a',hairD='#3d2612',tunic='#5a8f4a',tunicD='#3d6b2e',pants='#6b5b4e',boot='#4a3728';
+    svg+=row(0,6,9,hair); // hair top
+    svg+=row(1,5,10,hair)+px(5,1,hairD)+px(10,1,hairD);
+    svg+=row(2,5,10,hair)+px(5,2,hairD); // hair sides
+    svg+=px(5,3,hair)+row(3,6,9,skin)+px(10,3,hair); // face
+    svg+=px(5,4,hair)+px(6,4,skin)+px(7,4,eye)+px(8,4,skin)+px(9,4,eye)+px(10,4,skin)+px(11,4,hair);
+    svg+=px(5,5,hair)+row(5,6,10,skin)+px(11,5,hair); // nose
+    svg+=px(6,6,skin)+px(7,6,skin)+px(8,6,'#c0392b')+px(9,6,skin)+px(10,6,skin); // mouth
+    svg+=row(7,6,10,skin); // chin
+    svg+=px(5,8,skin)+row(8,6,10,tunic)+px(11,8,skin); // shoulders
+    svg+=px(4,9,skin)+row(9,5,11,tunic)+px(12,9,skin); // arms+body
+    svg+=px(4,10,skin)+row(10,5,11,tunic)+px(12,10,skin);
+    svg+=row(11,5,11,tunic)+px(8,11,tunicD); // belt area
+    svg+=row(12,5,11,tunicD); // belt
+    svg+=row(13,6,10,tunic); // lower tunic
+    svg+=row(14,6,10,tunic);
+    svg+=px(6,15,pants)+px(7,15,pants)+px(9,15,pants)+px(10,15,pants); // legs
+    svg+=px(6,16,pants)+px(7,16,pants)+px(9,16,pants)+px(10,16,pants);
+    svg+=px(6,17,boot)+px(7,17,boot)+px(9,17,boot)+px(10,17,boot); // boots
+    svg+=px(5,18,boot)+px(6,18,boot)+px(7,18,boot)+px(9,18,boot)+px(10,18,boot)+px(11,18,boot);
+  } else if(lvl<7){
+    // Aventureiro: leather armor, sword, red cape hint
+    const hair='#5b3a1a',armor='#8b6914',armorD='#6b4f0e',cape='#a83232',sword='#c0c0c0',swordH='#8b6914';
+    svg+=row(0,6,9,hair);
+    svg+=row(1,5,10,hair);
+    svg+=row(2,5,10,hair);
+    svg+=px(5,3,hair)+row(3,6,9,skin)+px(10,3,hair);
+    svg+=px(5,4,hair)+px(6,4,skin)+px(7,4,eye)+px(8,4,skin)+px(9,4,eye)+px(10,4,skin);
+    svg+=row(5,6,10,skin);
+    svg+=px(6,6,skin)+px(7,6,skin)+px(8,6,'#c0392b')+px(9,6,skin)+px(10,6,skin);
+    svg+=row(7,6,10,skinS);
+    // Cape behind
+    svg+=px(4,8,cape)+px(4,9,cape)+px(4,10,cape)+px(4,11,cape)+px(4,12,cape)+px(4,13,cape)+px(4,14,cape);
+    svg+=px(3,10,cape)+px(3,11,cape)+px(3,12,cape)+px(3,13,cape)+px(3,14,cape)+px(3,15,cape);
+    // Body armor
+    svg+=px(5,8,armor)+row(8,6,10,armor)+px(11,8,armor);
+    svg+=px(5,9,skin)+row(9,6,10,armor)+px(11,9,skin); // arms
+    svg+=px(5,10,skin)+row(10,6,10,armor)+px(11,10,skin);
+    svg+=row(11,6,10,armorD); // belt
+    svg+=px(8,11,'#ffd700'); // buckle
+    svg+=row(12,6,10,armor);
+    svg+=row(13,6,10,armorD);
+    // Sword right hand
+    svg+=px(12,7,sword)+px(12,8,sword)+px(12,9,swordH)+px(12,10,swordH)+px(12,6,sword)+px(12,5,sword)+px(12,4,sword);
+    // Legs
+    svg+=px(6,14,'#5a4a3a')+px(7,14,'#5a4a3a')+px(9,14,'#5a4a3a')+px(10,14,'#5a4a3a');
+    svg+=px(6,15,'#5a4a3a')+px(7,15,'#5a4a3a')+px(9,15,'#5a4a3a')+px(10,15,'#5a4a3a');
+    svg+=px(6,16,'#4a3728')+px(7,16,'#4a3728')+px(9,16,'#4a3728')+px(10,16,'#4a3728');
+    svg+=px(5,17,'#4a3728')+px(6,17,'#4a3728')+px(7,17,'#4a3728')+px(9,17,'#4a3728')+px(10,17,'#4a3728')+px(11,17,'#4a3728');
+  } else if(lvl<10){
+    // Cavaleiro: blue steel armor, shield, helm visor
+    const helm='#607898',helmD='#4a6080',armor='#5878a0',armorD='#3d5a7a',shield='#c0392b',shieldD='#8b1a1a',gold='#ffd700';
+    svg+=row(0,6,9,helm)+px(10,0,helm);
+    svg+=px(5,1,helmD)+row(1,6,10,helm)+px(11,1,helmD);
+    svg+=px(5,2,helmD)+row(2,6,10,helm);
+    svg+=px(5,3,helmD)+px(6,3,helm)+px(7,3,gold)+px(8,3,gold)+px(9,3,gold)+px(10,3,helm); // visor slit
+    svg+=px(5,4,helm)+px(6,4,skin)+px(7,4,eye)+px(8,4,skin)+px(9,4,eye)+px(10,4,skin)+px(11,4,helm);
+    svg+=px(5,5,helm)+row(5,6,10,skin)+px(11,5,helm);
+    svg+=px(6,6,skin)+px(7,6,skin)+px(8,6,'#c0392b')+px(9,6,skin)+px(10,6,skin);
+    svg+=row(7,6,10,skinS);
+    // Armor body
+    svg+=row(8,5,11,armor)+px(8,8,gold);
+    svg+=px(4,9,armor)+row(9,5,11,armor)+px(12,9,armor);
+    svg+=px(4,10,armor)+row(10,5,11,armor)+px(12,10,armor);
+    svg+=row(11,5,11,armorD)+px(8,11,gold);
+    svg+=row(12,5,11,armor);
+    svg+=row(13,6,10,armorD);
+    // Shield left
+    svg+=px(2,8,shieldD)+px(3,8,shield)+px(2,9,shield)+px(3,9,shield)+px(1,10,shieldD)+px(2,10,shield)+px(3,10,shield)+px(2,11,shield)+px(3,11,shieldD)+px(2,12,shieldD);
+    svg+=px(3,9,gold); // shield emblem
+    // Sword right
+    svg+=px(13,5,'#e0e0e0')+px(13,6,'#e0e0e0')+px(13,7,'#c0c0c0')+px(13,8,gold)+px(13,9,gold)+px(13,10,'#8b4513');
+    // Legs
+    svg+=px(6,14,'#607898')+px(7,14,'#607898')+px(9,14,'#607898')+px(10,14,'#607898');
+    svg+=px(6,15,'#607898')+px(7,15,'#607898')+px(9,15,'#607898')+px(10,15,'#607898');
+    svg+=px(5,16,'#4a6080')+px(6,16,'#4a6080')+px(7,16,'#4a6080')+px(9,16,'#4a6080')+px(10,16,'#4a6080')+px(11,16,'#4a6080');
+  } else if(lvl<15){
+    // Mago: purple robes, wizard hat, glowing staff, stars
+    const hat='#6a1b9a',hatD='#4a0e6e',robe='#7b1fa2',robeD='#5c1580',staff='#8d6e3f',glow='#64d2ff',star='#ffd700';
+    // Stars floating
+    svg+=px(2,0,star)+px(13,2,star)+px(1,4,star)+px(14,0,star);
+    // Hat
+    svg+=px(8,0,hat);
+    svg+=row(0,7,9,hat);
+    svg+=row(1,6,10,hat)+px(7,1,star);
+    svg+=row(2,5,11,hat);
+    svg+=px(4,3,hatD)+row(3,5,11,hatD)+px(12,3,hatD); // hat brim
+    // Face
+    svg+=px(5,4,hat)+px(6,4,skin)+px(7,4,eye)+px(8,4,skin)+px(9,4,eye)+px(10,4,skin)+px(11,4,hat);
+    svg+=row(5,6,10,skin);
+    svg+=px(6,6,skin)+px(7,6,'#ddd')+px(8,6,skin)+px(9,6,'#ddd')+px(10,6,skin); // beard
+    svg+=px(6,7,'#ddd')+px(7,7,'#ddd')+px(8,7,'#ddd')+px(9,7,'#ddd')+px(10,7,'#ddd'); // long beard
+    // Robe body
+    svg+=row(8,5,11,robe);
+    svg+=px(4,9,robe)+row(9,5,11,robe)+px(12,9,robe);
+    svg+=px(4,10,skin)+row(10,5,11,robe)+px(12,10,skin);
+    svg+=row(11,5,11,robeD);
+    svg+=row(12,5,11,robe);
+    svg+=row(13,5,11,robe);
+    svg+=row(14,4,12,robeD);
+    svg+=row(15,4,12,robe);
+    // Staff with glow
+    svg+=px(3,3,glow)+px(3,4,glow)+px(3,5,staff)+px(3,6,staff)+px(3,7,staff)+px(3,8,staff)+px(3,9,staff)+px(3,10,staff)+px(3,11,staff)+px(3,12,staff);
+    svg+=px(2,3,glow)+px(4,3,glow)+px(3,2,glow); // glow orb
+    // Boots peek
+    svg+=px(6,16,'#3d2612')+px(7,16,'#3d2612')+px(9,16,'#3d2612')+px(10,16,'#3d2612');
+  } else {
+    // Lenda: golden armor, wings, crown, divine aura
+    const gold='#ffd700',goldD='#c5a000',armor='#e8c800',armorD='#b8960a',wing='#64d2ff',wingD='#0a84ff',crown='#ff9500';
+    // Aura glow
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){const dx=x-8,dy=y-10;if(dx*dx/100+dy*dy/144<1&&Math.random()<0.15)svg+=`<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${gold}" opacity="0.15"/>`;}
+    // Crown
+    svg+=px(6,0,crown)+px(8,0,crown)+px(10,0,crown);
+    svg+=row(1,5,11,gold);
+    svg+=row(2,5,11,goldD);
+    // Face
+    svg+=px(5,3,gold)+row(3,6,10,skin)+px(11,3,gold);
+    svg+=px(5,4,gold)+px(6,4,skin)+px(7,4,'#1a1a8a')+px(8,4,skin)+px(9,4,'#1a1a8a')+px(10,4,skin)+px(11,4,gold);
+    svg+=row(5,6,10,skin);
+    svg+=px(6,6,skin)+px(7,6,skin)+px(8,6,'#c0392b')+px(9,6,skin)+px(10,6,skin);
+    svg+=row(7,6,10,skinS);
+    // Wings
+    svg+=px(2,7,wing)+px(1,8,wing)+px(0,9,wingD)+px(1,9,wing)+px(2,9,wing)+px(1,10,wing)+px(2,10,wingD);
+    svg+=px(14,7,wing)+px(15,8,wing)+px(15,9,wing)+px(14,9,wing)+px(13,9,wingD)+px(14,10,wing)+px(13,10,wingD);
+    // Golden armor
+    svg+=row(8,5,11,armor)+px(8,8,crown);
+    svg+=px(4,9,armor)+row(9,5,11,armor)+px(12,9,armor);
+    svg+=px(4,10,skin)+row(10,5,11,armor)+px(12,10,skin);
+    svg+=row(11,5,11,goldD)+px(7,11,crown)+px(8,11,crown)+px(9,11,crown);
+    svg+=row(12,5,11,armor);
+    svg+=row(13,6,10,armorD);
+    // Legs golden
+    svg+=px(6,14,goldD)+px(7,14,goldD)+px(9,14,goldD)+px(10,14,goldD);
+    svg+=px(6,15,goldD)+px(7,15,goldD)+px(9,15,goldD)+px(10,15,goldD);
+    svg+=px(5,16,armorD)+px(6,16,armorD)+px(7,16,armorD)+px(9,16,armorD)+px(10,16,armorD)+px(11,16,armorD);
+    // Divine sword
+    svg+=px(13,3,'#fff')+px(13,4,'#fff')+px(13,5,'#e0e0e0')+px(13,6,'#c0c0c0')+px(13,7,gold)+px(13,8,gold);
+  }
+  return `<svg viewBox="0 0 ${W*s} ${H*s}" width="${sz}" height="${Math.round(sz*H/W)}" style="image-rendering:pixelated">${svg}</svg>`;
 }
 
+function _countTotalDone(){let c=0;D.tasks.forEach(t=>{Object.keys(t.doneSlots||{}).forEach(k=>{const v=t.doneSlots[k];c+=Array.isArray(v)?v.length:1});if(t.done)c++});return c}
 const ACHIEVEMENT_DEFS = [
+  // Primeiros passos
   {id:'first_task',name:'Primeira Tarefa',desc:'Complete sua primeira tarefa',icon:'✅',xp:20,check:()=>D.tasks.some(t=>t.done||Object.keys(t.doneSlots||{}).length>0)},
   {id:'first_habit',name:'Primeiro Hábito',desc:'Marque um hábito pela primeira vez',icon:'⭐',xp:20,check:()=>D.habits.some(h=>Object.keys(h.log||{}).length>0)},
-  {id:'streak_7',name:'Sequência 7',desc:'7 dias seguidos de um hábito',icon:'🔥',xp:50,check:()=>D.habits.some(h=>getStreak(h)>=7)},
-  {id:'streak_21',name:'Formador de Hábito',desc:'21 dias seguidos de um hábito',icon:'💎',xp:150,check:()=>D.habits.some(h=>getStreak(h)>=21)},
-  {id:'streak_30',name:'Inabalável',desc:'30 dias seguidos de um hábito',icon:'🏆',xp:250,check:()=>D.habits.some(h=>getStreak(h)>=30)},
-  {id:'tasks_50',name:'Produtivo',desc:'Complete 50 tarefas no total',icon:'📋',xp:50,check:()=>{let c=0;D.tasks.forEach(t=>{c+=Object.keys(t.doneSlots||{}).length;if(t.done)c++});return c>=50}},
-  {id:'tasks_200',name:'Máquina',desc:'Complete 200 tarefas no total',icon:'⚡',xp:150,check:()=>{let c=0;D.tasks.forEach(t=>{c+=Object.keys(t.doneSlots||{}).length;if(t.done)c++});return c>=200}},
+  {id:'first_goal',name:'Primeiro Objetivo',desc:'Crie um objetivo',icon:'🎯',xp:15,check:()=>D.goals.length>0},
+  {id:'first_note',name:'Anotador',desc:'Crie uma nota',icon:'📝',xp:10,check:()=>(D.notes||[]).length>0},
+  {id:'first_idea',name:'Criativo',desc:'Registre uma ideia',icon:'💡',xp:15,check:()=>(D.ideas||[]).length>0},
+  // Streaks
+  {id:'streak_3',name:'Consistente',desc:'3 dias seguidos de um hábito',icon:'🔥',xp:20,check:()=>D.habits.some(h=>getStreak(h)>=3)},
+  {id:'streak_7',name:'Semana Perfeita',desc:'7 dias seguidos de um hábito',icon:'🔥',xp:50,check:()=>D.habits.some(h=>getStreak(h)>=7)},
+  {id:'streak_14',name:'Duas Semanas',desc:'14 dias seguidos de um hábito',icon:'💪',xp:100,check:()=>D.habits.some(h=>getStreak(h)>=14)},
+  {id:'streak_21',name:'Formador de Hábito',desc:'21 dias seguidos — o hábito virou rotina!',icon:'💎',xp:200,check:()=>D.habits.some(h=>getStreak(h)>=21)},
+  {id:'streak_30',name:'Inabalável',desc:'30 dias seguidos de um hábito',icon:'🏆',xp:300,check:()=>D.habits.some(h=>getStreak(h)>=30)},
+  {id:'streak_60',name:'Disciplina de Ferro',desc:'60 dias seguidos!',icon:'⚔️',xp:500,check:()=>D.habits.some(h=>getStreak(h)>=60)},
+  {id:'streak_100',name:'Centenário',desc:'100 dias seguidos de um hábito',icon:'👑',xp:800,check:()=>D.habits.some(h=>getStreak(h)>=100)},
+  {id:'streak_365',name:'Um Ano Inteiro',desc:'365 dias seguidos!',icon:'🌟',xp:2000,check:()=>D.habits.some(h=>getStreak(h)>=365)},
+  // Tarefas
+  {id:'tasks_10',name:'Começando',desc:'Complete 10 tarefas',icon:'📋',xp:20,check:()=>_countTotalDone()>=10},
+  {id:'tasks_50',name:'Produtivo',desc:'Complete 50 tarefas',icon:'📋',xp:50,check:()=>_countTotalDone()>=50},
+  {id:'tasks_200',name:'Máquina',desc:'Complete 200 tarefas',icon:'⚡',xp:150,check:()=>_countTotalDone()>=200},
+  {id:'tasks_500',name:'Imparável',desc:'Complete 500 tarefas',icon:'🚀',xp:300,check:()=>_countTotalDone()>=500},
+  {id:'tasks_1000',name:'Lendário',desc:'Complete 1000 tarefas',icon:'💫',xp:600,check:()=>_countTotalDone()>=1000},
+  // Hábitos
+  {id:'habits_3',name:'Triplo Hábito',desc:'Tenha 3 hábitos ativos',icon:'🧠',xp:20,check:()=>D.habits.length>=3},
+  {id:'habits_5',name:'Multi-hábitos',desc:'Tenha 5 hábitos ativos',icon:'🧠',xp:40,check:()=>D.habits.length>=5},
+  {id:'habits_10',name:'Hábito Master',desc:'Tenha 10 hábitos ativos',icon:'🌀',xp:80,check:()=>D.habits.length>=10},
+  {id:'all_habits_day',name:'Dia Perfeito',desc:'Complete todos os hábitos do dia',icon:'💯',xp:50,check:()=>{const t=todayStr(),dow=new Date().getDay();const today=D.habits.filter(h=>(h.days||[0,1,2,3,4,5,6]).includes(dow));return today.length>0&&today.every(h=>h.log&&h.log[t])}},
+  // Livros
   {id:'book_done',name:'Leitor',desc:'Termine um livro',icon:'📖',xp:80,check:()=>(D.media?.livros||[]).some(b=>b.status==='Lido')},
+  {id:'books_5',name:'Colecionador',desc:'Termine 5 livros',icon:'📚',xp:120,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=5},
   {id:'books_10',name:'Rato de Biblioteca',desc:'Termine 10 livros',icon:'📚',xp:200,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=10},
-  {id:'books_50',name:'Bibliófilo',desc:'Termine 50 livros',icon:'🏛️',xp:500,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=50},
+  {id:'books_25',name:'Devorador de Livros',desc:'Termine 25 livros',icon:'🏛️',xp:350,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=25},
+  {id:'books_50',name:'Bibliófilo',desc:'Termine 50 livros',icon:'🏛️',xp:600,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=50},
+  {id:'books_100',name:'Sábio',desc:'Termine 100 livros',icon:'🧙',xp:1000,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=100},
+  // Objetivos
   {id:'goal_done',name:'Objetivo Alcançado',desc:'Conclua um objetivo',icon:'🎯',xp:100,check:()=>D.goals.some(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done))},
+  {id:'goals_3',name:'Realizador',desc:'Conclua 3 objetivos',icon:'🏅',xp:250,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=3},
+  {id:'goals_5',name:'Conquistador',desc:'Conclua 5 objetivos',icon:'🏆',xp:400,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=5},
+  // Níveis
+  {id:'level_3',name:'Nível 3',desc:'Alcance nível 3',icon:'⬆️',xp:30,check:()=>D.xp.level>=3},
   {id:'level_5',name:'Nível 5',desc:'Alcance nível 5',icon:'⬆️',xp:50,check:()=>D.xp.level>=5},
-  {id:'level_10',name:'Nível 10',desc:'Alcance nível 10',icon:'🌟',xp:100,check:()=>D.xp.level>=10},
-  {id:'habits_5',name:'Multi-hábitos',desc:'Tenha 5 hábitos ativos',icon:'🧠',xp:30,check:()=>D.habits.length>=5},
-  {id:'all_habits_day',name:'Dia Perfeito',desc:'Complete todos os hábitos do dia',icon:'💯',xp:40,check:()=>{const t=todayStr(),dow=new Date().getDay();const today=D.habits.filter(h=>(h.days||[0,1,2,3,4,5,6]).includes(dow));return today.length>0&&today.every(h=>h.log&&h.log[t])}},
+  {id:'level_10',name:'Nível 10',desc:'Veterano',icon:'🌟',xp:100,check:()=>D.xp.level>=10},
+  {id:'level_15',name:'Nível 15',desc:'Elite',icon:'👑',xp:200,check:()=>D.xp.level>=15},
+  {id:'level_20',name:'Nível 20',desc:'Lenda Viva',icon:'🌠',xp:500,check:()=>D.xp.level>=20},
+  // Especiais
+  {id:'pomodoro_1',name:'Primeiro Pomodoro',desc:'Complete um pomodoro',icon:'🍅',xp:15,check:()=>D.xp.total>=25},
+  {id:'media_watch',name:'Cinéfilo',desc:'Assista 10 filmes ou séries',icon:'🎬',xp:60,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=10},
+  {id:'media_watch_50',name:'Maratonista',desc:'Assista 50 filmes ou séries',icon:'🎬',xp:200,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=50},
+  {id:'categories_3',name:'Organizado',desc:'Crie 3 categorias',icon:'🏷️',xp:20,check:()=>(D.categories||[]).length>=3},
+  {id:'shoplist_done',name:'Compras Feitas',desc:'Conclua todos itens de uma lista de compras',icon:'🛒',xp:30,check:()=>(D.shopLists||[]).some(sl=>sl.items.length>0&&sl.items.every(i=>i.done))},
+  {id:'xp_1000',name:'Mil XP',desc:'Acumule 1000 XP total',icon:'💰',xp:50,check:()=>D.xp.total>=1000},
+  {id:'xp_5000',name:'Rico em XP',desc:'Acumule 5000 XP total',icon:'💎',xp:100,check:()=>D.xp.total>=5000},
+  {id:'xp_10000',name:'XP Magnata',desc:'Acumule 10000 XP total',icon:'🏦',xp:200,check:()=>D.xp.total>=10000},
 ];
 
 function checkAchievements() {
