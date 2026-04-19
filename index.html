@@ -3024,7 +3024,10 @@ function ensureGamification() {
 
 function getXPForLevel(lvl) {
   if (lvl <= 1) return 0;
-  return Math.round(200 * Math.pow(1.35, lvl - 2));
+  if (lvl <= 10) return 100 + (lvl - 2) * 50;
+  if (lvl <= 30) return 500 + (lvl - 10) * 80;
+  if (lvl <= 60) return 2000 + (lvl - 30) * 150;
+  return 6500 + (lvl - 60) * 250;
 }
 function getTotalXPForLevel(lvl) {
   let t = 0; for (let i = 2; i <= lvl; i++) t += getXPForLevel(i); return t;
@@ -3057,12 +3060,52 @@ function getXPRemaining() {
   return getTotalXPForLevel(D.xp.level + 1) - D.xp.total;
 }
 
-const TITLES = ['Novato','Aprendiz','Explorador','Aventureiro','Guerreiro','Cavaleiro','Mestre','Campeão','Lenda','Imortal'];
-function getTitle(lvl) { return TITLES[Math.min(Math.floor((lvl-1)/3), TITLES.length-1)]; }
+const CLASSES = {
+  guerreiro:{name:'Guerreiro',icon:'⚔️',desc:'Força bruta e disciplina'},
+  mago:{name:'Mago',icon:'🔮',desc:'Sabedoria e conhecimento'},
+  monge:{name:'Monge',icon:'🧘',desc:'Equilíbrio e consistência'},
+  arqueiro:{name:'Arqueiro',icon:'🏹',desc:'Precisão e foco'},
+  paladino:{name:'Paladino',icon:'🛡️',desc:'Proteção e perseverança'},
+};
+function getTitle(lvl) {
+  if (lvl>=100) return 'Transcendente';
+  if (lvl>=90) return 'Imortal';
+  if (lvl>=80) return 'Lenda';
+  if (lvl>=70) return 'Mítico';
+  if (lvl>=60) return 'Épico';
+  if (lvl>=50) return 'Mestre';
+  if (lvl>=40) return 'Campeão';
+  if (lvl>=30) return (D.xp?.class?CLASSES[D.xp.class]?.name:'Especialista');
+  if (lvl>=20) return 'Veterano';
+  if (lvl>=15) return 'Cavaleiro';
+  if (lvl>=10) return 'Guerreiro';
+  if (lvl>=7) return 'Aventureiro';
+  if (lvl>=4) return 'Explorador';
+  if (lvl>=2) return 'Aprendiz';
+  return 'Novato';
+}
+function chooseClass(cls) {
+  ensureGamification();
+  D.xp.class = cls;
+  save(); render();
+  showToast(CLASSES[cls].icon+' Classe: '+CLASSES[cls].name+'!', 'success');
+}
+function prestigeReset() {
+  if (!confirm('Resetar para nível 1? Seu prestígio será registrado. Conquistas permanecem.')) return;
+  ensureGamification();
+  if (!D.xp.prestige) D.xp.prestige = 0;
+  D.xp.prestige++;
+  D.xp.total = 0;
+  D.xp.level = 1;
+  D.xp.class = null;
+  save(); render();
+  showToast('🌟 Prestígio '+D.xp.prestige+'! Recomeçando do zero.', 'success');
+}
 
-function pixelAvatar(lvl, size) {
+function pixelAvatar(lvl, size, cls) {
   const W=16,H=22,s=3;
   const sz=size||96;
+  cls = cls || (D.xp && D.xp.class) || null;
   function px(x,y,c){return `<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${c}"/>`;}
   function row(y,x1,x2,c){let r='';for(let x=x1;x<=x2;x++)r+=px(x,y,c);return r;}
   let svg='';
@@ -3208,6 +3251,106 @@ function pixelAvatar(lvl, size) {
     // Divine sword
     svg+=px(13,3,'#fff')+px(13,4,'#fff')+px(13,5,'#e0e0e0')+px(13,6,'#c0c0c0')+px(13,7,gold)+px(13,8,gold);
   }
+
+  // Class-based avatars (lvl 30+)
+  if (lvl >= 30 && cls) {
+    svg = ''; // redraw with class
+    const tier = lvl>=90?4:lvl>=70?3:lvl>=50?2:1; // 1=30-49, 2=50-69, 3=70-89, 4=90-100
+    const glow = tier>=3;
+    const elite = tier>=4;
+    if (glow) for(let y=0;y<H;y++) for(let x=0;x<W;x++){if(Math.random()<0.08)svg+=`<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${cls==='mago'?'#64d2ff':cls==='monge'?'#ffd700':cls==='paladino'?'#fff':cls==='arqueiro'?'#30d158':'#ff5555'}" opacity="0.12"/>`;}
+
+    if (cls==='guerreiro') {
+      const ac=tier>=3?'#c0392b':'#8b0000', acL=tier>=3?'#e74c3c':'#a83232', helm=tier>=2?'#708090':'#5a5a5a';
+      const wpn=elite?'#ffd700':'#c0c0c0';
+      svg+=row(0,6,9,helm); svg+=row(1,5,10,helm)+px(8,1,acL);
+      svg+=px(5,2,helm)+row(2,6,10,helm); svg+=px(5,3,helm)+px(6,3,skin)+px(7,3,eye)+px(8,3,skin)+px(9,3,eye)+px(10,3,skin);
+      svg+=row(4,6,10,skin); svg+=px(6,5,skin)+px(7,5,skin)+px(8,5,'#c0392b')+px(9,5,skin)+px(10,5,skin);
+      svg+=row(6,6,10,skinS);
+      // Cape
+      if(tier>=2){svg+=px(4,7,ac)+px(3,8,ac)+px(3,9,ac)+px(3,10,ac)+px(3,11,ac)+px(3,12,ac)+px(3,13,ac)+px(2,10,ac)+px(2,11,ac)+px(2,12,acL);}
+      svg+=row(7,5,11,ac); svg+=px(4,8,skin)+row(8,5,11,ac)+px(12,8,skin);
+      svg+=px(4,9,skin)+row(9,5,11,ac)+px(12,9,skin); svg+=row(10,5,11,helm)+px(8,10,elite?'#ffd700':'#c0c0c0');
+      svg+=row(11,5,11,ac); svg+=row(12,6,10,ac);
+      svg+=px(6,13,helm)+px(7,13,helm)+px(9,13,helm)+px(10,13,helm);
+      svg+=px(5,14,helm)+px(6,14,helm)+px(7,14,helm)+px(9,14,helm)+px(10,14,helm)+px(11,14,helm);
+      // Sword
+      svg+=px(13,2,wpn)+px(13,3,wpn)+px(13,4,wpn)+px(13,5,wpn)+px(13,6,'#8b4513')+px(13,7,'#8b4513');
+      if(tier>=2){svg+=px(1,7,'#a83232')+px(1,8,'#a83232')+px(1,9,'#c0392b')+px(0,8,'#8b0000')+px(0,9,'#8b0000');} // shield
+      if(elite){svg+=px(7,0,'#ffd700')+px(8,0,'#ffd700')+px(6,0,'#ffd700')+px(9,0,'#ffd700');} // crown
+    } else if (cls==='mago') {
+      const robe=tier>=3?'#1a0a3e':'#4a148c', robeL=tier>=3?'#2d1566':'#6a1b9a', staff=elite?'#ffd700':'#8d6e3f', orb=tier>=3?'#00e5ff':'#64d2ff';
+      svg+=px(8,0,robeL); svg+=row(0,7,9,robeL); svg+=row(1,6,10,robeL)+px(8,1,'#ffd700');
+      svg+=row(2,5,11,robeL); svg+=px(4,3,robe)+row(3,5,11,robe)+px(12,3,robe); // hat brim
+      svg+=px(5,4,robe)+px(6,4,skin)+px(7,4,'#64d2ff')+px(8,4,skin)+px(9,4,'#64d2ff')+px(10,4,skin)+px(11,4,robe); // glowing eyes
+      svg+=row(5,6,10,skin); svg+=px(6,6,'#ddd')+px(7,6,'#ddd')+px(8,6,'#ddd')+px(9,6,'#ddd')+px(10,6,'#ddd'); // beard
+      svg+=px(6,7,'#ccc')+px(7,7,'#ccc')+px(8,7,'#ccc')+px(9,7,'#ccc')+px(10,7,'#ccc');
+      svg+=row(8,5,11,robe); svg+=px(4,9,robeL)+row(9,5,11,robe)+px(12,9,robeL);
+      svg+=px(4,10,skin)+row(10,5,11,robe)+px(12,10,skin); svg+=row(11,5,11,robe);
+      svg+=row(12,5,11,robeL); svg+=row(13,4,12,robe); svg+=row(14,4,12,robeL);
+      // Staff
+      svg+=px(3,2,orb)+px(2,2,orb)+px(3,1,orb)+px(4,2,orb)+px(3,3,orb); // orb glow
+      for(let y=4;y<=14;y++)svg+=px(3,y,staff);
+      if(elite){svg+=px(3,1,'#fff')+px(2,1,orb)+px(4,1,orb)+px(3,0,orb);} // bigger orb
+      if(tier>=2)for(let i=0;i<3;i++)svg+=`<rect x="${(12+i*2)*s}" y="${(1+i)*s}" width="${s}" height="${s}" fill="${orb}" opacity="0.5"/>`; // sparkles
+    } else if (cls==='monge') {
+      const robe=tier>=3?'#e65100':'#ff9800', robeD=tier>=3?'#bf360c':'#e65100', sash='#ffd700';
+      svg+=row(0,6,9,skin); svg+=row(1,5,10,skin); // bald head
+      svg+=row(2,5,10,skin); svg+=px(5,3,skin)+px(6,3,skin)+px(7,3,eye)+px(8,3,skin)+px(9,3,eye)+px(10,3,skin)+px(11,3,skin);
+      svg+=row(4,6,10,skin); svg+=px(6,5,skin)+px(7,5,skin)+px(8,5,'#c0392b')+px(9,5,skin)+px(10,5,skin);
+      svg+=row(6,6,10,skinS);
+      svg+=row(7,5,11,robe); svg+=px(4,8,skin)+row(8,5,11,robe)+px(12,8,skin);
+      svg+=px(4,9,skin)+row(9,5,11,robe)+px(12,9,skin);
+      svg+=row(10,5,11,robeD)+px(7,10,sash)+px(8,10,sash)+px(9,10,sash); // sash
+      svg+=row(11,5,11,robe); svg+=row(12,5,11,robe); svg+=row(13,5,11,robeD);
+      svg+=px(6,14,robeD)+px(7,14,robeD)+px(9,14,robeD)+px(10,14,robeD);
+      svg+=px(5,15,'#5a3a1a')+px(6,15,'#5a3a1a')+px(7,15,'#5a3a1a')+px(9,15,'#5a3a1a')+px(10,15,'#5a3a1a')+px(11,15,'#5a3a1a');
+      if(tier>=2){svg+=px(2,7,sash)+px(2,8,sash)+px(13,7,sash)+px(13,8,sash);} // prayer beads
+      if(elite){svg+=`<circle cx="${8*s}" cy="${1*s}" r="${s*1.5}" fill="#ffd700" opacity="0.3"/>`; svg+=px(5,0,sash)+px(10,0,sash);} // halo
+    } else if (cls==='arqueiro') {
+      const tunic=tier>=3?'#1b5e20':'#2e7d32', tunicD=tier>=3?'#0d3b10':'#1b5e20', cape='#4a6741';
+      svg+=row(0,6,9,'#5b3a1a'); svg+=row(1,5,10,'#5b3a1a'); svg+=row(2,5,10,'#5b3a1a');
+      svg+=px(5,3,'#5b3a1a')+row(3,6,9,skin)+px(10,3,'#5b3a1a');
+      svg+=px(5,4,'#5b3a1a')+px(6,4,skin)+px(7,4,'#1a5e1a')+px(8,4,skin)+px(9,4,'#1a5e1a')+px(10,4,skin); // green eyes
+      svg+=row(5,6,10,skin); svg+=px(6,6,skin)+px(7,6,skin)+px(8,6,'#c0392b')+px(9,6,skin)+px(10,6,skin);
+      svg+=row(7,6,10,skinS);
+      if(tier>=2){svg+=px(4,7,cape)+px(4,8,cape)+px(4,9,cape)+px(4,10,cape)+px(3,9,cape)+px(3,10,cape)+px(3,11,cape);} // cape
+      svg+=row(8,5,11,tunic); svg+=px(4,9,skin)+row(9,5,11,tunic)+px(12,9,skin);
+      svg+=px(4,10,skin)+row(10,5,11,tunic)+px(12,10,skin);
+      svg+=row(11,5,11,tunicD)+px(8,11,'#8b4513'); svg+=row(12,6,10,tunic); svg+=row(13,6,10,tunicD);
+      svg+=px(6,14,'#5a4a3a')+px(7,14,'#5a4a3a')+px(9,14,'#5a4a3a')+px(10,14,'#5a4a3a');
+      svg+=px(5,15,'#4a3728')+px(6,15,'#4a3728')+px(7,15,'#4a3728')+px(9,15,'#4a3728')+px(10,15,'#4a3728')+px(11,15,'#4a3728');
+      // Bow
+      svg+=px(13,4,'#8b4513')+px(14,5,'#8b4513')+px(14,6,'#8b4513')+px(14,7,'#8b4513')+px(14,8,'#8b4513')+px(13,9,'#8b4513');
+      svg+=px(15,5,'#aaa')+px(15,6,'#aaa')+px(15,7,'#aaa')+px(15,8,'#aaa'); // string
+      if(elite){svg+=px(13,3,'#ffd700')+px(14,4,'#ffd700');} // golden bow tips
+    } else if (cls==='paladino') {
+      const armor=tier>=3?'#e0e0e0':'#b0b0b0', armorD=tier>=3?'#bbb':'#888', holy=elite?'#ffd700':'#64d2ff';
+      svg+=row(0,6,9,armor); svg+=row(1,5,10,armor)+px(8,1,holy);
+      svg+=px(5,2,armorD)+row(2,6,10,armor); svg+=px(5,3,armor)+px(6,3,skin)+px(7,3,eye)+px(8,3,skin)+px(9,3,eye)+px(10,3,skin);
+      svg+=row(4,6,10,skin); svg+=px(6,5,skin)+px(7,5,skin)+px(8,5,'#c0392b')+px(9,5,skin)+px(10,5,skin);
+      svg+=row(6,6,10,skinS);
+      svg+=row(7,5,11,armor)+px(8,7,holy); svg+=px(4,8,armor)+row(8,5,11,armor)+px(12,8,armor);
+      svg+=px(4,9,skin)+row(9,5,11,armor)+px(12,9,skin);
+      svg+=row(10,5,11,armorD)+px(7,10,holy)+px(8,10,holy)+px(9,10,holy); // holy cross
+      svg+=row(11,5,11,armor); svg+=row(12,6,10,armorD);
+      svg+=px(6,13,armor)+px(7,13,armor)+px(9,13,armor)+px(10,13,armor);
+      svg+=px(5,14,armorD)+px(6,14,armorD)+px(7,14,armorD)+px(9,14,armorD)+px(10,14,armorD)+px(11,14,armorD);
+      // Shield
+      svg+=px(1,7,holy)+px(2,7,armor)+px(1,8,armor)+px(2,8,armor)+px(0,9,armorD)+px(1,9,armor)+px(2,9,armor)+px(1,10,armorD)+px(2,10,armorD);
+      svg+=px(2,8,holy); // cross on shield
+      // Holy sword
+      svg+=px(13,2,holy)+px(13,3,holy)+px(13,4,'#e0e0e0')+px(13,5,'#c0c0c0')+px(13,6,'#8b4513');
+      if(elite){svg+=`<rect x="${6*s}" y="0" width="${5*s}" height="${s}" fill="#ffd700" opacity="0.4"/>`;} // holy halo
+      if(glow){svg+=px(1,6,holy)+px(14,6,holy)+px(8,0,holy);} // holy glow
+    }
+  }
+
+  // Prestige indicator
+  if (D.xp && D.xp.prestige > 0) {
+    for (let i=0;i<Math.min(D.xp.prestige,5);i++) svg+=`<rect x="${(12+i)*s}" y="${(H-1)*s}" width="${s}" height="${s}" fill="#ffd700"/>`;
+  }
+
   return `<svg viewBox="0 0 ${W*s} ${H*s}" width="${sz}" height="${Math.round(sz*H/W)}" style="image-rendering:pixelated">${svg}</svg>`;
 }
 
@@ -3326,16 +3469,39 @@ function renderPerfil(H, C) {
       </div>
     </div>
 
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px">
       <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px">Evolução do Avatar</div>
       <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">
-        ${[1,4,7,10,15].map(l => `<div style="text-align:center;flex-shrink:0;${lvl>=l?'':'opacity:0.3'}">
-          <div style="background:var(--bg);border-radius:8px;padding:8px;margin-bottom:4px;${lvl>=l?'border:1px solid var(--accent)':'border:1px solid var(--border)'}">${pixelAvatar(l)}</div>
+        ${[1,4,7,10,15,30,50,70,100].map(l => `<div style="text-align:center;flex-shrink:0;${lvl>=l?'':'opacity:0.3'}">
+          <div style="background:var(--bg);border-radius:8px;padding:8px;margin-bottom:4px;${lvl>=l?'border:1px solid var(--accent)':'border:1px solid var(--border)'}">${pixelAvatar(l, 64, l>=30?(D.xp?.class||'guerreiro'):null)}</div>
           <div style="font-size:0.6rem;color:var(--text3)">Lvl ${l}</div>
-          <div style="font-size:0.55rem;color:var(--accent2)">${getTitle(l)}</div>
+          <div style="font-size:0.55rem;color:var(--accent2)">${l>=30&&!D.xp?.class?'???':getTitle(l)}</div>
         </div>`).join('')}
       </div>
     </div>
+
+    ${lvl >= 30 && !D.xp?.class ? `<div style="background:var(--accent-bg);border:2px solid var(--accent);border-radius:var(--radius);padding:20px;margin-bottom:12px">
+      <div style="font-size:1rem;font-weight:800;color:var(--accent2);margin-bottom:8px">⚔️ Escolha sua Classe!</div>
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Nível 30 alcançado! Escolha uma classe para especializar seu avatar.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+        ${Object.entries(CLASSES).map(([k,c]) => `<div onclick="chooseClass('${k}')" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:2rem;margin-bottom:4px">${c.icon}</div>
+          <div style="font-weight:700;font-size:0.88rem">${c.name}</div>
+          <div style="font-size:0.68rem;color:var(--text3)">${c.desc}</div>
+          <div style="margin-top:6px">${pixelAvatar(30, 48, k)}</div>
+        </div>`).join('')}
+      </div>
+    </div>` : D.xp?.class ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:1.5rem">${CLASSES[D.xp.class].icon}</span>
+      <div><div style="font-weight:700;font-size:0.9rem">Classe: ${CLASSES[D.xp.class].name}</div><div style="font-size:0.72rem;color:var(--text3)">${CLASSES[D.xp.class].desc}</div></div>
+    </div>` : ''}
+
+    ${lvl >= 100 ? `<div style="background:linear-gradient(135deg,var(--accent-bg),var(--green-bg));border:2px solid var(--green);border-radius:var(--radius);padding:20px;margin-bottom:12px;text-align:center">
+      <div style="font-size:1.2rem;font-weight:800;color:var(--green);margin-bottom:8px">🌟 Nível Máximo Alcançado!</div>
+      <div style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">Prestígio atual: ${D.xp?.prestige||0} ⭐</div>
+      <button onclick="prestigeReset()" class="btn btn-primary" style="background:linear-gradient(135deg,var(--accent),var(--green))">🔄 Prestígio — Resetar para Lvl 1</button>
+      <div style="font-size:0.68rem;color:var(--text3);margin-top:8px">Conquistas permanecem. Uma estrela dourada será adicionada ao avatar.</div>
+    </div>` : ''}
   </div>`;
   html += `</div>`;
 
@@ -3780,14 +3946,14 @@ function renderMidia(H, C) {
 
   const activeTab = D._mediaTab || 'livros';
   const origItems = D.media[activeTab] || [];
-  const mediaFilter = (D._mediaFilter || '').toLowerCase();
+  const mediaFilter = (window._mediaFilterTemp || '').toLowerCase();
   let items = mediaFilter ? origItems.filter(x => (x.title||'').toLowerCase().includes(mediaFilter) || (x.author||'').toLowerCase().includes(mediaFilter) || (x.genre||'').toLowerCase().includes(mediaFilter)) : [...origItems];
   const doneCount = items.filter(x=>x.done).length;
   const pct = items.length>0 ? Math.round(doneCount/items.length*100) : 0;
   const tab = tabs.find(t=>t.key===activeTab);
 
   let html = `<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
-    ${tabs.map(t => {const n=D.media[t.key].length;const dn=D.media[t.key].filter(x=>x.done).length;return `<button onclick="D._mediaTab='${t.key}';D._mediaFilter='';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} <span style="opacity:0.7">${dn}/${n}</span></button>`;}).join('')}
+    ${tabs.map(t => {const n=D.media[t.key].length;const dn=D.media[t.key].filter(x=>x.done).length;return `<button onclick="D._mediaTab='${t.key}';window._mediaFilterTemp='';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} <span style="opacity:0.7">${dn}/${n}</span></button>`;}).join('')}
   </div>`;
 
   // Progress bar + bulk fetch
@@ -3821,7 +3987,7 @@ function renderMidia(H, C) {
 
   // Search filter
   html += `<div style="margin-bottom:12px">
-    <input class="form-input" id="mediaSearch" placeholder="🔍 Buscar por título, autor, gênero..." value="${esc(D._mediaFilter||'')}" oninput="D._mediaFilter=this.value;render();setTimeout(()=>{const el=document.getElementById('mediaSearch');if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length}},0)" style="padding:10px 14px;font-size:0.88rem">
+    <input class="form-input" id="mediaSearch" placeholder="🔍 Buscar por título, autor, gênero..." value="${esc(window._mediaFilterTemp||'')}" oninput="window._mediaFilterTemp=this.value;render();setTimeout(()=>{const el=document.getElementById('mediaSearch');if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length}},0)" style="padding:10px 14px;font-size:0.88rem">
   </div>`;
 
   // Action buttons
