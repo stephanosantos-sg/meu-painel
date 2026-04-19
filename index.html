@@ -6945,7 +6945,14 @@ function applyTheme(themeId) {
   if (theme && theme.vars) Object.entries(theme.vars).forEach(([k,v]) => root.style.setProperty(k,v));
 }
 if (D._theme && THEMES[D._theme]) currentTheme = D._theme;
-applyTheme(currentTheme);
+// Apply theme without triggering save on init
+(function(){
+  var root = document.documentElement;
+  var darkVars = {'--bg':'#101014','--bg2':'#18181c','--surface':'#1e1e24','--surface2':'#26262e','--surface3':'#2e2e38','--border':'#32323e','--border2':'#3a3a48','--text':'#f0f0f5','--text2':'#a0a0b0','--text3':'#68687a','--accent':'#7c5cfc','--accent2':'#9b7fff','--accent-bg':'rgba(124,92,252,0.12)','--red':'#ff5555','--red-bg':'rgba(255,85,85,0.12)','--orange':'#ff9500','--orange-bg':'rgba(255,149,0,0.12)','--yellow':'#ffd60a','--yellow-bg':'rgba(255,214,10,0.12)','--green':'#30d158','--green-bg':'rgba(48,209,88,0.12)','--blue':'#0a84ff','--blue-bg':'rgba(10,132,255,0.12)','--cyan':'#64d2ff','--cyan-bg':'rgba(100,210,255,0.12)','--pink':'#ff375f','--pink-bg':'rgba(255,55,95,0.12)','--shadow':'0 2px 12px rgba(0,0,0,0.4)'};
+  Object.entries(darkVars).forEach(function(e){root.style.setProperty(e[0],e[1])});
+  var theme = THEMES[currentTheme];
+  if (theme && theme.vars) Object.entries(theme.vars).forEach(function(e){root.style.setProperty(e[0],e[1])});
+})();
 
 const SYNC_URL_KEY = 'meuPainel_syncUrl';
 let syncUrl = localStorage.getItem(SYNC_URL_KEY) || '';
@@ -7139,7 +7146,7 @@ async function syncLoad() {
       D = remote;
       if (!D.categories) D.categories = [...DEFAULT_CATS];
       localStorage.setItem(SK, JSON.stringify(D));
-      if (D._theme && THEMES[D._theme]) { currentTheme = D._theme; applyTheme(currentTheme); }
+      if (D._theme && THEMES[D._theme] && D._theme !== currentTheme) { currentTheme = D._theme; localStorage.setItem(THEME_KEY, currentTheme); var root=document.documentElement; var dv={'--bg':'#101014','--bg2':'#18181c','--surface':'#1e1e24','--surface2':'#26262e','--surface3':'#2e2e38','--border':'#32323e','--border2':'#3a3a48','--text':'#f0f0f5','--text2':'#a0a0b0','--text3':'#68687a','--accent':'#7c5cfc','--accent2':'#9b7fff','--accent-bg':'rgba(124,92,252,0.12)','--red':'#ff5555','--red-bg':'rgba(255,85,85,0.12)','--orange':'#ff9500','--orange-bg':'rgba(255,149,0,0.12)','--yellow':'#ffd60a','--yellow-bg':'rgba(255,214,10,0.12)','--green':'#30d158','--green-bg':'rgba(48,209,88,0.12)','--blue':'#0a84ff','--blue-bg':'rgba(10,132,255,0.12)','--cyan':'#64d2ff','--cyan-bg':'rgba(100,210,255,0.12)','--pink':'#ff375f','--pink-bg':'rgba(255,55,95,0.12)','--shadow':'0 2px 12px rgba(0,0,0,0.4)'};Object.entries(dv).forEach(function(e){root.style.setProperty(e[0],e[1])});var th=THEMES[currentTheme];if(th&&th.vars)Object.entries(th.vars).forEach(function(e){root.style.setProperty(e[0],e[1])}); }
       render();
       setSyncStatus('ok', 'Sincronizado');
     } else if (localTime > remoteTime) {
