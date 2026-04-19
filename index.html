@@ -7058,22 +7058,34 @@ async function syncSave() {
   if (!syncUrl) return;
   setSyncStatus('syncing');
   var saveData = JSON.parse(JSON.stringify(D));
-  // Strip only poster URLs (biggest data) but keep all metadata
+  // Slim media: only sync important items (Lendo/Lido/queued), strip posters
   if (saveData.media) {
     for (var cat in saveData.media) {
       if (Array.isArray(saveData.media[cat])) {
-        saveData.media[cat].forEach(function(item) { delete item.poster; });
+        var filtered = cat === 'livros'
+          ? saveData.media[cat].filter(function(item){ return item.status==='Lendo'||item.status==='Lido'||item.done||item.queued; })
+          : saveData.media[cat];
+        saveData.media[cat] = filtered.map(function(item) {
+          var slim = {title:item.title};
+          if (item.done) slim.done = true;
+          if (item.status && item.status !== 'Fila') slim.status = item.status;
+          if (item.queued) slim.queued = true;
+          if (item.author) slim.author = item.author;
+          if (item.year) slim.year = item.year;
+          if (item.rating) slim.rating = item.rating;
+          if (item.userRating) slim.userRating = item.userRating;
+          if (item.progress) slim.progress = item.progress;
+          if (item.pages) slim.pages = item.pages;
+          if (item.seasons) slim.seasons = item.seasons;
+          if (item.currentSeason) slim.currentSeason = item.currentSeason;
+          return slim;
+        });
       }
     }
+    saveData._mediaPartial = true;
   }
+  delete saveData._shopArchive;
   var payload = JSON.stringify(saveData);
-  // Try compression if too big
-  if (payload.length > 40000) {
-    try {
-      var compressed = 'LZ:' + btoa(LZ.compress(payload));
-      if (compressed.length < payload.length) payload = compressed;
-    } catch(e) {}
-  }
   // Last resort: remove media
   if (payload.length > 49000 && saveData.media) {
     saveData._mediaTooLarge = true;
@@ -7132,10 +7144,33 @@ async function syncLoad() {
     const localSize = (D.tasks||[]).length + (D.habits||[]).length + (D.goals||[]).length;
     const remoteSize = (remote.tasks||[]).length + (remote.habits||[]).length + (remote.goals||[]).length;
 
-    // Preserve local media if remote doesn't have it
+    // Merge media: remote has partial (Lendo/Lido/queued), local has full library
     if (remote._mediaTooLarge || !remote.media || Object.keys(remote.media||{}).every(k=>!remote.media[k]||!remote.media[k].length)) {
       remote.media = D.media || {};
       delete remote._mediaTooLarge;
+    } else if (remote._mediaPartial && D.media) {
+      // Merge: keep local library books, update status from cloud
+      var localMedia = D.media || {};
+      for (var mcat in remote.media) {
+        if (!localMedia[mcat] || !localMedia[mcat].length) { localMedia[mcat] = remote.media[mcat]; continue; }
+        if (mcat === 'livros') {
+          var cloudBooks = remote.media[mcat] || [];
+          var localBooks = localMedia[mcat] || [];
+          // Update local books with cloud status
+          cloudBooks.forEach(function(cb) {
+            var local = localBooks.find(function(lb){ return lb.title === cb.title; });
+            if (local) { Object.assign(local, cb); }
+            else { localBooks.push(cb); }
+          });
+          remote.media[mcat] = localBooks;
+        } else {
+          // For non-book media, use cloud version
+          if (remote.media[mcat].length) localMedia[mcat] = remote.media[mcat];
+          remote.media[mcat] = localMedia[mcat];
+        }
+      }
+      remote.media = localMedia;
+      delete remote._mediaPartial;
     }
     if (!remote.shopLists || !remote.shopLists.length) remote.shopLists = D.shopLists || [];
     if (!remote.xp) remote.xp = D.xp || {total:0,level:1};
