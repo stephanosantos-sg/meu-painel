@@ -1211,7 +1211,15 @@ function renderHoje(H, C) {
     if (allTodayTasks.length) html += renderBoard(allTodayTasks, t);
     else html += emptyState('Tudo em dia!');
   } else if (viewMode === 'calendario') {
-    html += renderWeekTimeline();
+    const calSub = D._calView || 'semanal';
+    html += `<div style="display:flex;gap:4px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px;width:fit-content">
+      <button onclick="D._calView='diaria';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='diaria'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Dia</button>
+      <button onclick="D._calView='semanal';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='semanal'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Semana</button>
+      <button onclick="D._calView='mensal';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='mensal'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Mês</button>
+    </div>`;
+    if (calSub === 'diaria') html += renderDayTimeline();
+    else if (calSub === 'mensal') html += renderCalendar(D.tasks);
+    else html += renderWeekTimeline();
   } else {
     if (overdueTasks.length) html += renderTaskGroup('Atrasadas', overdueTasks, t, 'overdue');
     if (todayTasks.length) html += renderTaskGroup('Hoje', todayTasks, t, 'today');
@@ -1518,6 +1526,54 @@ function renderBoard(tasks, dateCtx) {
   return html;
 }
 
+// ─── Day Timeline ───
+function renderDayTimeline() {
+  const t = todayStr();
+  const now = new Date();
+  const currentHour = now.getHours();
+  const hours = [];
+  for (let h = 6; h <= 22; h++) hours.push(h);
+
+  const evts = [];
+  D.tasks.forEach(tk => {
+    if (tk.freq === 'pontual' && tk.done) return;
+    if (!isTaskForDate(tk, t)) return;
+    if (tk.times && tk.times.length) {
+      tk.times.forEach(s => {
+        const done = tk.doneSlots && tk.doneSlots[t] && Array.isArray(tk.doneSlots[t]) && tk.doneSlots[t].includes(s.time);
+        evts.push({ time: s.time, label: s.label || tk.text, icon: tk.icon || '', cat: tk.cat, done, taskId: tk.id, slot: s.time, dateCtx: t });
+      });
+    } else {
+      const done = isTaskDone(tk, t);
+      evts.push({ time: tk.time || '09:00', label: tk.text, icon: tk.icon || '', cat: tk.cat, done, taskId: tk.id, slot: null, dateCtx: t });
+    }
+  });
+  evts.sort((a, b) => a.time.localeCompare(b.time));
+
+  let html = `<div style="font-weight:700;margin-bottom:12px;text-transform:capitalize">${now.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>`;
+  html += `<div style="display:flex;flex-direction:column">`;
+  hours.forEach(h => {
+    const hStr = String(h).padStart(2, '0');
+    const isNow = h === currentHour;
+    const hourEvts = evts.filter(e => e.time.startsWith(hStr));
+    html += `<div style="display:flex;gap:12px;min-height:${hourEvts.length ? 'auto' : '32px'};border-top:1px solid var(--border);${isNow ? 'background:var(--accent-bg)' : ''}">
+      <div style="min-width:45px;padding:4px 0;font-size:0.72rem;color:${isNow ? 'var(--accent2)' : 'var(--text3)'};font-weight:${isNow ? '700' : '400'};text-align:right">${hStr}:00</div>
+      <div style="flex:1;padding:2px 0;display:flex;flex-direction:column;gap:2px">`;
+    hourEvts.forEach(e => {
+      const cat = getCat(e.cat);
+      const onClick = e.slot ? `toggleSlot('${e.taskId}','${e.dateCtx}','${e.slot}')` : `toggleTask('${e.taskId}','${e.dateCtx}')`;
+      html += `<div onclick="${onClick}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;cursor:pointer;border-left:3px solid var(--${cat.color});background:var(--${cat.color}-bg,var(--surface2));${e.done ? 'opacity:0.35;text-decoration:line-through' : ''}">
+        <span style="width:16px;height:16px;border-radius:50%;border:2px solid ${e.done ? 'var(--green)' : 'var(--border2)'};background:${e.done ? 'var(--green)' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:8px;color:#fff;flex-shrink:0">${e.done ? '✓' : ''}</span>
+        <span style="font-size:0.78rem;font-weight:600;color:var(--accent2);min-width:36px">${e.time}</span>
+        <span style="font-size:0.85rem">${e.icon ? e.icon + ' ' : ''}${esc(e.label)}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
 // ─── Week Timeline (Google Calendar style) ───
 function renderWeekTimeline() {
   const t = todayStr();
@@ -1577,8 +1633,10 @@ function renderWeekTimeline() {
       html += `<div style="min-height:28px;border-top:1px solid var(--border);border-left:1px solid var(--border);padding:1px 2px;${isT ? 'background:var(--accent-bg)' : ''}${isNow && isT ? ';box-shadow:inset 0 2px 0 var(--accent)' : ''}">`;
       dayEvts.forEach(e => {
         const cat = getCat(e.cat);
+        const isPast = e.dateCtx < t;
         const onClick = e.slot ? `toggleSlot('${e.taskId}','${e.dateCtx}','${e.slot}')` : `toggleTask('${e.taskId}','${e.dateCtx}')`;
-        html += `<div onclick="${onClick}" style="font-size:0.6rem;padding:2px 4px;border-radius:3px;margin-bottom:1px;cursor:pointer;border-left:2px solid var(--${cat.color});background:var(--${cat.color}-bg,var(--surface2));${e.done ? 'opacity:0.35;text-decoration:line-through' : ''};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.label)}">${e.icon ? e.icon + ' ' : ''}${esc(e.label)}</div>`;
+        const style = e.done ? 'opacity:0.35;text-decoration:line-through' : (isPast && !e.done ? 'opacity:0.35' : '');
+        html += `<div onclick="${onClick}" style="font-size:0.6rem;padding:2px 4px;border-radius:3px;margin-bottom:1px;cursor:pointer;border-left:2px solid var(--${cat.color});background:var(--${cat.color}-bg,var(--surface2));${style};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.label)}">${e.icon ? e.icon + ' ' : ''}${esc(e.label)}</div>`;
       });
       html += `</div>`;
     });
