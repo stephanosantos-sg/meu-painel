@@ -3412,7 +3412,7 @@ function renderMidia(H, C) {
       });
       html += `</div>`;
       if (fila.length > 10) {
-        html += mediaGroup('📚 BIBLIOTECA', fila.slice(10), origItems, activeTab, 'var(--text3)', true);
+        html += mediaGroup('📚 BIBLIOTECA', fila.slice(10), origItems, activeTab, 'var(--orange)', true);
       }
       html += `</div>`;
     }
@@ -5158,7 +5158,7 @@ document.addEventListener('keydown', e => {
   const tag = document.activeElement.tagName;
   const inInput = tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT';
   const modalOpen = !!document.querySelector('.modal-overlay.show');
-  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); closeBulkImport(); closeIdeaModal(); hideShortcutsOverlay(); closeGlobalSearch(); exitFocusMode(); return; }
+  if (e.key==='Escape') { closeModal(); closeHabitModal(); closeGoalModal(); closeCatModal(); closeSyncModal(); closeShopListModal(); closeEditMediaModal(); closeBulkImport(); closeIdeaModal(); hideShortcutsOverlay(); closeGlobalSearch(); exitFocusMode(); closeEmojiPicker(); document.querySelectorAll('.modal-overlay.show').forEach(el=>el.classList.remove('show')); document.querySelectorAll('body > .modal-overlay').forEach(el=>el.remove()); return; }
   if (inInput || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k==='q' || k==='n') { openAddTask(); e.preventDefault(); }
