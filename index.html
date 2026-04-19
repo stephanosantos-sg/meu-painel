@@ -1289,10 +1289,11 @@ function renderHoje(H, C) {
       const pct = getGoalPct(g);
       const pctColor = pct>=100?'var(--green)':pct>=50?'var(--accent)':pct>0?'var(--orange)':'var(--text3)';
       html += `<div class="task-item" style="cursor:pointer" onclick="currentView='objetivos';render()">
-        <div style="width:36px;height:36px;border-radius:50%;border:3px solid ${pctColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:800;color:${pctColor}">${pct}%</div>
+        <span class="drag-handle" style="visibility:hidden">⠿</span>
+        <div class="task-check" style="border-color:${pctColor};font-size:0.55rem;font-weight:800;color:${pctColor}">${pct>0?pct+'%':''}</div>
         <div class="task-body">
-          <div class="task-text">${esc(g.title)}</div>
-          <div style="margin-top:4px;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;max-width:200px"><div style="height:100%;width:${pct}%;background:${pctColor};border-radius:4px"></div></div>
+          <div class="task-text">🎯 ${esc(g.title)}</div>
+          <div style="margin-top:4px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;max-width:200px"><div style="height:100%;width:${pct}%;background:${pctColor};border-radius:4px"></div></div>
           <div class="task-meta"><span style="font-size:0.7rem;color:var(--text3)">${done}/${total} etapas</span>${g.deadline?`<span style="font-size:0.7rem;color:var(--text3)">📅 ${fmtDate(g.deadline)}</span>`:''}</div>
         </div>
       </div>`;
@@ -1311,7 +1312,8 @@ function renderHoje(H, C) {
         const start = new Date(ev.start);
         const timeStr = ev.allDay ? 'Dia inteiro' : `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
         evHtml += `<div class="task-item">
-          <div style="font-size:1rem;width:20px;text-align:center">📆</div>
+          <span class="drag-handle" style="visibility:hidden">⠿</span>
+          <div class="task-check" style="border-color:var(--blue);font-size:0.7rem">📆</div>
           <div class="task-body">
             <div class="task-text">${esc(ev.title)}</div>
             <div class="task-meta"><span style="font-size:0.72rem;color:var(--blue);font-weight:600">${timeStr}</span>${ev.location?`<span style="font-size:0.72rem;color:var(--text3)">📍 ${esc(ev.location)}</span>`:''}</div>
