@@ -5070,6 +5070,13 @@ function updateMobileNav() {
 }
 
 // ═══════════════════ INIT ═══════════════════
+// Remove duplicate "compras" category (conflicts with Compras section)
+if (D.categories) {
+  const had = D.categories.length;
+  D.categories = D.categories.filter(c => c.id !== 'compras');
+  if (D.categories.length < had) save();
+}
+
 document.getElementById('avatarImg').src = AVATAR;
 const mobileAv = document.getElementById('mobileAvatar');
 if (mobileAv) mobileAv.src = AVATAR;
