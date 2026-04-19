@@ -3404,7 +3404,7 @@ function renderMidia(H, C) {
             ${bpct>0?`<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><div style="flex:1;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${bpct}%;background:var(--accent);border-radius:2px"></div></div><span style="font-size:0.6rem;color:var(--text3)">${bpct}%</span></div>`:''}
           </div>
           <button onclick="event.stopPropagation();cycleBookStatus(${idx})" class="btn btn-ghost btn-sm" style="font-size:0.68rem;padding:4px 8px">📖 Ler</button>
-          <button onclick="event.stopPropagation();deleteMediaItem('livros',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✕</button>
+          <button onclick="event.stopPropagation();moveToLibrary(${idx})" title="Mover para Biblioteca" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">📚</button>
         </div>`;
       });
       html += `</div>`;
@@ -3502,6 +3502,15 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
   });
   html += `</div></div>`;
   return html;
+}
+
+function moveToLibrary(idx) {
+  ensureMedia();
+  const book = D.media.livros[idx];
+  if (!book) return;
+  D.media.livros.splice(idx, 1);
+  D.media.livros.push(book);
+  save(); render();
 }
 
 function updateBookProgress(idx, pages) {
