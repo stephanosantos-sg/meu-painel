@@ -1324,12 +1324,27 @@ function countDoneToday() {
 // ─── Proximos ───
 function renderProximos(H, C) {
   H.innerHTML = `<h2>Próximos</h2><div class="subtitle">Tarefas futuras</div>`;
+  const t = todayStr();
   const future = D.tasks.filter(x => !x.done && x.freq==='pontual' && isFuture(x.date));
-  const groups = {};
-  future.forEach(t => {const d=t.date||'sem-data';if(!groups[d])groups[d]=[];groups[d].push(t);});
-  let html = '';
-  Object.keys(groups).sort().forEach(d => html += renderTaskGroup(fmtDate(d), groups[d], d, ''));
-  if (!html) html = emptyState('Nenhuma tarefa futura');
+  let html = viewSwitcher();
+  if (viewMode === 'painel') {
+    html += future.length ? renderBoard(future, t) : emptyState('Nenhuma tarefa futura');
+  } else if (viewMode === 'calendario') {
+    const calSub = D._calView || 'semanal';
+    html += `<div style="display:flex;gap:4px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px;width:fit-content">
+      <button onclick="D._calView='diaria';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='diaria'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Dia</button>
+      <button onclick="D._calView='semanal';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='semanal'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Semana</button>
+      <button onclick="D._calView='mensal';render()" style="padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:0.72rem;${calSub==='mensal'?'background:var(--accent);color:#fff':'background:transparent;color:var(--text3)'}">Mês</button>
+    </div>`;
+    if (calSub === 'diaria') html += renderDayTimeline();
+    else if (calSub === 'mensal') html += renderCalendar(D.tasks);
+    else html += renderWeekTimeline();
+  } else {
+    const groups = {};
+    future.forEach(tk => {const d=tk.date||'sem-data';if(!groups[d])groups[d]=[];groups[d].push(tk);});
+    Object.keys(groups).sort().forEach(d => html += renderTaskGroup(fmtDate(d), groups[d], d, ''));
+    if (!future.length) html += emptyState('Nenhuma tarefa futura');
+  }
   C.innerHTML = html;
 }
 
