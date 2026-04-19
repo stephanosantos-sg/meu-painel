@@ -3391,7 +3391,7 @@ function renderMidia(H, C) {
     if (fila.length) {
       const filaShow = fila.slice(0, 10);
       html += `<div style="margin-bottom:16px">
-        <div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 NA FILA (${fila.length}) <span style="font-weight:400;font-size:0.68rem;color:var(--text3)">— arraste para reordenar</span></div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 PRÓXIMOS (${filaShow.length}) <span style="font-weight:400;font-size:0.68rem;color:var(--text3)">— arraste para reordenar</span></div>
         <div id="bookQueue">`;
       filaShow.forEach((book, qi) => {
         const idx = origItems.indexOf(book);
