@@ -386,13 +386,13 @@ textarea.form-input{min-height:50px;resize:vertical}
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
 
 <nav class="sidebar">
-  <div class="sidebar-header" style="display:flex;align-items:center;gap:12px;cursor:pointer;position:relative" onclick="document.getElementById('profileMenu').classList.toggle('hidden')">
+  <div class="sidebar-header" style="display:flex;align-items:center;gap:12px;cursor:pointer;position:relative" onclick="currentView='perfil';render();if(typeof closeMobileMenu==='function')closeMobileMenu()">
     <img src="" id="avatarImg" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--accent)">
     <div style="flex:1;min-width:0">
       <h1 style="font-size:1rem;margin:0;line-height:1.2">Stephano</h1>
       <div style="font-size:0.68rem;color:var(--text3);line-height:1.3" id="sidebarDate"></div>
     </div>
-    <span style="color:var(--text3);font-size:0.7rem">&#9662;</span>
+    <div id="sidebarLvl" style="font-size:0.65rem;font-weight:800;color:var(--accent2);background:var(--accent-bg);padding:2px 6px;border-radius:4px"></div>
   </div>
   <div id="profileMenu" class="hidden" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:0 8px 8px;padding:14px;box-shadow:var(--shadow)">
     <div id="xpDisplay" style="margin-bottom:12px"></div>
@@ -1120,15 +1120,19 @@ function render() {
       case 'ideias': renderIdeias(H,C); break;
       case 'graficos': renderGraficos(H,C); break;
       case 'semdata': renderSemData(H,C); break;
+      case 'perfil': renderPerfil(H,C); break;
     }
   }
   // XP display
   ensureGamification();
+  checkAchievements();
   var xpEl = document.getElementById('xpDisplay');
   if (xpEl) {
     var pct = getXPProgress();
     xpEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:0.85rem;font-weight:800;color:var(--accent2)">Lvl '+D.xp.level+'</span><span style="font-size:0.7rem;color:var(--text3)">'+D.xp.total+' XP</span></div><div class="xp-bar"><div class="xp-fill" style="width:'+pct+'%"></div></div>';
   }
+  var lvlBadge = document.getElementById('sidebarLvl');
+  if (lvlBadge) lvlBadge.textContent = 'Lvl ' + (D.xp?D.xp.level:1);
   // Add global toolbar
   var toolbar = document.getElementById('globalToolbar');
   if (!toolbar) {
@@ -2960,22 +2964,224 @@ function deleteNote(i) {
 // ═══════════════════ GAMIFICATION ═══════════════════
 function ensureGamification() {
   if (!D.xp) D.xp = {total:0, level:1};
+  if (!D._achievements) D._achievements = {};
+}
+
+function getXPForLevel(lvl) {
+  if (lvl <= 1) return 0;
+  return Math.round(200 * Math.pow(1.35, lvl - 2));
+}
+function getTotalXPForLevel(lvl) {
+  let t = 0; for (let i = 2; i <= lvl; i++) t += getXPForLevel(i); return t;
+}
+function calcLevel(totalXP) {
+  let lvl = 1, acc = 0;
+  while (true) { const need = getXPForLevel(lvl + 1); if (acc + need > totalXP) break; acc += need; lvl++; }
+  return lvl;
 }
 
 function addXP(amount) {
   ensureGamification();
+  const oldLevel = D.xp.level;
   D.xp.total += amount;
-  // Level up every 500 XP
-  D.xp.level = Math.floor(D.xp.total / 500) + 1;
+  D.xp.level = calcLevel(D.xp.total);
+  if (D.xp.level > oldLevel) showToast('⬆️ Nível ' + D.xp.level + '!', 'success');
   save();
 }
 
-function getXPForLevel(lvl) { return (lvl - 1) * 500; }
 function getXPProgress() {
   ensureGamification();
-  var lvlXP = getXPForLevel(D.xp.level);
-  var nextXP = getXPForLevel(D.xp.level + 1);
-  return Math.round(((D.xp.total - lvlXP) / (nextXP - lvlXP)) * 100);
+  const lvlStart = getTotalXPForLevel(D.xp.level);
+  const lvlEnd = getTotalXPForLevel(D.xp.level + 1);
+  const need = lvlEnd - lvlStart;
+  return need > 0 ? Math.round(((D.xp.total - lvlStart) / need) * 100) : 100;
+}
+
+function getXPRemaining() {
+  ensureGamification();
+  return getTotalXPForLevel(D.xp.level + 1) - D.xp.total;
+}
+
+const TITLES = ['Novato','Aprendiz','Explorador','Aventureiro','Guerreiro','Cavaleiro','Mestre','Campeão','Lenda','Imortal'];
+function getTitle(lvl) { return TITLES[Math.min(Math.floor((lvl-1)/3), TITLES.length-1)]; }
+
+function pixelAvatar(lvl) {
+  const s = 6;
+  function px(x,y,c) { return `<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${c}"/>`; }
+  let svg = '';
+  const skin = '#f4c78e', hair = lvl>=10?'#ffd700':lvl>=7?'#c0392b':lvl>=4?'#5b3a1a':'#2c1810';
+  const body = lvl>=15?'#ffd700':lvl>=10?'#8e44ad':lvl>=7?'#2980b9':lvl>=4?'#27ae60':'#7f8c8d';
+  const boots = lvl>=7?'#8b4513':'#555';
+  // Hair
+  for (let x=3;x<=8;x++) svg += px(x,0,hair);
+  for (let x=2;x<=9;x++) svg += px(x,1,hair);
+  // Face
+  for (let x=3;x<=8;x++) svg += px(x,2,skin);
+  for (let x=3;x<=8;x++) svg += px(x,3,skin);
+  svg += px(4,3,'#222') + px(7,3,'#222'); // eyes
+  for (let x=4;x<=7;x++) svg += px(x,4,skin); // mouth area
+  svg += px(5,4,'#c0392b') + px(6,4,'#c0392b'); // smile
+  // Body
+  for (let x=3;x<=8;x++) svg += px(x,5,body);
+  for (let x=3;x<=8;x++) svg += px(x,6,body);
+  for (let x=3;x<=8;x++) svg += px(x,7,body);
+  // Arms
+  svg += px(2,5,skin) + px(2,6,skin) + px(9,5,skin) + px(9,6,skin);
+  // Weapon (level 4+)
+  if (lvl >= 4) { svg += px(10,4,'#aaa') + px(10,5,'#aaa') + px(10,6,'#888'); }
+  // Shield (level 7+)
+  if (lvl >= 7) { svg += px(1,5,'#c0392b') + px(1,6,'#c0392b') + px(1,7,'#c0392b'); }
+  // Crown (level 10+)
+  if (lvl >= 10) { svg += px(4,0,'#ffd700') + px(5,0,'#ffd700') + px(6,0,'#ffd700') + px(7,0,'#ffd700'); svg += px(3,0,'#ffd700') + px(8,0,'#ffd700'); }
+  // Aura (level 15+)
+  if (lvl >= 15) { for (let x=2;x<=9;x++) svg += `<rect x="${x*s}" y="0" width="${s}" height="${s}" fill="#ffd700" opacity="0.3"/>`; }
+  // Legs
+  for (let x=4;x<=5;x++) svg += px(x,8,boots) + px(x,9,boots);
+  for (let x=6;x<=7;x++) svg += px(x,8,boots) + px(x,9,boots);
+  // Belt (level 4+)
+  if (lvl >= 4) { for (let x=3;x<=8;x++) svg += px(x,7,'#8b4513'); svg += px(5,7,'#ffd700'); }
+  return `<svg viewBox="0 0 ${12*s} ${10*s}" width="96" height="80" style="image-rendering:pixelated">${svg}</svg>`;
+}
+
+const ACHIEVEMENT_DEFS = [
+  {id:'first_task',name:'Primeira Tarefa',desc:'Complete sua primeira tarefa',icon:'✅',xp:20,check:()=>D.tasks.some(t=>t.done||Object.keys(t.doneSlots||{}).length>0)},
+  {id:'first_habit',name:'Primeiro Hábito',desc:'Marque um hábito pela primeira vez',icon:'⭐',xp:20,check:()=>D.habits.some(h=>Object.keys(h.log||{}).length>0)},
+  {id:'streak_7',name:'Sequência 7',desc:'7 dias seguidos de um hábito',icon:'🔥',xp:50,check:()=>D.habits.some(h=>getStreak(h)>=7)},
+  {id:'streak_21',name:'Formador de Hábito',desc:'21 dias seguidos de um hábito',icon:'💎',xp:150,check:()=>D.habits.some(h=>getStreak(h)>=21)},
+  {id:'streak_30',name:'Inabalável',desc:'30 dias seguidos de um hábito',icon:'🏆',xp:250,check:()=>D.habits.some(h=>getStreak(h)>=30)},
+  {id:'tasks_50',name:'Produtivo',desc:'Complete 50 tarefas no total',icon:'📋',xp:50,check:()=>{let c=0;D.tasks.forEach(t=>{c+=Object.keys(t.doneSlots||{}).length;if(t.done)c++});return c>=50}},
+  {id:'tasks_200',name:'Máquina',desc:'Complete 200 tarefas no total',icon:'⚡',xp:150,check:()=>{let c=0;D.tasks.forEach(t=>{c+=Object.keys(t.doneSlots||{}).length;if(t.done)c++});return c>=200}},
+  {id:'book_done',name:'Leitor',desc:'Termine um livro',icon:'📖',xp:80,check:()=>(D.media?.livros||[]).some(b=>b.status==='Lido')},
+  {id:'books_10',name:'Rato de Biblioteca',desc:'Termine 10 livros',icon:'📚',xp:200,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=10},
+  {id:'books_50',name:'Bibliófilo',desc:'Termine 50 livros',icon:'🏛️',xp:500,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=50},
+  {id:'goal_done',name:'Objetivo Alcançado',desc:'Conclua um objetivo',icon:'🎯',xp:100,check:()=>D.goals.some(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done))},
+  {id:'level_5',name:'Nível 5',desc:'Alcance nível 5',icon:'⬆️',xp:50,check:()=>D.xp.level>=5},
+  {id:'level_10',name:'Nível 10',desc:'Alcance nível 10',icon:'🌟',xp:100,check:()=>D.xp.level>=10},
+  {id:'habits_5',name:'Multi-hábitos',desc:'Tenha 5 hábitos ativos',icon:'🧠',xp:30,check:()=>D.habits.length>=5},
+  {id:'all_habits_day',name:'Dia Perfeito',desc:'Complete todos os hábitos do dia',icon:'💯',xp:40,check:()=>{const t=todayStr(),dow=new Date().getDay();const today=D.habits.filter(h=>(h.days||[0,1,2,3,4,5,6]).includes(dow));return today.length>0&&today.every(h=>h.log&&h.log[t])}},
+];
+
+function checkAchievements() {
+  ensureGamification();
+  let newCount = 0;
+  ACHIEVEMENT_DEFS.forEach(a => {
+    if (D._achievements[a.id]) return;
+    try { if (a.check()) { D._achievements[a.id] = new Date().toISOString(); addXP(a.xp); newCount++; showToast('🏆 ' + a.name + '! +' + a.xp + 'XP', 'success'); } } catch(e) {}
+  });
+  if (newCount > 0) save();
+}
+
+function renderPerfil(H, C) {
+  ensureGamification();
+  checkAchievements();
+  const lvl = D.xp.level;
+  const pct = getXPProgress();
+  const remaining = getXPRemaining();
+  const title = getTitle(lvl);
+  const lvlStart = getTotalXPForLevel(lvl);
+  const lvlEnd = getTotalXPForLevel(lvl + 1);
+
+  H.innerHTML = `<h2>Perfil</h2><div class="subtitle">${title} — Nível ${lvl}</div>`;
+
+  let html = `<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;margin-bottom:24px">`;
+  // Avatar card
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;min-width:200px">
+    <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:12px;display:inline-block">${pixelAvatar(lvl)}</div>
+    <div style="font-size:1.2rem;font-weight:800;margin-bottom:2px">Stephano</div>
+    <div style="font-size:0.82rem;color:var(--accent2);font-weight:600;margin-bottom:12px">${title}</div>
+    <div style="font-size:2rem;font-weight:900;color:var(--accent2)">Lvl ${lvl}</div>
+  </div>`;
+
+  // XP card
+  html += `<div style="flex:1;min-width:280px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:0.85rem;font-weight:700">Experiência</span>
+        <span style="font-size:0.78rem;color:var(--text3)">${D.xp.total} XP total</span>
+      </div>
+      <div style="background:var(--surface2);border-radius:6px;height:16px;overflow:hidden;margin-bottom:6px;position:relative">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:6px;transition:width 0.5s"></div>
+        <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:0.6rem;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)">${pct}%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--text3)">
+        <span>Lvl ${lvl}: ${D.xp.total - lvlStart} / ${lvlEnd - lvlStart} XP</span>
+        <span>Faltam ${remaining} XP</span>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px">
+      <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px">Como ganhar XP</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.75rem">
+        <div style="padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between"><span>Tarefa simples</span><span style="color:var(--green);font-weight:700">+5</span></div>
+        <div style="padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between"><span>Hábito do dia</span><span style="color:var(--green);font-weight:700">+10</span></div>
+        <div style="padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between"><span>Tarefa concluída</span><span style="color:var(--green);font-weight:700">+10</span></div>
+        <div style="padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between"><span>Pomodoro</span><span style="color:var(--green);font-weight:700">+25</span></div>
+        <div style="padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between;grid-column:span 2"><span>Conquistas dão XP bônus (20-500 XP)</span><span style="color:var(--yellow);font-weight:700">🏆</span></div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+      <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px">Evolução do Avatar</div>
+      <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">
+        ${[1,4,7,10,15].map(l => `<div style="text-align:center;flex-shrink:0;${lvl>=l?'':'opacity:0.3'}">
+          <div style="background:var(--bg);border-radius:8px;padding:8px;margin-bottom:4px;${lvl>=l?'border:1px solid var(--accent)':'border:1px solid var(--border)'}">${pixelAvatar(l)}</div>
+          <div style="font-size:0.6rem;color:var(--text3)">Lvl ${l}</div>
+          <div style="font-size:0.55rem;color:var(--accent2)">${getTitle(l)}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+  html += `</div>`;
+
+  // Achievements
+  html += `<div style="margin-bottom:24px">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🏆 Conquistas (${Object.keys(D._achievements).length}/${ACHIEVEMENT_DEFS.length})</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">`;
+  ACHIEVEMENT_DEFS.forEach(a => {
+    const unlocked = !!D._achievements[a.id];
+    const dt = unlocked ? new Date(D._achievements[a.id]).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : '';
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:var(--surface);border:1px solid ${unlocked?'var(--green)':'var(--border)'};${unlocked?'':'opacity:0.5'}">
+      <span style="font-size:1.5rem">${a.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.85rem;font-weight:700">${a.name}</div>
+        <div style="font-size:0.7rem;color:var(--text3)">${a.desc}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:0.72rem;font-weight:700;color:${unlocked?'var(--green)':'var(--text3)'}">${unlocked?'✅':'+'+a.xp+' XP'}</div>
+        ${dt?`<div style="font-size:0.6rem;color:var(--text3)">${dt}</div>`:''}
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Stats
+  const totalDone = D.tasks.reduce((a,t) => a + Object.keys(t.doneSlots||{}).reduce((b,k) => b + (Array.isArray(t.doneSlots[k])?t.doneSlots[k].length:1), 0) + (t.done?1:0), 0);
+  const totalHabitDays = D.habits.reduce((a,h) => a + Object.keys(h.log||{}).length, 0);
+  const booksRead = (D.media?.livros||[]).filter(b=>b.status==='Lido').length;
+  const maxStreak = D.habits.reduce((a,h) => Math.max(a, getStreak(h)), 0);
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📊 Estatísticas</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+      <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px"><div style="font-size:1.5rem;font-weight:900;color:var(--accent2)">${totalDone}</div><div style="font-size:0.68rem;color:var(--text3)">Tarefas feitas</div></div>
+      <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px"><div style="font-size:1.5rem;font-weight:900;color:var(--green)">${totalHabitDays}</div><div style="font-size:0.68rem;color:var(--text3)">Dias de hábitos</div></div>
+      <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px"><div style="font-size:1.5rem;font-weight:900;color:var(--orange)">🔥 ${maxStreak}</div><div style="font-size:0.68rem;color:var(--text3)">Maior sequência</div></div>
+      <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px"><div style="font-size:1.5rem;font-weight:900;color:var(--cyan)">${booksRead}</div><div style="font-size:0.68rem;color:var(--text3)">Livros lidos</div></div>
+    </div>
+  </div>`;
+
+  // Theme picker
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:12px">
+    <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px">🎨 Tema</div>
+    <div id="perfilThemeArea" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>`;
+
+  C.innerHTML = html;
+  // Populate theme picker
+  if (typeof buildThemePicker === 'function') buildThemePicker('perfilThemeArea');
+
+  // Update sidebar level badge
+  var lvlBadge = document.getElementById('sidebarLvl');
+  if (lvlBadge) lvlBadge.textContent = 'Lvl ' + lvl;
 }
 
 // Add XP when completing habits and tasks
