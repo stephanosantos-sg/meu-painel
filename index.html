@@ -1323,24 +1323,41 @@ function renderHoje(H, C) {
 
   C.innerHTML = html;
 
-  // Load today's events async and append
-  if (viewMode === 'lista' && syncUrl) {
+  // Load today's events async and append (all views)
+  if (syncUrl) {
+    const _vm = viewMode;
     getUpcomingEventsForToday().then(events => {
       if (!events.length) return;
-      let evHtml = `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--blue)">📆 Eventos de hoje</span><span class="task-group-count">${events.length}</span></div><div class="task-group-items">`;
-      events.forEach(ev => {
-        const start = new Date(ev.start);
-        const timeStr = ev.allDay ? 'Dia inteiro' : `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
-        evHtml += `<div class="task-item">
-          <span class="drag-handle" style="visibility:hidden">⠿</span>
-          <div class="task-check" style="border-color:var(--blue);font-size:0.7rem">📆</div>
-          <div class="task-body">
-            <div class="task-text">${esc(ev.title)}</div>
-            <div class="task-meta"><span style="font-size:0.72rem;color:var(--blue);font-weight:600">${timeStr}</span>${ev.location?`<span style="font-size:0.72rem;color:var(--text3)">📍 ${esc(ev.location)}</span>`:''}</div>
-          </div>
-        </div>`;
-      });
-      evHtml += `</div></div>`;
+      let evHtml = '';
+      if (_vm === 'painel') {
+        evHtml = `<div style="margin-top:16px"><div class="board"><div class="board-col" style="min-width:260px;max-width:100%">
+          <div class="board-col-header"><span class="col-icon" style="color:var(--blue)">📆</span>Eventos<span class="col-count">${events.length}</span></div>
+          <div class="board-col-body">`;
+        events.forEach(ev => {
+          const start = new Date(ev.start);
+          const timeStr = ev.allDay ? 'Dia inteiro' : `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
+          evHtml += `<div class="board-card">
+            <div class="bc-text">📆 ${esc(ev.title)}</div>
+            <div class="bc-meta"><span class="bc-time" style="color:var(--blue)">${timeStr}</span>${ev.location?`<span class="bc-time">📍 ${esc(ev.location)}</span>`:''}</div>
+          </div>`;
+        });
+        evHtml += `</div></div></div></div>`;
+      } else {
+        evHtml = `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--blue)">📆 Eventos de hoje</span><span class="task-group-count">${events.length}</span></div><div class="task-group-items">`;
+        events.forEach(ev => {
+          const start = new Date(ev.start);
+          const timeStr = ev.allDay ? 'Dia inteiro' : `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
+          evHtml += `<div class="task-item">
+            <span class="drag-handle" style="visibility:hidden">⠿</span>
+            <div class="task-check" style="border-color:var(--blue);font-size:0.7rem">📆</div>
+            <div class="task-body">
+              <div class="task-text">${esc(ev.title)}</div>
+              <div class="task-meta"><span style="font-size:0.72rem;color:var(--blue);font-weight:600">${timeStr}</span>${ev.location?`<span style="font-size:0.72rem;color:var(--text3)">📍 ${esc(ev.location)}</span>`:''}</div>
+            </div>
+          </div>`;
+        });
+        evHtml += `</div></div>`;
+      }
       C.innerHTML += evHtml;
     });
   }
