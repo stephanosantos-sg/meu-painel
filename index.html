@@ -1208,7 +1208,7 @@ function renderHoje(H, C) {
     if (allTodayTasks.length) html += renderBoard(allTodayTasks, t);
     else html += emptyState('Tudo em dia!');
   } else if (viewMode === 'calendario') {
-    html += renderCalendar(D.tasks);
+    html += renderWeekTimeline();
   } else {
     if (overdueTasks.length) html += renderTaskGroup('Atrasadas', overdueTasks, t, 'overdue');
     if (todayTasks.length) html += renderTaskGroup('Hoje', todayTasks, t, 'today');
@@ -1470,6 +1470,7 @@ function renderBoard(tasks, dateCtx) {
     col.tasks.forEach(t => {
       const done = isTaskDone(t, dateCtx);
       const pClass = 'p'+(t.prio||3);
+      const hasSlots = t.times && t.times.length > 0;
       html += `<div class="board-card" style="${done?'opacity:0.45':''}">
         <div style="display:flex;align-items:flex-start;gap:8px">
           <div class="task-check ${pClass} ${done?'checked':''}" onclick="toggleTask('${t.id}','${dateCtx}')" style="flex-shrink:0;margin-top:2px">${done?'&#10003;':''}</div>
@@ -1478,10 +1479,35 @@ function renderBoard(tasks, dateCtx) {
         <div class="bc-meta">
           ${freqTag(t.freq)}
           ${t.date?`<span class="bc-time">${fmtDate(t.date)}${t.time?' '+t.time:''}</span>`:''}
-          ${t.times&&t.times.length?`<span class="bc-time">${((t.doneSlots&&t.doneSlots[dateCtx])||[]).length}/${t.times.length}</span>`:''}
-          ${t.subtasks&&t.subtasks.length?`<span class="bc-time">${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} sub</span>`:''}
-        </div>
-      </div>`;
+          ${hasSlots?`<span class="bc-time">${((t.doneSlots&&t.doneSlots[dateCtx])||[]).length}/${t.times.length}</span>`:''}
+        </div>`;
+      // Time slots in board
+      if (hasSlots) {
+        let ds = (t.doneSlots && t.doneSlots[dateCtx]) || [];
+        if (!Array.isArray(ds)) ds = [];
+        html += `<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">`;
+        t.times.forEach(s => {
+          const sd = ds.includes(s.time);
+          html += `<div onclick="event.stopPropagation();toggleSlot('${t.id}','${dateCtx}','${s.time}')" style="display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:4px;font-size:0.7rem;cursor:pointer;${sd?'opacity:0.4;text-decoration:line-through':'color:var(--text2)'}">
+            <span style="width:12px;height:12px;border-radius:50%;border:1.5px solid ${sd?'var(--green)':'var(--border2)'};background:${sd?'var(--green)':'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff;flex-shrink:0">${sd?'✓':''}</span>
+            <span style="color:var(--accent2);font-weight:600;min-width:32px">${s.time}</span>
+            <span>${esc(s.label||'')}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      // Subtasks in board
+      if (t.subtasks && t.subtasks.length && !hasSlots) {
+        html += `<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">`;
+        t.subtasks.forEach((s,si) => {
+          html += `<div onclick="event.stopPropagation();toggleSubtask('${t.id}',${si})" style="display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:4px;font-size:0.7rem;cursor:pointer;${s.done?'opacity:0.4;text-decoration:line-through':'color:var(--text2)'}">
+            <span style="width:12px;height:12px;border-radius:50%;border:1.5px solid ${s.done?'var(--green)':'var(--border2)'};background:${s.done?'var(--green)':'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff;flex-shrink:0">${s.done?'✓':''}</span>
+            <span>${esc(s.text)}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
     });
     html += `</div></div>`;
   });
@@ -1489,7 +1515,100 @@ function renderBoard(tasks, dateCtx) {
   return html;
 }
 
-// ─── Calendar View ───
+// ─── Week Timeline (Google Calendar style) ───
+function renderWeekTimeline() {
+  const t = todayStr();
+  const now = new Date();
+  const dow = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - ((dow + 6) % 7));
+  const DAYS = ['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
+  const weekDates = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); weekDates.push(dateToStr(d)); }
+
+  const hours = [];
+  for (let h = 6; h <= 22; h++) hours.push(h);
+
+  // Collect events per day
+  const eventsByDay = weekDates.map(d => {
+    const evts = [];
+    D.tasks.forEach(tk => {
+      if (tk.freq === 'pontual' && tk.done) return;
+      if (!isTaskForDate(tk, d)) return;
+      if (tk.times && tk.times.length) {
+        tk.times.forEach(s => {
+          const done = tk.doneSlots && tk.doneSlots[d] && Array.isArray(tk.doneSlots[d]) && tk.doneSlots[d].includes(s.time);
+          evts.push({ time: s.time, label: s.label || tk.text, icon: tk.icon || '', cat: tk.cat, done, taskId: tk.id, slot: s.time, dateCtx: d });
+        });
+      } else {
+        const done = isTaskDone(tk, d);
+        evts.push({ time: tk.time || '09:00', label: tk.text, icon: tk.icon || '', cat: tk.cat, done, taskId: tk.id, slot: null, dateCtx: d });
+      }
+    });
+    evts.sort((a, b) => a.time.localeCompare(b.time));
+    return evts;
+  });
+
+  const currentHour = now.getHours();
+  const ROW_H = 48;
+
+  let html = `<div style="overflow-x:auto;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:40px repeat(7,1fr);min-width:600px">`;
+
+  // Header row
+  html += `<div style="border-bottom:2px solid var(--border)"></div>`;
+  weekDates.forEach((d, i) => {
+    const isT = d === t;
+    const dn = parseInt(d.slice(8));
+    html += `<div style="text-align:center;padding:6px 0;border-bottom:2px solid ${isT ? 'var(--accent)' : 'var(--border)'};${isT ? 'background:var(--accent-bg)' : ''}">
+      <div style="font-size:0.65rem;color:${isT ? 'var(--accent2)' : 'var(--text3)'};font-weight:600">${DAYS[i]}</div>
+      <div style="font-size:1rem;font-weight:800;color:${isT ? 'var(--accent2)' : 'var(--text)'};${isT ? 'background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center' : ''}">${dn}</div>
+    </div>`;
+  });
+
+  // Time rows
+  hours.forEach(h => {
+    const hStr = String(h).padStart(2, '0');
+    const isNow = h === currentHour;
+    html += `<div style="height:${ROW_H}px;display:flex;align-items:flex-start;justify-content:flex-end;padding:0 4px;font-size:0.6rem;color:${isNow ? 'var(--accent2)' : 'var(--text3)'};font-weight:${isNow ? '700' : '400'};border-top:1px solid var(--border)">${hStr}:00</div>`;
+    weekDates.forEach((d, di) => {
+      const isT = d === t;
+      const dayEvts = eventsByDay[di].filter(e => e.time.startsWith(hStr));
+      html += `<div style="height:${ROW_H}px;border-top:1px solid var(--border);border-left:1px solid var(--border);padding:1px 2px;overflow:hidden;${isT ? 'background:var(--accent-bg)' : ''}${isNow && isT ? ';box-shadow:inset 0 2px 0 var(--accent)' : ''}">`;
+      dayEvts.forEach(e => {
+        const cat = getCat(e.cat);
+        const onClick = e.slot ? `toggleSlot('${e.taskId}','${e.dateCtx}','${e.slot}')` : `toggleTask('${e.taskId}','${e.dateCtx}')`;
+        html += `<div onclick="${onClick}" style="font-size:0.6rem;padding:2px 4px;border-radius:3px;margin-bottom:1px;cursor:pointer;border-left:2px solid var(--${cat.color});background:var(--${cat.color}-bg,var(--surface2));${e.done ? 'opacity:0.35;text-decoration:line-through' : ''};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.label)}">${e.icon ? e.icon + ' ' : ''}${esc(e.label)}</div>`;
+      });
+      html += `</div>`;
+    });
+  });
+
+  html += `</div></div>`;
+
+  // All-day / no-time tasks
+  const noTimeTasks = [];
+  D.tasks.forEach(tk => {
+    if (tk.freq === 'pontual' && tk.done) return;
+    if (!isTaskForDate(tk, t)) return;
+    if (!tk.time && (!tk.times || !tk.times.length)) noTimeTasks.push(tk);
+  });
+  if (noTimeTasks.length) {
+    html += `<div style="margin-bottom:12px"><div style="font-size:0.75rem;font-weight:700;color:var(--text3);margin-bottom:6px">SEM HORÁRIO</div>`;
+    noTimeTasks.forEach(tk => {
+      const done = isTaskDone(tk, t);
+      const cat = getCat(tk.cat);
+      html += `<div onclick="toggleTask('${tk.id}','${t}')" style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:0.8rem;border-left:3px solid var(--${cat.color});margin-bottom:2px;${done ? 'opacity:0.4;text-decoration:line-through' : ''}">
+        <span style="width:14px;height:14px;border-radius:50%;border:1.5px solid ${done ? 'var(--green)' : 'var(--border2)'};background:${done ? 'var(--green)' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:8px;color:#fff;flex-shrink:0">${done ? '✓' : ''}</span>
+        ${tk.icon ? tk.icon + ' ' : ''}${esc(tk.text)}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+// ─── Calendar View (month) ───
 function renderCalendar(tasks) {
   const MONTHS = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const DAYS = ['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
