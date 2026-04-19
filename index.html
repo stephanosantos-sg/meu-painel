@@ -3055,13 +3055,14 @@ function renderMidia(H, C) {
 
   const activeTab = D._mediaTab || 'livros';
   const origItems = D.media[activeTab] || [];
-  let items = [...origItems];
+  const mediaFilter = (D._mediaFilter || '').toLowerCase();
+  let items = mediaFilter ? origItems.filter(x => (x.title||'').toLowerCase().includes(mediaFilter) || (x.author||'').toLowerCase().includes(mediaFilter) || (x.genre||'').toLowerCase().includes(mediaFilter)) : [...origItems];
   const doneCount = items.filter(x=>x.done).length;
   const pct = items.length>0 ? Math.round(doneCount/items.length*100) : 0;
   const tab = tabs.find(t=>t.key===activeTab);
 
   let html = `<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
-    ${tabs.map(t => {const n=D.media[t.key].length;const dn=D.media[t.key].filter(x=>x.done).length;return `<button onclick="D._mediaTab='${t.key}';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} <span style="opacity:0.7">${dn}/${n}</span></button>`;}).join('')}
+    ${tabs.map(t => {const n=D.media[t.key].length;const dn=D.media[t.key].filter(x=>x.done).length;return `<button onclick="D._mediaTab='${t.key}';D._mediaFilter='';render()" style="padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;${activeTab===t.key?'background:var(--accent);color:#fff':'background:var(--surface);color:var(--text2);border:1px solid var(--border)'}">${t.icon} ${t.label} <span style="opacity:0.7">${dn}/${n}</span></button>`;}).join('')}
   </div>`;
 
   // Progress bar + bulk fetch
@@ -3093,15 +3094,19 @@ function renderMidia(H, C) {
   else if (sortMode === 'rating') items.sort((a,b) => parseFloat(b.rating||0) - parseFloat(a.rating||0));
   else if (sortMode === 'userRating') items.sort((a,b) => (b.userRating||0) - (a.userRating||0));
 
+  // Search filter
+  html += `<div style="margin-bottom:12px">
+    <input class="form-input" id="mediaSearch" placeholder="🔍 Buscar por título, autor, gênero..." value="${esc(D._mediaFilter||'')}" oninput="D._mediaFilter=this.value;render();setTimeout(()=>{const el=document.getElementById('mediaSearch');if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length}},0)" style="padding:10px 14px;font-size:0.88rem">
+  </div>`;
+
   // Add input + bulk import button
   html += `<div style="display:flex;gap:8px;margin-bottom:8px"><button onclick="openBulkImport('${activeTab}')" class="btn btn-ghost btn-sm" style="font-size:0.72rem">📋 Importar lista</button></div>`;
   html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
   if (activeTab === 'livros') {
-    html += `<input class="form-input" id="mediaTitle" placeholder="Título do livro..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem">
-      <div style="display:flex;gap:6px">
-        <input class="form-input" id="mediaAuthor" placeholder="Autor" style="flex:1;padding:6px 10px;font-size:0.78rem">
-        <button class="btn btn-ghost btn-sm" onclick="fetchBookMeta()">🔍 Buscar</button>
-        <button class="btn btn-primary btn-sm" onclick="addMediaItem('livros',document.getElementById('mediaTitle').value,{author:document.getElementById('mediaAuthor')?.value||'',status:'Fila',progress:0});document.getElementById('mediaTitle').value='';if(document.getElementById('mediaAuthor'))document.getElementById('mediaAuthor').value=''">+</button>
+    html += `<div style="display:flex;gap:6px">
+        <input class="form-input" id="mediaTitle" placeholder="Adicionar livro..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter'){addMediaItem('livros',this.value,{status:'Fila',progress:0});this.value=''}">
+        <button class="btn btn-ghost btn-sm" onclick="fetchBookMeta()">🔍</button>
+        <button class="btn btn-primary btn-sm" onclick="addMediaItem('livros',document.getElementById('mediaTitle').value,{status:'Fila',progress:0});document.getElementById('mediaTitle').value=''">+</button>
       </div>`;
   } else if (activeTab === 'series') {
     html += `<div style="display:flex;gap:6px">
