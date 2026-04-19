@@ -3013,6 +3013,13 @@ function ensureMedia() {
   if (!D.media.livros) D.media.livros = [];
 }
 
+function promptAddMedia(cat) {
+  const title = prompt(cat==='livros'?'Título do livro:':cat==='series'?'Nome da série:':cat==='filmes'?'Nome do filme:':'Título:');
+  if (!title || !title.trim()) return;
+  const extra = cat==='livros'?{status:'Fila',progress:0}:cat==='series'?{seasons:0,currentSeason:0}:{};
+  addMediaItem(cat, title.trim(), extra);
+}
+
 function addMediaItem(cat, title, extra) {
   ensureMedia();
   const item = {title, done:false, ...extra};
@@ -3099,28 +3106,11 @@ function renderMidia(H, C) {
     <input class="form-input" id="mediaSearch" placeholder="🔍 Buscar por título, autor, gênero..." value="${esc(D._mediaFilter||'')}" oninput="D._mediaFilter=this.value;render();setTimeout(()=>{const el=document.getElementById('mediaSearch');if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length}},0)" style="padding:10px 14px;font-size:0.88rem">
   </div>`;
 
-  // Add input + bulk import button
-  html += `<div style="display:flex;gap:8px;margin-bottom:8px"><button onclick="openBulkImport('${activeTab}')" class="btn btn-ghost btn-sm" style="font-size:0.72rem">📋 Importar lista</button></div>`;
-  html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px">`;
-  if (activeTab === 'livros') {
-    html += `<div style="display:flex;gap:6px">
-        <input class="form-input" id="mediaTitle" placeholder="Adicionar livro..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter'){addMediaItem('livros',this.value,{status:'Fila',progress:0});this.value=''}">
-        <button class="btn btn-ghost btn-sm" onclick="fetchBookMeta()">🔍</button>
-        <button class="btn btn-primary btn-sm" onclick="addMediaItem('livros',document.getElementById('mediaTitle').value,{status:'Fila',progress:0});document.getElementById('mediaTitle').value=''">+</button>
-      </div>`;
-  } else if (activeTab === 'series') {
-    html += `<div style="display:flex;gap:6px">
-      <input class="form-input" id="mediaTitle" placeholder="Nome da serie..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter'){addMediaItem('series',this.value,{seasons:0,currentSeason:0});this.value=''}">
-      <button class="btn btn-ghost btn-sm" onclick="fetchSeriesMeta()">🔍</button>
-      <button class="btn btn-primary btn-sm" onclick="addMediaItem('series',document.getElementById('mediaTitle').value,{seasons:0,currentSeason:0});document.getElementById('mediaTitle').value=''">+</button>
-    </div>`;
-  } else {
-    html += `<div style="display:flex;gap:6px">
-      <input class="form-input" id="mediaTitle" placeholder="${tab.icon} Adicionar..." style="flex:1;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter'){addMediaItem('${activeTab}',this.value);this.value=''}">
-      <button class="btn btn-primary btn-sm" onclick="addMediaItem('${activeTab}',document.getElementById('mediaTitle').value);document.getElementById('mediaTitle').value=''">+</button>
-    </div>`;
-  }
-  html += `</div>`;
+  // Action buttons
+  html += `<div style="display:flex;gap:8px;margin-bottom:16px">
+    <button onclick="promptAddMedia('${activeTab}')" class="btn btn-primary btn-sm" style="font-size:0.78rem">+ ${tab.label.slice(0,-1)||'Item'}</button>
+    <button onclick="openBulkImport('${activeTab}')" class="btn btn-ghost btn-sm" style="font-size:0.72rem">📋 Importar lista</button>
+  </div>`;
 
   // Gallery view
   if (mediaView === 'galeria') {
@@ -3208,13 +3198,16 @@ function renderMidia(H, C) {
       });
       html += `</div>`;
     }
-    // Queue with drag & drop
+    // Queue with drag & drop (limited to 20)
     if (fila.length) {
+      const filaShow = fila.slice(0, 20);
       html += `<div style="margin-bottom:16px">
         <div style="font-size:0.8rem;font-weight:700;color:var(--orange);margin-bottom:8px">📋 NA FILA (${fila.length}) <span style="font-weight:400;font-size:0.68rem;color:var(--text3)">— arraste para reordenar</span></div>
         <div id="bookQueue">`;
-      fila.forEach((book, qi) => {
+      filaShow.forEach((book, qi) => {
         const idx = origItems.indexOf(book);
+        const pg = book.progress||0, total = book.pages||0;
+        const bpct = total>0?Math.round(pg/total*100):0;
         html += `<div draggable="true" data-bookidx="${idx}" data-queuepos="${qi}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:4px;background:var(--surface);cursor:grab;transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
           <span class="drag-handle" style="font-size:0.8rem;opacity:0.3;cursor:grab">⠿</span>
           <span style="font-size:0.68rem;color:var(--text3);min-width:20px;font-weight:700">${qi+1}</span>
@@ -3222,11 +3215,13 @@ function renderMidia(H, C) {
           <div style="flex:1;min-width:0">
             <div style="font-size:0.88rem;font-weight:500">${esc(book.title)}</div>
             ${book.author?`<div style="font-size:0.68rem;color:var(--text3)">${esc(book.author)}</div>`:''}
+            ${bpct>0?`<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><div style="flex:1;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${bpct}%;background:var(--accent);border-radius:2px"></div></div><span style="font-size:0.6rem;color:var(--text3)">${bpct}%</span></div>`:''}
           </div>
           <button onclick="event.stopPropagation();cycleBookStatus(${idx})" class="btn btn-ghost btn-sm" style="font-size:0.68rem;padding:4px 8px">📖 Ler</button>
           <button onclick="event.stopPropagation();deleteMediaItem('livros',${idx})" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✕</button>
         </div>`;
       });
+      if (fila.length > 20) html += `<div style="text-align:center;padding:8px;font-size:0.78rem;color:var(--text3)">e mais ${fila.length-20} livros na fila...</div>`;
       html += `</div></div>`;
     }
     if (lidos.length) { html += mediaGroup('✅ LIDOS',lidos,origItems,activeTab,'var(--green)',true); }
@@ -3276,9 +3271,23 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
     if (item.author) html += `<span style="font-size:0.7rem;color:var(--text3)">${esc(item.author)}</span>`;
     if (item.year) html += `<span style="font-size:0.7rem;color:var(--text3)">${item.year}</span>`;
     if (item.seasons) html += `<span style="font-size:0.68rem;padding:1px 6px;border-radius:3px;background:var(--surface2);color:var(--text2)">${item.currentSeason||0}/${item.seasons} temp</span>`;
-    if (cat === 'livros') html += `<span style="font-size:0.68rem;padding:1px 6px;border-radius:3px;background:${item.status==='Lido'?'var(--green-bg)':item.status==='Lendo'?'var(--accent-bg)':'var(--surface2)'};color:${item.status==='Lido'?'var(--green)':item.status==='Lendo'?'var(--accent2)':'var(--text3)'}">${item.status||'Fila'}</span>`;
+    if (cat === 'livros') {
+      html += `<span style="font-size:0.68rem;padding:1px 6px;border-radius:3px;background:${item.status==='Lido'?'var(--green-bg)':item.status==='Lendo'?'var(--accent-bg)':'var(--surface2)'};color:${item.status==='Lido'?'var(--green)':item.status==='Lendo'?'var(--accent2)':'var(--text3)'}">${item.status||'Fila'}</span>`;
+      const pg=item.progress||0, tot=item.pages||0, bpct=tot>0?Math.round(pg/tot*100):0;
+      if (item.status==='Lendo'||bpct>0) html += `<span style="font-size:0.65rem;color:var(--accent2);font-weight:600">${pg}/${tot||'?'} pág (${bpct}%)</span>`;
+    }
     if (item.rating) html += `<span style="font-size:0.7rem;color:var(--yellow)">⭐ ${item.rating}</span>`;
-    html += `</div></div>`;
+    html += `</div>`;
+    // Progress bar for books
+    if (cat === 'livros' && (item.status==='Lendo' || (item.progress||0)>0)) {
+      const pg=item.progress||0, tot=item.pages||0, bpct=tot>0?Math.min(100,Math.round(pg/tot*100)):0;
+      html += `<div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+        <div style="flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${bpct}%;background:var(--accent);border-radius:2px"></div></div>
+        <input type="number" value="${pg}" min="0" style="width:45px;padding:2px 4px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.65rem;text-align:center" onclick="event.stopPropagation()" onchange="event.stopPropagation();updateBookProgress(${idx},parseInt(this.value)||0)">
+        <span style="font-size:0.6rem;color:var(--text3)">/${tot||'?'}</span>
+      </div>`;
+    }
+    html += `</div>`;
 
     // Star rating (user)
     html += `<div style="display:flex;gap:1px;flex-shrink:0" title="Avaliar">`;
