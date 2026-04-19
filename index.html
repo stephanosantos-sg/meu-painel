@@ -394,6 +394,10 @@ textarea.form-input{min-height:50px;resize:vertical}
     </div>
     <div id="sidebarLvl" style="font-size:0.65rem;font-weight:800;color:var(--accent2);background:var(--accent-bg);padding:2px 6px;border-radius:4px"></div>
   </div>
+  <div id="sidebarXpBar" style="padding:0 20px 8px;display:none">
+    <div style="background:var(--surface2);border-radius:3px;height:4px;overflow:hidden"><div id="sidebarXpFill" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:3px;transition:width 0.5s"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:2px"><span id="sidebarXpText" style="font-size:0.55rem;color:var(--text3)"></span><span id="sidebarXpRemain" style="font-size:0.55rem;color:var(--text3)"></span></div>
+  </div>
   <div id="profileMenu" class="hidden" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:0 8px 8px;padding:14px;box-shadow:var(--shadow)">
     <div id="xpDisplay" style="margin-bottom:12px"></div>
     <div style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Tema</div>
@@ -1135,6 +1139,15 @@ function render() {
   }
   var lvlBadge = document.getElementById('sidebarLvl');
   if (lvlBadge) lvlBadge.textContent = 'Lvl ' + (D.xp?D.xp.level:1);
+  var sxBar = document.getElementById('sidebarXpBar');
+  if (sxBar) {
+    sxBar.style.display = 'block';
+    document.getElementById('sidebarXpFill').style.width = pct + '%';
+    var lvlStart = getTotalXPForLevel(D.xp.level);
+    var lvlEnd = getTotalXPForLevel(D.xp.level+1);
+    document.getElementById('sidebarXpText').textContent = (D.xp.total-lvlStart)+' / '+(lvlEnd-lvlStart)+' XP';
+    document.getElementById('sidebarXpRemain').textContent = getXPRemaining()+' restam';
+  }
   // Add global toolbar
   var toolbar = document.getElementById('globalToolbar');
   if (!toolbar) {
@@ -1253,10 +1266,11 @@ function renderHoje(H, C) {
     if (todayHabits.length) {
       const todayDone = todayHabits.filter(h=>h.log&&h.log[t]).length;
       html += `<div class="task-group" style="margin-top:16px"><div class="task-group-header"><span class="task-group-title" style="color:var(--orange)">⭐ Hábitos de hoje</span><span class="task-group-count">${todayDone}/${todayHabits.length}</span></div><div class="task-group-items">`;
-      todayHabits.forEach(h => {
+      todayHabits.forEach((h,hi) => {
         const done = h.log&&h.log[t];
         const streak = getStreak(h);
-        html += `<div class="task-item" style="cursor:pointer" onclick="toggleHabitDay('${h.id}','${t}')">
+        html += `<div class="task-item" draggable="true" data-habitidx="${D.habits.indexOf(h)}" style="cursor:pointer" onclick="toggleHabitDay('${h.id}','${t}')">
+          <span class="drag-handle" title="Arrastar">⠿</span>
           <div class="task-check ${done?'checked':''}" style="border-color:var(--${h.color||'green'})">${done?'&#10003;':''}</div>
           <div class="task-body"><div class="task-text">${h.icon?h.icon+' ':''}${esc(h.name)}</div>
           <div class="task-meta">${streak>0?`<span style="font-size:0.72rem;color:var(--orange);font-weight:600">🔥 ${streak} dias</span>`:''}<span style="font-size:0.72rem;color:var(--text3)">Meta: ${h.goal||7}x/sem</span></div></div>
@@ -2380,6 +2394,45 @@ function editGoal(id){
 }
 function deleteGoal(id){D.goals=D.goals.filter(x=>x.id!==id);save();render();}
 
+// Habit drag & drop (reorder)
+var _dragHabit = null;
+document.addEventListener('dragstart', function(e) {
+  var el = e.target.closest('[data-habitidx]');
+  if (!el) return;
+  _dragHabit = parseInt(el.dataset.habitidx);
+  el.style.opacity = '0.4';
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+});
+document.addEventListener('dragover', function(e) {
+  if (_dragHabit === null) return;
+  var el = e.target.closest('[data-habitidx]');
+  if (el) { e.preventDefault(); e.stopPropagation(); el.style.borderLeft = '3px solid var(--orange)'; }
+}, true);
+document.addEventListener('dragleave', function(e) {
+  if (_dragHabit === null) return;
+  var el = e.target.closest('[data-habitidx]');
+  if (el) el.style.borderLeft = '';
+});
+document.addEventListener('drop', function(e) {
+  if (_dragHabit === null) return;
+  var el = e.target.closest('[data-habitidx]');
+  if (!el) { _dragHabit = null; return; }
+  e.preventDefault(); e.stopPropagation();
+  var toIdx = parseInt(el.dataset.habitidx);
+  var fromIdx = _dragHabit;
+  _dragHabit = null;
+  el.style.borderLeft = '';
+  if (fromIdx === toIdx) return;
+  var item = D.habits.splice(fromIdx, 1)[0];
+  D.habits.splice(toIdx, 0, item);
+  save(); render();
+}, true);
+document.addEventListener('dragend', function(e) {
+  _dragHabit = null;
+  document.querySelectorAll('[data-habitidx]').forEach(function(el){ el.style.opacity='1'; el.style.borderLeft=''; });
+});
+
 // Milestone drag & drop
 var _dragMs = null;
 document.addEventListener('dragstart', function(e) {
@@ -3232,7 +3285,7 @@ function getTitle(lvl) {
   if (lvl>=40) return 'Campeão';
   if (lvl>=30) return (D.xp?.class?CLASSES[D.xp.class]?.name:'Especialista');
   if (lvl>=20) return 'Veterano';
-  if (lvl>=15) return 'Cavaleiro';
+  if (lvl>=15) return 'Aventureiro';
   if (lvl>=10) return 'Desbravador';
   if (lvl>=7) return 'Batalhador';
   if (lvl>=4) return 'Explorador';
@@ -4823,60 +4876,83 @@ function pixelAvatar(lvl, size, cls) {
 }
 
 function _countTotalDone(){let c=0;D.tasks.forEach(t=>{Object.keys(t.doneSlots||{}).forEach(k=>{const v=t.doneSlots[k];c+=Array.isArray(v)?v.length:1});if(t.done)c++});return c}
-const ACHIEVEMENT_DEFS = [
-  // Primeiros passos
-  {id:'first_task',name:'Primeira Tarefa',desc:'Complete sua primeira tarefa',icon:'✅',xp:20,check:()=>D.tasks.some(t=>t.done||Object.keys(t.doneSlots||{}).length>0)},
-  {id:'first_habit',name:'Primeiro Hábito',desc:'Marque um hábito pela primeira vez',icon:'⭐',xp:20,check:()=>D.habits.some(h=>Object.keys(h.log||{}).length>0)},
-  {id:'first_goal',name:'Primeiro Objetivo',desc:'Crie um objetivo',icon:'🎯',xp:15,check:()=>D.goals.length>0},
-  {id:'first_note',name:'Anotador',desc:'Crie uma nota',icon:'📝',xp:10,check:()=>(D.notes||[]).length>0},
-  {id:'first_idea',name:'Criativo',desc:'Registre uma ideia',icon:'💡',xp:15,check:()=>(D.ideas||[]).length>0},
-  // Streaks
-  {id:'streak_3',name:'Consistente',desc:'3 dias seguidos de um hábito',icon:'🔥',xp:20,check:()=>D.habits.some(h=>getStreak(h)>=3)},
-  {id:'streak_7',name:'Semana Perfeita',desc:'7 dias seguidos de um hábito',icon:'🔥',xp:50,check:()=>D.habits.some(h=>getStreak(h)>=7)},
-  {id:'streak_14',name:'Duas Semanas',desc:'14 dias seguidos de um hábito',icon:'💪',xp:100,check:()=>D.habits.some(h=>getStreak(h)>=14)},
-  {id:'streak_21',name:'Formador de Hábito',desc:'21 dias seguidos — o hábito virou rotina!',icon:'💎',xp:200,check:()=>D.habits.some(h=>getStreak(h)>=21)},
-  {id:'streak_30',name:'Inabalável',desc:'30 dias seguidos de um hábito',icon:'🏆',xp:300,check:()=>D.habits.some(h=>getStreak(h)>=30)},
-  {id:'streak_60',name:'Disciplina de Ferro',desc:'60 dias seguidos!',icon:'⚔️',xp:500,check:()=>D.habits.some(h=>getStreak(h)>=60)},
-  {id:'streak_100',name:'Centenário',desc:'100 dias seguidos de um hábito',icon:'👑',xp:800,check:()=>D.habits.some(h=>getStreak(h)>=100)},
-  {id:'streak_365',name:'Um Ano Inteiro',desc:'365 dias seguidos!',icon:'🌟',xp:2000,check:()=>D.habits.some(h=>getStreak(h)>=365)},
-  // Tarefas
-  {id:'tasks_10',name:'Começando',desc:'Complete 10 tarefas',icon:'📋',xp:20,check:()=>_countTotalDone()>=10},
-  {id:'tasks_50',name:'Produtivo',desc:'Complete 50 tarefas',icon:'📋',xp:50,check:()=>_countTotalDone()>=50},
-  {id:'tasks_200',name:'Máquina',desc:'Complete 200 tarefas',icon:'⚡',xp:150,check:()=>_countTotalDone()>=200},
-  {id:'tasks_500',name:'Imparável',desc:'Complete 500 tarefas',icon:'🚀',xp:300,check:()=>_countTotalDone()>=500},
-  {id:'tasks_1000',name:'Lendário',desc:'Complete 1000 tarefas',icon:'💫',xp:600,check:()=>_countTotalDone()>=1000},
-  // Hábitos
-  {id:'habits_3',name:'Triplo Hábito',desc:'Tenha 3 hábitos ativos',icon:'🧠',xp:20,check:()=>D.habits.length>=3},
-  {id:'habits_5',name:'Multi-hábitos',desc:'Tenha 5 hábitos ativos',icon:'🧠',xp:40,check:()=>D.habits.length>=5},
-  {id:'habits_10',name:'Hábito Master',desc:'Tenha 10 hábitos ativos',icon:'🌀',xp:80,check:()=>D.habits.length>=10},
-  {id:'all_habits_day',name:'Dia Perfeito',desc:'Complete todos os hábitos do dia',icon:'💯',xp:50,check:()=>{const t=todayStr(),dow=new Date().getDay();const today=D.habits.filter(h=>(h.days||[0,1,2,3,4,5,6]).includes(dow));return today.length>0&&today.every(h=>h.log&&h.log[t])}},
-  // Livros
-  {id:'book_done',name:'Leitor',desc:'Termine um livro',icon:'📖',xp:80,check:()=>(D.media?.livros||[]).some(b=>b.status==='Lido')},
-  {id:'books_5',name:'Colecionador',desc:'Termine 5 livros',icon:'📚',xp:120,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=5},
-  {id:'books_10',name:'Rato de Biblioteca',desc:'Termine 10 livros',icon:'📚',xp:200,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=10},
-  {id:'books_25',name:'Devorador de Livros',desc:'Termine 25 livros',icon:'🏛️',xp:350,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=25},
-  {id:'books_50',name:'Bibliófilo',desc:'Termine 50 livros',icon:'🏛️',xp:600,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=50},
-  {id:'books_100',name:'Sábio',desc:'Termine 100 livros',icon:'🧙',xp:1000,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=100},
-  // Objetivos
-  {id:'goal_done',name:'Objetivo Alcançado',desc:'Conclua um objetivo',icon:'🎯',xp:100,check:()=>D.goals.some(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done))},
-  {id:'goals_3',name:'Realizador',desc:'Conclua 3 objetivos',icon:'🏅',xp:250,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=3},
-  {id:'goals_5',name:'Conquistador',desc:'Conclua 5 objetivos',icon:'🏆',xp:400,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=5},
-  // Níveis
-  {id:'level_3',name:'Nível 3',desc:'Alcance nível 3',icon:'⬆️',xp:30,check:()=>D.xp.level>=3},
-  {id:'level_5',name:'Nível 5',desc:'Alcance nível 5',icon:'⬆️',xp:50,check:()=>D.xp.level>=5},
-  {id:'level_10',name:'Nível 10',desc:'Veterano',icon:'🌟',xp:100,check:()=>D.xp.level>=10},
-  {id:'level_15',name:'Nível 15',desc:'Elite',icon:'👑',xp:200,check:()=>D.xp.level>=15},
-  {id:'level_20',name:'Nível 20',desc:'Lenda Viva',icon:'🌠',xp:500,check:()=>D.xp.level>=20},
-  // Especiais
-  {id:'pomodoro_1',name:'Primeiro Pomodoro',desc:'Complete um pomodoro',icon:'🍅',xp:15,check:()=>D.xp.total>=25},
-  {id:'media_watch',name:'Cinéfilo',desc:'Assista 10 filmes ou séries',icon:'🎬',xp:60,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=10},
-  {id:'media_watch_50',name:'Maratonista',desc:'Assista 50 filmes ou séries',icon:'🎬',xp:200,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=50},
-  {id:'categories_3',name:'Organizado',desc:'Crie 3 categorias',icon:'🏷️',xp:20,check:()=>(D.categories||[]).length>=3},
-  {id:'shoplist_done',name:'Compras Feitas',desc:'Conclua todos itens de uma lista de compras',icon:'🛒',xp:30,check:()=>(D.shopLists||[]).some(sl=>sl.items.length>0&&sl.items.every(i=>i.done))},
-  {id:'xp_1000',name:'Mil XP',desc:'Acumule 1000 XP total',icon:'💰',xp:50,check:()=>D.xp.total>=1000},
-  {id:'xp_5000',name:'Rico em XP',desc:'Acumule 5000 XP total',icon:'💎',xp:100,check:()=>D.xp.total>=5000},
-  {id:'xp_10000',name:'XP Magnata',desc:'Acumule 10000 XP total',icon:'🏦',xp:200,check:()=>D.xp.total>=10000},
-];
+const ACHIEVEMENT_CATS = {
+  '🚀 Primeiros Passos':[
+    {id:'first_task',name:'Primeira Tarefa',desc:'Complete sua primeira tarefa',icon:'✅',xp:20,check:()=>D.tasks.some(t=>t.done||Object.keys(t.doneSlots||{}).length>0)},
+    {id:'first_habit',name:'Primeiro Hábito',desc:'Marque um hábito pela primeira vez',icon:'⭐',xp:20,check:()=>D.habits.some(h=>Object.keys(h.log||{}).length>0)},
+    {id:'first_goal',name:'Primeiro Objetivo',desc:'Crie um objetivo',icon:'🎯',xp:15,check:()=>D.goals.length>0},
+    {id:'first_note',name:'Anotador',desc:'Crie uma nota',icon:'📝',xp:10,check:()=>(D.notes||[]).length>0},
+    {id:'first_idea',name:'Criativo',desc:'Registre uma ideia',icon:'💡',xp:15,check:()=>(D.ideas||[]).length>0},
+    {id:'categories_3',name:'Organizado',desc:'Crie 3 categorias',icon:'🏷️',xp:20,check:()=>(D.categories||[]).length>=3},
+  ],
+  '🔥 Consistência':[
+    {id:'streak_3',name:'Consistente',desc:'3 dias seguidos',icon:'🔥',xp:20,check:()=>D.habits.some(h=>getStreak(h)>=3)},
+    {id:'streak_7',name:'Semana Perfeita',desc:'7 dias seguidos',icon:'🔥',xp:50,check:()=>D.habits.some(h=>getStreak(h)>=7)},
+    {id:'streak_14',name:'Duas Semanas',desc:'14 dias seguidos',icon:'💪',xp:100,check:()=>D.habits.some(h=>getStreak(h)>=14)},
+    {id:'streak_21',name:'Formador de Hábito',desc:'21 dias — virou rotina!',icon:'💎',xp:200,check:()=>D.habits.some(h=>getStreak(h)>=21)},
+    {id:'streak_30',name:'Inabalável',desc:'30 dias seguidos',icon:'🏆',xp:300,check:()=>D.habits.some(h=>getStreak(h)>=30)},
+    {id:'streak_60',name:'Disciplina de Ferro',desc:'60 dias seguidos',icon:'⚔️',xp:500,check:()=>D.habits.some(h=>getStreak(h)>=60)},
+    {id:'streak_100',name:'Centenário',desc:'100 dias seguidos',icon:'👑',xp:800,check:()=>D.habits.some(h=>getStreak(h)>=100)},
+    {id:'streak_365',name:'Um Ano Inteiro',desc:'365 dias seguidos',icon:'🌟',xp:2000,check:()=>D.habits.some(h=>getStreak(h)>=365)},
+    {id:'all_habits_day',name:'Dia Perfeito',desc:'Todos os hábitos do dia',icon:'💯',xp:50,check:()=>{const t=todayStr(),dow=new Date().getDay();const today=D.habits.filter(h=>(h.days||[0,1,2,3,4,5,6]).includes(dow));return today.length>0&&today.every(h=>h.log&&h.log[t])}},
+  ],
+  '📋 Produtividade':[
+    {id:'tasks_10',name:'Começando',desc:'10 tarefas concluídas',icon:'📋',xp:20,check:()=>_countTotalDone()>=10},
+    {id:'tasks_50',name:'Produtivo',desc:'50 tarefas',icon:'📋',xp:50,check:()=>_countTotalDone()>=50},
+    {id:'tasks_200',name:'Máquina',desc:'200 tarefas',icon:'⚡',xp:150,check:()=>_countTotalDone()>=200},
+    {id:'tasks_500',name:'Imparável',desc:'500 tarefas',icon:'🚀',xp:300,check:()=>_countTotalDone()>=500},
+    {id:'tasks_1000',name:'Lendário',desc:'1000 tarefas',icon:'💫',xp:600,check:()=>_countTotalDone()>=1000},
+    {id:'tasks_2500',name:'Sobrehumano',desc:'2500 tarefas',icon:'🦸',xp:1000,check:()=>_countTotalDone()>=2500},
+  ],
+  '⭐ Hábitos':[
+    {id:'habits_3',name:'Triplo Hábito',desc:'3 hábitos ativos',icon:'🧠',xp:20,check:()=>D.habits.length>=3},
+    {id:'habits_5',name:'Multi-hábitos',desc:'5 hábitos ativos',icon:'🧠',xp:40,check:()=>D.habits.length>=5},
+    {id:'habits_10',name:'Hábito Master',desc:'10 hábitos ativos',icon:'🌀',xp:80,check:()=>D.habits.length>=10},
+    {id:'habit_year_100',name:'Dedicado',desc:'100 marcações no ano',icon:'📅',xp:60,check:()=>{const yr=''+new Date().getFullYear();return D.habits.some(h=>Object.keys(h.log||{}).filter(d=>d.startsWith(yr)).length>=100)}},
+    {id:'habit_year_300',name:'Disciplinado',desc:'300 marcações no ano',icon:'📅',xp:200,check:()=>{const yr=''+new Date().getFullYear();return D.habits.some(h=>Object.keys(h.log||{}).filter(d=>d.startsWith(yr)).length>=300)}},
+  ],
+  '📖 Leitura':[
+    {id:'book_done',name:'Leitor',desc:'Termine 1 livro',icon:'📖',xp:80,check:()=>(D.media?.livros||[]).some(b=>b.status==='Lido')},
+    {id:'books_5',name:'Colecionador',desc:'5 livros lidos',icon:'📚',xp:120,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=5},
+    {id:'books_10',name:'Rato de Biblioteca',desc:'10 livros',icon:'📚',xp:200,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=10},
+    {id:'books_25',name:'Devorador',desc:'25 livros',icon:'🏛️',xp:350,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=25},
+    {id:'books_50',name:'Bibliófilo',desc:'50 livros',icon:'🏛️',xp:600,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=50},
+    {id:'books_100',name:'Sábio',desc:'100 livros',icon:'🧙',xp:1000,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=100},
+    {id:'books_200',name:'Iluminado',desc:'200 livros',icon:'✨',xp:2000,check:()=>(D.media?.livros||[]).filter(b=>b.status==='Lido').length>=200},
+    {id:'book_rated_5',name:'Avaliador',desc:'Avalie 5 livros com estrelas',icon:'⭐',xp:30,check:()=>(D.media?.livros||[]).filter(b=>b.userRating>0).length>=5},
+  ],
+  '🎬 Mídia':[
+    {id:'media_watch',name:'Cinéfilo',desc:'10 filmes ou séries assistidos',icon:'🎬',xp:60,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=10},
+    {id:'media_watch_50',name:'Maratonista',desc:'50 filmes ou séries',icon:'🎬',xp:200,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=50},
+    {id:'media_watch_100',name:'Crítico',desc:'100 filmes ou séries',icon:'🎥',xp:400,check:()=>((D.media?.filmes||[]).filter(x=>x.done).length+(D.media?.series||[]).filter(x=>x.done).length)>=100},
+    {id:'series_binge',name:'Maratonista de Séries',desc:'Termine 5 séries',icon:'📺',xp:100,check:()=>(D.media?.series||[]).filter(x=>x.done).length>=5},
+  ],
+  '🎯 Objetivos':[
+    {id:'goal_done',name:'Objetivo Alcançado',desc:'Conclua 1 objetivo',icon:'🎯',xp:100,check:()=>D.goals.some(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done))},
+    {id:'goals_3',name:'Realizador',desc:'3 objetivos concluídos',icon:'🏅',xp:250,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=3},
+    {id:'goals_5',name:'Conquistador',desc:'5 objetivos',icon:'🏆',xp:400,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=5},
+    {id:'goals_10',name:'Visionário',desc:'10 objetivos',icon:'🌠',xp:700,check:()=>D.goals.filter(g=>g.milestones&&g.milestones.length&&g.milestones.every(m=>m.done)).length>=10},
+  ],
+  '⬆️ Níveis':[
+    {id:'level_3',name:'Nível 3',desc:'Alcance nível 3',icon:'⬆️',xp:30,check:()=>D.xp.level>=3},
+    {id:'level_5',name:'Nível 5',desc:'Alcance nível 5',icon:'⬆️',xp:50,check:()=>D.xp.level>=5},
+    {id:'level_10',name:'Veterano',desc:'Nível 10',icon:'🌟',xp:100,check:()=>D.xp.level>=10},
+    {id:'level_15',name:'Elite',desc:'Nível 15',icon:'👑',xp:200,check:()=>D.xp.level>=15},
+    {id:'level_20',name:'Lenda',desc:'Nível 20',icon:'🌠',xp:500,check:()=>D.xp.level>=20},
+    {id:'level_30',name:'Classe Escolhida',desc:'Nível 30',icon:'⚔️',xp:300,check:()=>D.xp.level>=30},
+    {id:'level_50',name:'Meio Caminho',desc:'Nível 50',icon:'🔮',xp:500,check:()=>D.xp.level>=50},
+    {id:'level_100',name:'Transcendente',desc:'Nível 100!',icon:'💫',xp:2000,check:()=>D.xp.level>=100},
+  ],
+  '🛒 Especiais':[
+    {id:'pomodoro_1',name:'Primeiro Pomodoro',desc:'Complete um pomodoro',icon:'🍅',xp:15,check:()=>D.xp.total>=25},
+    {id:'shoplist_done',name:'Compras Feitas',desc:'Conclua uma lista de compras',icon:'🛒',xp:30,check:()=>(D.shopLists||[]).some(sl=>sl.items.length>0&&sl.items.every(i=>i.done))},
+    {id:'xp_1000',name:'Mil XP',desc:'1000 XP total',icon:'💰',xp:50,check:()=>D.xp.total>=1000},
+    {id:'xp_5000',name:'Rico em XP',desc:'5000 XP',icon:'💎',xp:100,check:()=>D.xp.total>=5000},
+    {id:'xp_10000',name:'XP Magnata',desc:'10000 XP',icon:'🏦',xp:200,check:()=>D.xp.total>=10000},
+    {id:'xp_50000',name:'Milionário',desc:'50000 XP',icon:'👑',xp:500,check:()=>D.xp.total>=50000},
+  ],
+};
+const ACHIEVEMENT_DEFS = Object.values(ACHIEVEMENT_CATS).flat();
 
 function checkAchievements() {
   ensureGamification();
@@ -4974,26 +5050,39 @@ function renderPerfil(H, C) {
   </div>`;
   html += `</div>`;
 
-  // Achievements
+  // Achievements by category
   html += `<div style="margin-bottom:24px">
-    <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🏆 Conquistas (${Object.keys(D._achievements).length}/${ACHIEVEMENT_DEFS.length})</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">`;
-  ACHIEVEMENT_DEFS.forEach(a => {
-    const unlocked = !!D._achievements[a.id];
-    const dt = unlocked ? new Date(D._achievements[a.id]).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : '';
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:var(--surface);border:1px solid ${unlocked?'var(--green)':'var(--border)'};${unlocked?'':'opacity:0.5'}">
-      <span style="font-size:1.5rem">${a.icon}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:0.85rem;font-weight:700">${a.name}</div>
-        <div style="font-size:0.7rem;color:var(--text3)">${a.desc}</div>
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🏆 Conquistas (${Object.keys(D._achievements).length}/${ACHIEVEMENT_DEFS.length})</h3>`;
+  Object.entries(ACHIEVEMENT_CATS).forEach(([catName, achs]) => {
+    const catDone = achs.filter(a => D._achievements[a.id]).length;
+    html += `<div style="margin-bottom:8px">
+      <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:4px">
+        <span style="font-weight:700;font-size:0.88rem">${catName}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:60px;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${achs.length?Math.round(catDone/achs.length*100):0}%;background:var(--green);border-radius:3px"></div></div>
+          <span style="font-size:0.72rem;color:var(--text3);min-width:30px">${catDone}/${achs.length}</span>
+          <span style="font-size:0.7rem;color:var(--text3)">▾</span>
+        </div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:0.72rem;font-weight:700;color:${unlocked?'var(--green)':'var(--text3)'}">${unlocked?'✅':'+'+a.xp+' XP'}</div>
-        ${dt?`<div style="font-size:0.6rem;color:var(--text3)">${dt}</div>`:''}
-      </div>
-    </div>`;
+      <div style="display:none;padding:0 4px">`;
+    achs.forEach(a => {
+      const unlocked = !!D._achievements[a.id];
+      const dt = unlocked ? new Date(D._achievements[a.id]).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : '';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;${unlocked?'':'opacity:0.45'}">
+        <span style="font-size:1.2rem">${a.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.82rem;font-weight:600">${a.name}</div>
+          <div style="font-size:0.65rem;color:var(--text3)">${a.desc}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:0.68rem;font-weight:700;color:${unlocked?'var(--green)':'var(--text3)'}">${unlocked?'✅':'+'+a.xp}</div>
+          ${dt?`<div style="font-size:0.55rem;color:var(--text3)">${dt}</div>`:''}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
   });
-  html += `</div></div>`;
+  html += `</div>`;
 
   // Stats
   const totalDone = D.tasks.reduce((a,t) => a + Object.keys(t.doneSlots||{}).reduce((b,k) => b + (Array.isArray(t.doneSlots[k])?t.doneSlots[k].length:1), 0) + (t.done?1:0), 0);
