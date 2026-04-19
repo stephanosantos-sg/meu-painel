@@ -3468,9 +3468,10 @@ function renderPerfil(H, C) {
 
   H.innerHTML = `<h2>Perfil</h2><div class="subtitle">${title} — Nível ${lvl}</div>`;
 
-  let html = `<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;margin-bottom:24px">`;
+  let html = `<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;margin-bottom:24px;justify-content:center">`;
   // Avatar card
-  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;min-width:200px">
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;min-width:200px;width:100%;max-width:280px">
+    ${D.xp?.prestige?`<div style="font-size:0.68rem;color:var(--yellow);font-weight:700;margin-bottom:4px">${'⭐'.repeat(Math.min(D.xp.prestige,5))} Prestígio ${D.xp.prestige}</div>`:''}
     <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:12px;display:inline-block">${pixelAvatar(lvl)}</div>
     <div style="font-size:1.2rem;font-weight:800;margin-bottom:2px">Stephano</div>
     <div style="font-size:0.82rem;color:var(--accent2);font-weight:600;margin-bottom:12px">${title}</div>
@@ -5269,6 +5270,38 @@ const THEMES = {
     '--accent':'#ff6b35','--accent2':'#ff8a5c','--accent-bg':'rgba(255,107,53,0.12)',
     '--orange':'#ff6b35','--orange-bg':'rgba(255,107,53,0.12)',
   }},
+  teal_copper: {name:'Teal & Cobre',preview:['#243B40','#548C8C','#D9AB82'],vars:{
+    '--bg':'#1a2e32','--bg2':'#1e3438','--surface':'#243B40','--surface2':'#2e4a50','--surface3':'#385a60',
+    '--border':'#406060','--border2':'#507070','--text':'#e8f0ee','--text2':'#C5D9C8','--text3':'#7a9a90',
+    '--accent':'#D9AB82','--accent2':'#e0be9a','--accent-bg':'rgba(217,171,130,0.15)',
+    '--green':'#548C8C','--green-bg':'rgba(84,140,140,0.15)',
+    '--orange':'#D9AB82','--orange-bg':'rgba(217,171,130,0.12)',
+    '--red':'#734939','--red-bg':'rgba(115,73,57,0.15)',
+  }},
+  autumn: {name:'Outono',preview:['#260801','#D98E32','#BF895A'],vars:{
+    '--bg':'#1a0e08','--bg2':'#201408','--surface':'#2a1c10','--surface2':'#362414','--surface3':'#402e1c',
+    '--border':'#503a20','--border2':'#604a30','--text':'#f5e8d8','--text2':'#c8a880','--text3':'#8a6a48',
+    '--accent':'#D98E32','--accent2':'#e0a050','--accent-bg':'rgba(217,142,50,0.15)',
+    '--orange':'#D98E32','--orange-bg':'rgba(217,142,50,0.12)',
+    '--red':'#8C2626','--red-bg':'rgba(140,38,38,0.15)',
+    '--green':'#BF895A','--green-bg':'rgba(191,137,90,0.12)',
+  }},
+  sage_mint: {name:'Sage & Mint',preview:['#C5D9C8','#548C8C','#402E2C'],vars:{
+    '--bg':'#e8ede8','--bg2':'#f0f5f0','--surface':'#f5faf5','--surface2':'#e0eae0','--surface3':'#d0dcd0',
+    '--border':'#b8c8b8','--border2':'#a8b8a8','--text':'#243B40','--text2':'#4a6a60','--text3':'#7a9a88',
+    '--accent':'#548C8C','--accent2':'#407070','--accent-bg':'rgba(84,140,140,0.12)',
+    '--green':'#548C8C','--green-bg':'rgba(84,140,140,0.1)',
+    '--shadow':'0 2px 12px rgba(0,0,0,0.06)',
+    '--red':'#8C2626','--red-bg':'rgba(140,38,38,0.1)',
+    '--orange':'#D9AB82','--orange-bg':'rgba(217,171,130,0.12)',
+  }},
+  neon_forest: {name:'Neon Floresta',preview:['#0D0D0D','#E0F252','#A8BF54'],vars:{
+    '--bg':'#0D0D0D','--bg2':'#141814','--surface':'#1a201a','--surface2':'#222a22','--surface3':'#2a342a',
+    '--border':'#344034','--border2':'#3e4e3e','--text':'#e8f5e0','--text2':'#a8c890','--text3':'#607848',
+    '--accent':'#E0F252','--accent2':'#c8d840','--accent-bg':'rgba(224,242,82,0.1)',
+    '--green':'#A8BF54','--green-bg':'rgba(168,191,84,0.12)',
+    '--yellow':'#E0F252','--yellow-bg':'rgba(224,242,82,0.1)',
+  }},
 };
 const THEME_KEY = 'meuPainel_theme';
 let currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
@@ -6161,14 +6194,20 @@ if ('Notification' in window && Notification.permission === 'default') {
 }
 
 // Populate theme picker in profile menu
-function renderThemePicker() {
-  const area = document.getElementById('themePickerArea');
-  if (!area) return;
-  area.innerHTML = Object.entries(THEMES).map(([id,th]) =>
-    `<div onclick="event.stopPropagation();applyTheme('${id}');renderThemePicker();render()" title="${th.name}" style="cursor:pointer;width:32px;height:32px;border-radius:50%;border:2px solid ${currentTheme===id?'var(--accent)':'var(--border)'};display:flex;align-items:center;justify-content:center;overflow:hidden;background:${th.preview[0]};transition:border-color 0.15s">
+function themePickerHTML() {
+  return Object.entries(THEMES).map(([id,th]) =>
+    `<div onclick="event.stopPropagation();applyTheme('${id}');render()" title="${th.name}" style="cursor:pointer;width:36px;height:36px;border-radius:50%;border:2px solid ${currentTheme===id?'var(--accent)':'var(--border)'};display:flex;align-items:center;justify-content:center;overflow:hidden;background:${th.preview[0]};transition:border-color 0.15s">
       <div style="width:14px;height:28px;background:${th.preview[1]};position:relative;left:3px;border-radius:2px"></div>
     </div>`
   ).join('');
+}
+function renderThemePicker() {
+  const area = document.getElementById('themePickerArea');
+  if (area) area.innerHTML = themePickerHTML();
+}
+function buildThemePicker(targetId) {
+  const area = document.getElementById(targetId);
+  if (area) area.innerHTML = themePickerHTML();
 }
 renderThemePicker();
 
