@@ -5381,23 +5381,30 @@ function postViaForm(url, data) {
   });
 }
 
+// Minimal LZ compression for sync
+var LZ={compress:function(s){if(!s)return'';var d={},c='',w='',r=[],dc=256,i,wc;for(i=0;i<s.length;i++){c=s.charAt(i);if(d[w+c]!=null){w+=c}else{r.push(d[w]!=null?d[w]:w.charCodeAt(0));d[w+c]=dc++;w=''+c}}r.push(d[w]!=null?d[w]:w.charCodeAt(0));return r.map(function(n){return String.fromCharCode(n)}).join('')},decompress:function(s){if(!s)return'';var d={},c=s.charAt(0),w=c,r=[c],dc=256,i,e;for(i=1;i<s.length;i++){var k=s.charCodeAt(i);e=d[k]!=null?d[k]:k<256?String.fromCharCode(k):(w+w.charAt(0));r.push(e);d[dc++]=w+e.charAt(0);w=e}return r.join('')}};
+
 async function syncSave() {
   if (!syncUrl) return;
   setSyncStatus('syncing');
-  // Save core data (without heavy media posters) to keep under 50KB limit
   var saveData = JSON.parse(JSON.stringify(D));
-  // Strip poster URLs to save space
+  // Strip only poster URLs (biggest data) but keep all metadata
   if (saveData.media) {
     for (var cat in saveData.media) {
       if (Array.isArray(saveData.media[cat])) {
-        saveData.media[cat].forEach(function(item) {
-          delete item.poster; delete item.genre; delete item.pages; delete item.runtime; delete item.director;
-        });
+        saveData.media[cat].forEach(function(item) { delete item.poster; });
       }
     }
   }
   var payload = JSON.stringify(saveData);
-  // If still too big, remove media entirely
+  // Try compression if too big
+  if (payload.length > 40000) {
+    try {
+      var compressed = 'LZ:' + btoa(LZ.compress(payload));
+      if (compressed.length < payload.length) payload = compressed;
+    } catch(e) {}
+  }
+  // Last resort: remove media
   if (payload.length > 49000 && saveData.media) {
     saveData._mediaTooLarge = true;
     delete saveData.media;
@@ -5418,13 +5425,11 @@ async function syncSave() {
       xhr.send(payload);
     });
     setSyncStatus('ok', 'Salvo ' + timeStr);
-    showToast('💾 Salvo na nuvem!', 'success');
   } catch(e) {
     // Method 2: sendBeacon
     try {
       navigator.sendBeacon(syncUrl, new Blob([payload], {type:'text/plain'}));
       setSyncStatus('ok', 'Salvo ' + timeStr);
-      showToast('💾 Salvo na nuvem!', 'success');
     } catch(e2) {
       setSyncStatus('error', 'Erro ao salvar');
       showToast('Erro ao salvar', 'error');
@@ -5446,23 +5451,36 @@ async function syncLoad() {
       await syncSave();
       return;
     }
-    const remote = JSON.parse(text);
+    var jsonText = text.trim();
+    if (jsonText.startsWith('LZ:')) {
+      try { jsonText = LZ.decompress(atob(jsonText.slice(3))); } catch(e) {}
+    }
+    const remote = JSON.parse(jsonText);
     // Merge: use whichever has more recent lastModified
     const localTime = D.lastModified || 0;
     const remoteTime = remote.lastModified || 0;
     const localSize = (D.tasks||[]).length + (D.habits||[]).length + (D.goals||[]).length;
     const remoteSize = (remote.tasks||[]).length + (remote.habits||[]).length + (remote.goals||[]).length;
 
-    if (remoteTime > localTime && remoteSize >= localSize) {
-      // Remote is newer AND has equal or more data - use it
+    // Preserve local media if remote doesn't have it
+    if (remote._mediaTooLarge || !remote.media || Object.keys(remote.media||{}).every(k=>!remote.media[k]||!remote.media[k].length)) {
+      remote.media = D.media || {};
+      delete remote._mediaTooLarge;
+    }
+    if (!remote.shopLists || !remote.shopLists.length) remote.shopLists = D.shopLists || [];
+    if (!remote.xp) remote.xp = D.xp || {total:0,level:1};
+    if (!remote._achievements) remote._achievements = D._achievements || {};
+    if (!remote._habitArchive) remote._habitArchive = D._habitArchive || {};
+    if (!remote._shopArchive) remote._shopArchive = D._shopArchive || [];
+
+    if (remoteTime > localTime) {
       D = remote;
       if (!D.categories) D.categories = [...DEFAULT_CATS];
       localStorage.setItem(SK, JSON.stringify(D));
       render();
-      setSyncStatus('ok', 'Carregado da nuvem');
-    } else if (localSize > remoteSize || localTime > remoteTime) {
-      // Local has more data or is newer - push to cloud
-      setSyncStatus('ok', 'Local mais recente, enviando...');
+      setSyncStatus('ok', 'Sincronizado');
+    } else if (localTime > remoteTime) {
+      setSyncStatus('ok', 'Enviando...');
       await syncSave();
     } else {
       setSyncStatus('ok', 'Sincronizado');
@@ -5554,7 +5572,9 @@ async function forcePull() {
       if (res) { res.style.color = 'var(--red)'; res.textContent = 'Nuvem vazia.'; }
       setSyncStatus('error', 'Nuvem vazia'); return;
     }
-    const remote = JSON.parse(text);
+    var jsonText2 = text.trim();
+    if (jsonText2.startsWith('LZ:')) { try { jsonText2 = LZ.decompress(atob(jsonText2.slice(3))); } catch(e) {} }
+    const remote = JSON.parse(jsonText2);
     if (!remote.categories) remote.categories = [...DEFAULT_CATS];
     // Preserve local data that cloud might not have
     if (remote._mediaTooLarge || !remote.media || Object.keys(remote.media||{}).every(function(k){return !remote.media[k].length;})) {
@@ -6153,10 +6173,11 @@ function renderThemePicker() {
 renderThemePicker();
 
 render();
-// Load from cloud on startup
-// Auto-save to cloud is ON, but auto-load is OFF to prevent overwriting local data
-// User can manually pull via "Baixar da nuvem" button
-if (syncUrl) setSyncStatus('ok', 'Conectado');
+// Auto-sync on startup
+if (syncUrl) {
+  setSyncStatus('syncing', 'Sincronizando...');
+  syncLoad();
+}
 </script>
 </body>
 </html>
