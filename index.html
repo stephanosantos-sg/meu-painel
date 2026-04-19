@@ -2471,6 +2471,32 @@ function addShopItem(listId) {
   if (priceInput) priceInput.value = '';
   save(); render();
 }
+async function fetchShopMeta(listId) {
+  const linkInput = document.getElementById('shopItemLink_'+listId);
+  const nameInput = document.getElementById('shopItemName_'+listId);
+  const priceInput = document.getElementById('shopItemPrice_'+listId);
+  const url = linkInput ? linkInput.value.trim() : '';
+  if (!url || !url.startsWith('http')) return;
+  nameInput.placeholder = 'Buscando...';
+  try {
+    const r = await fetch('https://api.microlink.io/?url='+encodeURIComponent(url));
+    const data = await r.json();
+    if (data.status === 'success' && data.data) {
+      const d = data.data;
+      if (d.title && !nameInput.value) nameInput.value = d.title.slice(0, 80);
+      if (!priceInput.value) {
+        const desc = (d.description || '') + ' ' + (d.title || '');
+        const priceMatch = desc.match(/R\$\s?[\d.,]+|(?:por|price|preço)[:\s]*R?\$?\s?[\d.,]+/i);
+        if (priceMatch) {
+          const raw = priceMatch[0].replace(/[^\d,]/g, '');
+          if (raw) priceInput.value = 'R$ ' + raw;
+        }
+      }
+    }
+  } catch(e) { console.error('fetchShopMeta:', e); }
+  nameInput.placeholder = 'Nome do produto';
+}
+
 function getThumb(url) {
   if (!url) return '';
   try { const u = new URL(url); return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`; } catch { return ''; }
@@ -2560,9 +2586,9 @@ function renderCompras(H, C) {
       ${total>0?`<div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${pct}%;background:${pctColor};border-radius:4px;transition:width 0.3s"></div></div>`:''}
 
       <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:12px">
-        <input class="form-input" id="shopItemName_${sl.id}" placeholder="Nome do produto..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem" onkeydown="if(event.key==='Enter')addShopItem('${sl.id}')">
+        <input class="form-input" id="shopItemLink_${sl.id}" placeholder="Cole um link de produto aqui..." style="margin-bottom:6px;padding:8px 12px;font-size:0.85rem" onpaste="setTimeout(()=>fetchShopMeta('${sl.id}'),100)">
         <div style="display:flex;gap:6px">
-          <input class="form-input" id="shopItemLink_${sl.id}" placeholder="Link (opcional)" style="flex:2;padding:6px 10px;font-size:0.78rem">
+          <input class="form-input" id="shopItemName_${sl.id}" placeholder="Nome do produto" style="flex:2;padding:6px 10px;font-size:0.78rem" onkeydown="if(event.key==='Enter')addShopItem('${sl.id}')">
           <input class="form-input" id="shopItemPrice_${sl.id}" placeholder="R$ 0,00" style="flex:0 0 100px;padding:6px 10px;font-size:0.78rem" oninput="formatPrice(this)">
           <button class="btn btn-primary btn-sm" onclick="addShopItem('${sl.id}')">+</button>
         </div>
