@@ -3879,8 +3879,11 @@ function renderMidia(H, C) {
 
   // Render items by status (list view)
   if (activeTab === 'livros') {
+    const allFila = origItems.filter(x=>x.status==='Fila'&&!x.done);
+    const filaSet = new Set(allFila.slice(0, 10));
     const lendo = items.filter(x=>x.status==='Lendo');
-    const fila = items.filter(x=>x.status==='Fila'&&!x.done);
+    const fila = items.filter(x=>filaSet.has(x));
+    const biblioteca = items.filter(x=>x.status==='Fila'&&!x.done&&!filaSet.has(x));
     const lidos = items.filter(x=>x.status==='Lido'||x.done);
     // Hero card for currently reading
     if (lendo.length) {
@@ -3939,11 +3942,10 @@ function renderMidia(H, C) {
           <button onclick="event.stopPropagation();moveToLibrary(${idx})" title="Mover para Biblioteca" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">📚</button>
         </div>`;
       });
-      html += `</div>`;
-      if (fila.length > 10) {
-        html += mediaGroup('📚 BIBLIOTECA', fila.slice(10), origItems, activeTab, 'var(--orange)', true);
-      }
-      html += `</div>`;
+      html += `</div></div>`;
+    }
+    if (biblioteca.length) {
+      html += mediaGroup('📚 BIBLIOTECA', biblioteca, origItems, activeTab, 'var(--orange)', true);
     }
     if (lidos.length) { html += mediaGroup('✅ LIDOS',lidos,origItems,activeTab,'var(--green)',true); }
   } else if (activeTab === 'series') {
