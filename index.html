@@ -3078,8 +3078,8 @@ function getTitle(lvl) {
   if (lvl>=30) return (D.xp?.class?CLASSES[D.xp.class]?.name:'Especialista');
   if (lvl>=20) return 'Veterano';
   if (lvl>=15) return 'Cavaleiro';
-  if (lvl>=10) return 'Guerreiro';
-  if (lvl>=7) return 'Aventureiro';
+  if (lvl>=10) return 'Desbravador';
+  if (lvl>=7) return 'Batalhador';
   if (lvl>=4) return 'Explorador';
   if (lvl>=2) return 'Aprendiz';
   return 'Novato';
@@ -3914,7 +3914,11 @@ function addMediaItem(cat, title, extra) {
 function rateMedia(cat, idx, stars) {
   ensureMedia();
   if (D.media[cat] && D.media[cat][idx]!==undefined) {
-    D.media[cat][idx].userRating = D.media[cat][idx].userRating === stars ? 0 : stars;
+    const item = D.media[cat][idx];
+    item.userRating = item.userRating === stars ? 0 : stars;
+    if (cat === 'livros' && item.userRating > 0) {
+      item.status = 'Lido'; item.done = true; item.queued = false;
+    }
     save(); render();
   }
 }
@@ -4074,9 +4078,10 @@ function renderMidia(H, C) {
               <span style="font-size:0.72rem;color:var(--text3)">de ${pages||'?'}</span>
               ${!pages?`<input type="number" placeholder="Total pág." style="width:80px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.75rem" onchange="D.media.livros[${idx}].pages=parseInt(this.value)||0;save();render()">`:''}
             </div>
-            <div style="display:flex;gap:4px;margin-top:8px">
+            <div style="display:flex;gap:4px;margin-top:8px;align-items:center">
               <button onclick="cycleBookStatus(${idx})" class="btn btn-ghost btn-sm" style="font-size:0.72rem">Mudar status</button>
               <button onclick="editMediaItem('livros',${idx})" class="btn btn-ghost btn-sm" style="font-size:0.72rem">✏️ Editar</button>
+              <div style="display:flex;gap:1px;margin-left:8px" title="Avaliar">${[1,2,3,4,5].map(s=>`<span onclick="event.stopPropagation();rateMedia('livros',${idx},${s})" style="cursor:pointer;font-size:1rem;${(book.userRating||0)>=s?'':'opacity:0.25'}">${(book.userRating||0)>=s?'★':'☆'}</span>`).join('')}</div>
             </div>
           </div>
         </div>`;
@@ -4102,6 +4107,7 @@ function renderMidia(H, C) {
             ${book.author?`<div style="font-size:0.68rem;color:var(--text3)">${esc(book.author)}</div>`:''}
             ${bpct>0?`<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><div style="flex:1;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${bpct}%;background:var(--accent);border-radius:2px"></div></div><span style="font-size:0.6rem;color:var(--text3)">${bpct}%</span></div>`:''}
           </div>
+          <div style="display:flex;gap:1px;flex-shrink:0" title="Avaliar">${[1,2,3,4,5].map(s=>`<span onclick="event.stopPropagation();rateMedia('livros',${idx},${s})" style="cursor:pointer;font-size:0.8rem;${(book.userRating||0)>=s?'':'opacity:0.2'}">${(book.userRating||0)>=s?'★':'☆'}</span>`).join('')}</div>
           <button onclick="event.stopPropagation();cycleBookStatus(${idx})" class="btn btn-ghost btn-sm" style="font-size:0.68rem;padding:4px 8px">📖 Ler</button>
           <button onclick="event.stopPropagation();moveToLibrary(${idx})" title="Mover para Biblioteca" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">📚</button>
         </div>`;
@@ -4193,8 +4199,9 @@ function mediaGroup(title, groupItems, allItems, cat, color, collapsed) {
       </div>`;
     }
 
-    if (cat==='livros' && !item.queued && item.status==='Fila' && !isDone) {
-      html += `<button onclick="event.stopPropagation();addToQueue(${idx})" title="Adicionar à fila" style="background:none;border:none;color:var(--orange);cursor:pointer;font-size:0.75rem;opacity:0.7;white-space:nowrap">📋 Fila</button>`;
+    if (cat==='livros' && item.status==='Fila' && !isDone) {
+      if (!item.queued) html += `<button onclick="event.stopPropagation();addToQueue(${idx})" title="Adicionar à fila" style="background:none;border:none;color:var(--orange);cursor:pointer;font-size:0.75rem;opacity:0.7;white-space:nowrap">📋 Fila</button>`;
+      html += `<button onclick="event.stopPropagation();D.media.livros[${idx}].status='Lido';D.media.livros[${idx}].done=true;D.media.livros[${idx}].queued=false;save();render()" title="Marcar como lido" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:0.75rem;opacity:0.7;white-space:nowrap">✅ Lido</button>`;
     }
     html += `<button onclick="event.stopPropagation();editMediaItem('${cat}',${idx})" title="Editar" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✏️</button>`;
     html += `<button id="fetchBtn_${cat}_${idx}" onclick="event.stopPropagation();fetchMetaForItem('${cat}',${idx})" title="Buscar metadados" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">🔍</button>`;
