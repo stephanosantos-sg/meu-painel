@@ -3877,7 +3877,8 @@ function ensureMedia() {
 function promptAddMedia(cat) {
   const title = prompt(cat==='livros'?'Título do livro:':cat==='series'?'Nome da série:':cat==='filmes'?'Nome do filme:':'Título:');
   if (!title || !title.trim()) return;
-  const extra = cat==='livros'?{status:'Fila',progress:0}:cat==='series'?{seasons:0,currentSeason:0}:{};
+  const queueCount = cat==='livros' ? (D.media?.livros||[]).filter(b=>b.queued&&b.status==='Fila'&&!b.done).length : 0;
+  const extra = cat==='livros'?{status:'Fila',progress:0,queued:queueCount<10}:cat==='series'?{seasons:0,currentSeason:0}:{};
   addMediaItem(cat, title.trim(), extra);
   if (cat === 'livros') {
     const idx = D.media.livros.length - 1;
@@ -4144,6 +4145,8 @@ function renderMidia(H, C) {
             ${bpct>0?`<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><div style="flex:1;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${bpct}%;background:var(--accent);border-radius:2px"></div></div><span style="font-size:0.6rem;color:var(--text3)">${bpct}%</span></div>`:''}
           </div>
           <div style="display:flex;gap:1px;flex-shrink:0" title="Avaliar">${[1,2,3,4,5].map(s=>`<span onclick="event.stopPropagation();rateMedia('livros',${idx},${s})" style="cursor:pointer;font-size:0.8rem;${(book.userRating||0)>=s?'':'opacity:0.2'}">${(book.userRating||0)>=s?'★':'☆'}</span>`).join('')}</div>
+          <button onclick="event.stopPropagation();editMediaItem('livros',${idx})" title="Editar" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">✏️</button>
+          <button onclick="event.stopPropagation();fetchMetaForItem('livros',${idx})" title="Buscar metadados" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">🔍</button>
           <button onclick="event.stopPropagation();cycleBookStatus(${idx})" class="btn btn-ghost btn-sm" style="font-size:0.68rem;padding:4px 8px">📖 Ler</button>
           <button onclick="event.stopPropagation();moveToLibrary(${idx})" title="Mover para Biblioteca" style="background:none;border:none;color:var(--text3);cursor:pointer;opacity:0.4;font-size:0.8rem">📚</button>
         </div>`;
