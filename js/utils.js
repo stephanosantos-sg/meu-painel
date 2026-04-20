@@ -11,8 +11,6 @@ function persistData(D) {
   localStorage.setItem(SK, JSON.stringify(D));
   if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
     window.OrbitaFirebase.scheduleSyncFirebase(D);
-  } else {
-    scheduleSyncSave(D);
   }
 }
 
