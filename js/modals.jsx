@@ -83,6 +83,31 @@ function TaskModal({ onClose, editTask }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
+          {/* Templates */}
+          {!editTask && (
+            <div className="form-group">
+              <label className="form-label">Templates</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { text: 'Reunião', icon: '🏢', freq: 'pontual', prio: 2 },
+                  { text: 'Exercício', icon: '🏋️', freq: 'semanal', prio: 2, days: [1,3,5] },
+                  { text: 'Ler 30 min', icon: '📖', freq: 'diaria', prio: 3 },
+                  { text: 'Revisar emails', icon: '📧', freq: 'diaria', prio: 3 },
+                  { text: 'Compras', icon: '🛒', freq: 'semanal', prio: 3, days: [6] },
+                  { text: 'Limpeza', icon: '🧹', freq: 'semanal', prio: 3, days: [0] },
+                  { text: 'Médico', icon: '🩺', freq: 'pontual', prio: 1 },
+                  { text: 'Estudar', icon: '📚', freq: 'diaria', prio: 2 },
+                ].map((t, i) => (
+                  <button key={i} onClick={() => { setText(t.text); setIcon(t.icon); setFreq(t.freq); setPrio(t.prio); if (t.days) setDays(t.days); }}
+                    style={{ padding: '5px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', color: 'var(--ink-2)', fontFamily: 'var(--font-ui)', transition: 'all 100ms' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--line-2)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--line)'}>
+                    {t.icon} {t.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Title */}
           <div className="form-group">
             <label className="form-label">Tarefa</label>

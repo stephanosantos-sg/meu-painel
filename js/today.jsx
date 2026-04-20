@@ -65,6 +65,10 @@ function ScreenToday({ onNewTask }) {
         actions={<>
           <span className="chip chip-neon">Lvl {xp.level} · {pct}%</span>
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
+          <button onClick={() => window._startPomo && window._startPomo()} style={{
+            width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, fontSize: 16, cursor: 'pointer',
+            background: 'rgba(255,46,136,0.12)', border: '1px solid rgba(255,46,136,0.3)', color: 'var(--neon-a)', transition: 'all 120ms',
+          }} title="Pomodoro">🍅</button>
         </>}
       />
 
@@ -75,62 +79,69 @@ function ScreenToday({ onNewTask }) {
       <UpcomingHolidays />
 
       {/* View tabs */}
-      <div className="tab-scroll" style={{ padding: '0 28px 16px', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto' }}>
+      <div className="tab-scroll" style={{ padding: '0 28px 8px', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto' }}>
         {views.map(v => (
-          <button key={v.id} className={`tab-btn ${view === v.id ? 'active' : ''}`} onClick={() => setView(v.id)}>{v.label}</button>
+          <button key={v.id} onClick={() => setView(v.id)} style={{
+            padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            background: view === v.id ? 'var(--gradient-neon-soft)' : 'transparent',
+            border: view === v.id ? '1px solid rgba(255,46,136,0.22)' : '1px solid var(--line)',
+            color: view === v.id ? '#fff' : 'var(--ink-3)',
+            fontFamily: 'var(--font-ui)', transition: 'all 120ms', whiteSpace: 'nowrap',
+          }}>{v.label}</button>
         ))}
-        {/* Filter toggle + category */}
-        <div style={{ display: 'flex', gap: 4, marginLeft: 8, borderLeft: '1px solid var(--line)', paddingLeft: 8, alignItems: 'center' }}>
-          <button className={`tab-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters(f => !f)} style={{ padding: '4px 8px', fontSize: 10 }}>⚙ Filtros</button>
-          {cats.length > 0 && <>
-            <button className={`tab-btn ${filterCat === 'all' ? 'active' : ''}`} onClick={() => setFilterCat('all')} style={{ padding: '4px 8px', fontSize: 10 }}>🏷️</button>
-            {cats.map(c => (
-              <button key={c.id} className={`tab-btn ${filterCat === c.id ? 'active' : ''}`} onClick={() => setFilterCat(c.id)} style={{ padding: '4px 8px', fontSize: 10 }}>{c.icon}</button>
-            ))}
-          </>}
-        </div>
-        {(view === 'week' || view === 'month') && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-            <button className="btn-ghost small" onClick={() => { view === 'week' ? setWeekBase(new Date()) : setMonthBase(new Date()); }}>Hoje</button>
-            <button className="btn-ghost small" onClick={() => {
-              const d = new Date(view === 'week' ? weekBase : monthBase);
-              view === 'week' ? d.setDate(d.getDate() - 7) : d.setMonth(d.getMonth() - 1);
-              view === 'week' ? setWeekBase(d) : setMonthBase(d);
-            }}>←</button>
-            <button className="btn-ghost small" onClick={() => {
-              const d = new Date(view === 'week' ? weekBase : monthBase);
-              view === 'week' ? d.setDate(d.getDate() + 7) : d.setMonth(d.getMonth() + 1);
-              view === 'week' ? setWeekBase(d) : setMonthBase(d);
-            }}>→</button>
-          </div>
-        )}
+        {(view === 'week' || view === 'month') && <>
+          <div style={{ width: 1, height: 20, background: 'var(--line)', marginLeft: 4 }} />
+          <button className="btn-ghost small" onClick={() => { view === 'week' ? setWeekBase(new Date()) : setMonthBase(new Date()); }}>Hoje</button>
+          <button className="btn-ghost small" onClick={() => { const d = new Date(view === 'week' ? weekBase : monthBase); view === 'week' ? d.setDate(d.getDate() - 7) : d.setMonth(d.getMonth() - 1); view === 'week' ? setWeekBase(d) : setMonthBase(d); }}>←</button>
+          <button className="btn-ghost small" onClick={() => { const d = new Date(view === 'week' ? weekBase : monthBase); view === 'week' ? d.setDate(d.getDate() + 7) : d.setMonth(d.getMonth() + 1); view === 'week' ? setWeekBase(d) : setMonthBase(d); }}>→</button>
+        </>}
       </div>
 
-      {/* Filter panel */}
-      {showFilters && (
-        <div className="panel" style={{ padding: 14, margin: '0 28px 12px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 500 }}>Exibir:</span>
-          {[
-            { key: 'pontual', label: 'Pontuais', icon: '📌', color: '#b066ff' },
-            { key: 'recorrente', label: 'Recorrentes', icon: '🔄', color: '#5b8dff' },
-            { key: 'evento', label: 'Eventos', icon: '📅', color: '#ffa830' },
-            { key: 'habito', label: 'Hábitos', icon: '✦', color: '#3ccf91' },
-          ].map(f => {
-            const on = filterTypes[f.key];
+      {/* Filters row */}
+      <div className="tab-scroll" style={{ padding: '0 28px 14px', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto' }}>
+        {[
+          { key: 'pontual', label: 'Pontuais', color: '#b066ff' },
+          { key: 'recorrente', label: 'Recorrentes', color: '#5b8dff' },
+          { key: 'evento', label: 'Eventos', color: '#ffa830' },
+          { key: 'habito', label: 'Hábitos', color: '#3ccf91' },
+        ].map(f => {
+          const on = filterTypes[f.key];
+          return (
+            <button key={f.key} onClick={() => setFilterTypes(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                background: on ? f.color + '18' : 'transparent', border: on ? `1px solid ${f.color}44` : '1px solid var(--line)',
+                color: on ? f.color : 'var(--ink-4)', fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-ui)',
+                transition: 'all 120ms', whiteSpace: 'nowrap',
+              }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: on ? f.color : 'var(--ink-4)', flexShrink: 0 }} />
+              {f.label}
+            </button>
+          );
+        })}
+        {cats.length > 0 && <>
+          <div style={{ width: 1, height: 16, background: 'var(--line)', marginLeft: 2 }} />
+          <button onClick={() => setFilterCat('all')} style={{
+            padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+            background: filterCat === 'all' ? 'rgba(255,255,255,0.06)' : 'transparent',
+            border: filterCat === 'all' ? '1px solid var(--line-2)' : '1px solid transparent',
+            color: filterCat === 'all' ? 'var(--ink-1)' : 'var(--ink-4)', fontFamily: 'var(--font-ui)',
+          }}>Todas</button>
+          {cats.map(c => {
+            const color = Orbita.resolveColor(c.color);
             return (
-              <div key={f.key} onClick={() => setFilterTypes(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', opacity: on ? 1 : 0.4, transition: 'opacity 150ms' }}>
-                <div style={{
-                  width: 20, height: 20, borderRadius: 5, display: 'grid', placeItems: 'center',
-                  background: on ? f.color : 'transparent', border: on ? `2px solid ${f.color}` : '2px solid var(--ink-4)',
-                  fontSize: 10, color: '#fff',
-                }}>{on && '✓'}</div>
-                <span style={{ fontSize: 12, fontWeight: 500 }}>{f.icon} {f.label}</span>
-              </div>
+              <button key={c.id} onClick={() => setFilterCat(filterCat === c.id ? 'all' : c.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+                background: filterCat === c.id ? color + '22' : 'transparent',
+                border: filterCat === c.id ? `1px solid ${color}44` : '1px solid transparent',
+                color: filterCat === c.id ? color : 'var(--ink-4)', fontFamily: 'var(--font-ui)',
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: 2, background: color }} /> {c.name}
+              </button>
             );
           })}
-        </div>
-      )}
+        </>}
+      </div>
 
       {/* List view (default) */}
       {view === 'list' && (

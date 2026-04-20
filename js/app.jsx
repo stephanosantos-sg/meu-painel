@@ -205,6 +205,7 @@ function App() {
   window._openThemes = () => setShowThemes(true);
   window._openCategories = () => setShowCategories(true);
   window._openImport = () => setShowImport(true);
+  window._startPomo = () => setShowPomo(true);
 
   const screens = {
     today: () => <ScreenToday onNewTask={openNewTask} />,
@@ -237,10 +238,6 @@ function App() {
           <Screen />
         </main>
 
-        {/* Desktop quick bar */}
-        <div className="quick-bar-desktop">
-          <QuickBar onPomo={() => setShowPomo(true)} onSync={() => {}} />
-        </div>
 
         {/* Mobile bottom nav */}
         <div className="mobile-nav">
