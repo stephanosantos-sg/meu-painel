@@ -63,11 +63,10 @@ function ScreenToday({ onNewTask }) {
     <>
       <TopBar title={`${greet}, Stephano.`} subtitle={fmt}
         actions={<>
-          <span className="chip chip-neon">Lvl {xp.level} · {pct}%</span>
-          <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
           <button className="btn-ghost" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
             🍅 Pomodoro
           </button>
+          <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
         </>}
       />
 
