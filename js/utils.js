@@ -128,14 +128,36 @@ function getSpriteIndex(level, cls) {
   return 0;
 }
 
+function stripImagesForSync(obj) {
+  if (Array.isArray(obj)) return obj.map(stripImagesForSync);
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    for (const k in obj) {
+      if (k === 'coverImage' || k === 'image') continue;
+      if (k === 'images') continue;
+      if (typeof obj[k] === 'string' && obj[k].startsWith('data:image/')) continue;
+      out[k] = stripImagesForSync(obj[k]);
+    }
+    return out;
+  }
+  return obj;
+}
+
 function scheduleSyncSave(D) {
   const url = localStorage.getItem('meuPainel_syncUrl');
   if (!url) return;
   clearTimeout(window._syncTimer);
   window._syncTimer = setTimeout(() => {
-    const payload = JSON.parse(JSON.stringify(D));
+    const payload = stripImagesForSync(JSON.parse(JSON.stringify(D)));
     if (payload._mediaPartial && payload.media && payload.media.livros) {
       payload.media.livros = payload.media.livros.filter(b => b.status === 'Lendo' || b.status === 'Lido' || b.queued);
+    }
+    payload._notebooks = undefined;
+    const raw = JSON.stringify(payload);
+    if (raw.length > 48000) {
+      console.warn('Sync: payload still too large (' + raw.length + ' chars), skipping non-essential data');
+      payload.notes = (payload.notes || []).slice(0, 20);
+      payload._shopArchive = [];
     }
     const form = document.createElement('form');
     form.method = 'POST'; form.action = url; form.target = '_blank'; form.style.display = 'none';
