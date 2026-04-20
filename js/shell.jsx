@@ -106,7 +106,9 @@ function Sidebar({ active, setActive }) {
               const color = Orbita.resolveColor(c.color);
               return (
                 <button key={c.id} onClick={() => setActive('today')} className="nav-item" style={{ paddingRight: 8 }}>
-                  <span className="nav-icon">{c.icon}</span>
+                  <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 3, background: color, flexShrink: 0 }} />
+                  </span>
                   <span className="nav-label">{c.name}</span>
                   <span style={{
                     minWidth: 20, height: 20, borderRadius: 10, display: 'grid', placeItems: 'center',

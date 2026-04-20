@@ -607,7 +607,7 @@ function DailyQuote() {
 
   return (
     <div style={{ padding: '0 28px 10px' }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+      <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 18, color: 'var(--ink-2)', lineHeight: 1.5 }}>
         "{q.text}"
       </div>
       <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>— {q.author}</div>
