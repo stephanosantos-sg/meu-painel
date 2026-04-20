@@ -6,17 +6,31 @@ function ScreenLembretes({ onNewTask }) {
   const catMap = {}; (data.categories || []).forEach(c => { catMap[c.id] = c; });
   const tasks = (data.tasks || []).filter(t => !t.date && !t.done);
   const [showAdd, setShowAdd] = React.useState(false);
+  const [editingId, setEditingId] = React.useState(null);
   const [newText, setNewText] = React.useState('');
   const [newPrio, setNewPrio] = React.useState(3);
+  const [newDate, setNewDate] = React.useState('');
+  const [newTime, setNewTime] = React.useState('');
 
-  function quickAdd() {
+  function openAdd() { setEditingId(null); setNewText(''); setNewPrio(3); setNewDate(''); setNewTime(''); setShowAdd(true); }
+  function openEdit(t) { setEditingId(t.id); setNewText(t.text); setNewPrio(t.prio || 3); setNewDate(t.date || ''); setNewTime(t.time || ''); setShowAdd(true); }
+
+  function quickSave() {
     if (!newText.trim()) return;
     commit(D => {
-      D.tasks.push({ id: Orbita.uid(), text: newText.trim(), freq: 'pontual', prio: newPrio, done: false, doneSlots: {}, date: null, time: null, subtasks: [], times: [], cat: null, icon: null });
+      if (editingId) {
+        const t = D.tasks.find(x => x.id === editingId);
+        if (t) { t.text = newText.trim(); t.prio = newPrio; t.date = newDate || null; t.time = newTime || null; }
+      } else {
+        D.tasks.push({ id: Orbita.uid(), text: newText.trim(), freq: 'pontual', prio: newPrio, done: false, doneSlots: {}, date: newDate || null, time: newTime || null, subtasks: [], times: [], cat: null, icon: null });
+      }
     });
-    setNewText(''); setNewPrio(3); setShowAdd(false);
+    setShowAdd(false);
   }
 
+  function deleteTask(id) { commit(D => { D.tasks = D.tasks.filter(x => x.id !== id); }); }
+
+  const allTasks = (data.tasks || []).filter(t => !t.done && ((!t.date) || t.freq === 'pontual'));
   const byPrio = [1,2,3,4].map(p => ({ prio: p, tasks: tasks.filter(t => (t.prio || 4) === p) })).filter(g => g.tasks.length > 0);
   const prioLabels = { 1: '🔴 Urgente', 2: '🟠 Alta', 3: '🟣 Normal', 4: '🔵 Baixa' };
 
@@ -25,7 +39,7 @@ function ScreenLembretes({ onNewTask }) {
       <TopBar title="Lembretes." subtitle={`${tasks.length} pendentes`}
         actions={<>
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Completa</button>
-          <button className="btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowAdd(true)}>＋ Lembrete</button>
+          <button className="btn-ghost" style={{ fontSize: 13 }} onClick={openAdd}>＋ Lembrete</button>
         </>}
       />
       <div style={{ padding: '0 28px 40px' }}>
@@ -40,7 +54,18 @@ function ScreenLembretes({ onNewTask }) {
           <div key={group.prio} style={{ marginBottom: 20 }}>
             <div className="eyebrow" style={{ marginBottom: 10 }}>{prioLabels[group.prio]} · {group.tasks.length}</div>
             <div className="task-list">
-              {group.tasks.map(t => <TaskItem key={t.id} task={t} dateCtx={Orbita.todayStr()} catMap={catMap} />)}
+              {group.tasks.map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ flex: 1 }}><TaskItem task={t} dateCtx={Orbita.todayStr()} catMap={catMap} /></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                    {(t.date || t.time) && <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{t.date && Orbita.fmtDate(t.date)}{t.time && ` ${t.time}`}</span>}
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', fontSize: 11, padding: '2px 4px' }}>✎</button>
+                      <button onClick={() => deleteTask(t.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 11, padding: '2px 4px' }}>✕</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ))}
@@ -49,21 +74,34 @@ function ScreenLembretes({ onNewTask }) {
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(440px, 90vw)' }}>
-            <div className="modal-header"><h2>Lembrete rápido</h2><button className="modal-close" onClick={() => setShowAdd(false)}>✕</button></div>
+            <div className="modal-header"><h2>{editingId ? 'Editar lembrete' : 'Novo lembrete'}</h2><button className="modal-close" onClick={() => setShowAdd(false)}>✕</button></div>
             <div className="modal-body">
               <div className="form-group">
                 <input className="form-input" autoFocus placeholder="O que precisa lembrar?" value={newText} onChange={e => setNewText(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') quickAdd(); }} />
+                  onKeyDown={e => { if (e.key === 'Enter') quickSave(); }} />
               </div>
-              <div className="form-chips">
-                {[{v:1,l:'Urgente'},{v:2,l:'Alta'},{v:3,l:'Normal'},{v:4,l:'Baixa'}].map(p => (
-                  <div key={p.v} className={`form-chip ${newPrio === p.v ? 'active' : ''}`} onClick={() => setNewPrio(p.v)}>{p.l}</div>
-                ))}
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Data (opcional)</label>
+                  <input className="form-input" type="date" value={newDate} onChange={e => setNewDate(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Hora (opcional)</label>
+                  <input className="form-input" type="time" value={newTime} onChange={e => setNewTime(e.target.value)} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Prioridade</label>
+                <div className="form-chips">
+                  {[{v:1,l:'Urgente'},{v:2,l:'Alta'},{v:3,l:'Normal'},{v:4,l:'Baixa'}].map(p => (
+                    <div key={p.v} className={`form-chip ${newPrio === p.v ? 'active' : ''}`} onClick={() => setNewPrio(p.v)}>{p.l}</div>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancelar</button>
-              <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={quickAdd}>Adicionar</button>
+              <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={quickSave}>{editingId ? 'Salvar' : 'Adicionar'}</button>
             </div>
           </div>
         </div>
