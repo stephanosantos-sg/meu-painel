@@ -313,8 +313,8 @@ function AppRoot() {
 
   if (authState === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <OrbLogo size={40} />
           <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 12 }}>Carregando...</div>
         </div>

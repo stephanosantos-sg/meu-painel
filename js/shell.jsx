@@ -240,13 +240,16 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
   }, []);
 
   const items = [
-    { icon: '＋', label: 'Nova tarefa', cat: 'Ação', action: () => { setShowTaskModal(true); setOpen(false); } },
-    { icon: '✦', label: 'Novo hábito', cat: 'Ação', action: () => { setShowHabitModal(true); setOpen(false); } },
-    { icon: '☀︎', label: 'Ir para Hoje', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
-    { icon: '▦', label: 'Ir para Kanban', cat: 'Nav', action: () => { setActive('kanban'); setOpen(false); } },
-    { icon: '✦', label: 'Ir para Hábitos', cat: 'Nav', action: () => { setActive('habits'); setOpen(false); } },
-    { icon: '◎', label: 'Ir para Objetivos', cat: 'Nav', action: () => { setActive('goals'); setOpen(false); } },
-    { icon: '★', label: 'Ir para Perfil', cat: 'Nav', action: () => { setActive('profile'); setOpen(false); } },
+    { icon: '＋', label: 'Nova tarefa', hint: 'N', cat: 'Ação', action: () => { setShowTaskModal(true); setOpen(false); } },
+    { icon: '✦', label: 'Novo hábito', hint: 'H', cat: 'Ação', action: () => { setShowHabitModal(true); setOpen(false); } },
+    { icon: '🍅', label: 'Pomodoro', hint: 'P', cat: 'Ação', action: () => { window._startPomo && window._startPomo(); setOpen(false); } },
+    { icon: '⚙', label: 'Temas', hint: 'T', cat: 'Ação', action: () => { window._openThemes && window._openThemes(); setOpen(false); } },
+    { icon: '☀︎', label: 'Hoje', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
+    { icon: '✦', label: 'Hábitos', cat: 'Nav', action: () => { setActive('habits'); setOpen(false); } },
+    { icon: '◎', label: 'Objetivos', cat: 'Nav', action: () => { setActive('goals'); setOpen(false); } },
+    { icon: '▢', label: 'Livros', cat: 'Nav', action: () => { setActive('books'); setOpen(false); } },
+    { icon: '◉', label: 'Gráficos', cat: 'Nav', action: () => { setActive('charts'); setOpen(false); } },
+    { icon: '★', label: 'Perfil', cat: 'Nav', action: () => { setActive('profile'); setOpen(false); } },
   ].filter(it => !q || it.label.toLowerCase().includes(q.toLowerCase()));
 
   function onKey(e) {
@@ -271,6 +274,7 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 500 }}>{it.label}</div>
               </div>
+              {it.hint && <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--line)', background: 'rgba(255,255,255,0.04)', color: 'var(--ink-3)' }}>{it.hint}</kbd>}
               <span className="chip" style={{ fontSize: 10 }}>{it.cat}</span>
             </div>
           ))}
