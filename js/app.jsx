@@ -195,6 +195,7 @@ function App() {
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) openNewTask();
+      if (e.key === 'h' && !e.metaKey && !e.ctrlKey) openNewHabit();
       if (e.key === 'p' && !e.metaKey && !e.ctrlKey) setShowPomo(true);
       if (e.key === 't' && !e.metaKey && !e.ctrlKey) setShowThemes(true);
     }
