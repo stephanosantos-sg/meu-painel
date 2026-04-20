@@ -13,7 +13,7 @@ const THEMES = [
   { id: 'porcelana', name: 'Porcelana', bg: '#f5f0eb', orb1: '#d4a0ff', orb2: '#ff8fbf', accent: '#8b6fff', accent2: '#d4a0ff', surface: 'rgba(0,0,0,0.04)', text: '#1a1a2e', line: 'rgba(0,0,0,0.10)' },
   { id: 'paper', name: 'Paper', bg: '#fafaf5', orb1: '#a8a0f0', orb2: '#f0a0c0', accent: '#6c63ff', accent2: '#a855f7', surface: 'rgba(0,0,0,0.04)', text: '#1a1a2e', line: 'rgba(0,0,0,0.10)' },
   { id: 'midnight', name: 'Midnight', bg: '#0a0a1a', orb1: '#4a00e0', orb2: '#8e2de2', accent: '#8e2de2', accent2: '#a855f7', surface: 'rgba(255,255,255,0.04)', text: '#e0e0f0', line: 'rgba(255,255,255,0.08)' },
-  { id: 'fluminense', name: 'Fluminense', bg: '#0a0808', orb1: '#870A28', orb2: '#00613C', accent: '#870A28', accent2: '#00613C', surface: 'rgba(255,255,255,0.04)', text: '#f0e8e8', line: 'rgba(255,255,255,0.08)' },
+  { id: 'fluminense', name: 'Fluminense', bg: '#0c0a0e', orb1: '#b01040', orb2: '#00814e', accent: '#c01848', accent2: '#00a060', surface: 'rgba(255,255,255,0.04)', text: '#f0e8ec', line: 'rgba(255,255,255,0.08)' },
 ];
 
 function applyTheme(themeId) {
