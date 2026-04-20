@@ -99,13 +99,16 @@ function Sidebar({ active, setActive }) {
           <div className="nav-section">
             <div className="nav-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>CATEGORIAS</span>
-              <button onClick={() => window._openCategories && window._openCategories()} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 10 }}>⚙</button>
+              <button onClick={() => window._openCategories && window._openCategories()} style={{
+                width: 18, height: 18, borderRadius: 5, display: 'grid', placeItems: 'center',
+                background: 'var(--gradient-neon)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+              }}>＋</button>
             </div>
             {(data.categories || []).map(c => {
               const count = todayTasks.filter(t => t.cat === c.id).length;
               const color = Orbita.resolveColor(c.color);
               return (
-                <button key={c.id} onClick={() => setActive('today')} className="nav-item" style={{ paddingRight: 8 }}>
+                <button key={c.id} onClick={() => { setActive('today'); window.dispatchEvent(new CustomEvent('orbita:filterCat', { detail: c.id })); }} className="nav-item" style={{ paddingRight: 8 }}>
                   <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ width: 8, height: 8, borderRadius: 3, background: color, flexShrink: 0 }} />
                   </span>

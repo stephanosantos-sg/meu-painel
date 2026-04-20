@@ -7,6 +7,12 @@ function ScreenToday({ onNewTask }) {
   const [monthBase, setMonthBase] = React.useState(new Date());
   const [filterCat, setFilterCat] = React.useState('all');
   const [showFilters, setShowFilters] = React.useState(false);
+
+  React.useEffect(() => {
+    function onFilterCat(e) { setFilterCat(e.detail); }
+    window.addEventListener('orbita:filterCat', onFilterCat);
+    return () => window.removeEventListener('orbita:filterCat', onFilterCat);
+  }, []);
   const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true });
   const today = Orbita.todayStr();
   const now = new Date();
