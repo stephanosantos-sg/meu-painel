@@ -243,5 +243,65 @@ function App() {
   );
 }
 
+function AppRoot() {
+  const [authState, setAuthState] = React.useState('loading'); // loading, logged-in, logged-out, skipped
+  const [user, setUser] = React.useState(null);
+
+  React.useEffect(() => {
+    if (window.OrbitaFirebase) window.OrbitaFirebase.init();
+
+    // Check if user previously skipped login
+    const skipped = localStorage.getItem('orbita_skipLogin');
+
+    function onAuth(e) {
+      if (e.detail) {
+        setUser(e.detail);
+        setAuthState('logged-in');
+      } else if (skipped) {
+        setAuthState('skipped');
+      } else {
+        setAuthState('logged-out');
+      }
+    }
+    function onSkip() {
+      localStorage.setItem('orbita_skipLogin', '1');
+      setAuthState('skipped');
+    }
+
+    window.addEventListener('orbita:authChanged', onAuth);
+    window.addEventListener('orbita:skipLogin', onSkip);
+
+    // Timeout: if auth doesn't resolve in 2s, check skip
+    setTimeout(() => {
+      setAuthState(prev => {
+        if (prev === 'loading') return skipped ? 'skipped' : 'logged-out';
+        return prev;
+      });
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('orbita:authChanged', onAuth);
+      window.removeEventListener('orbita:skipLogin', onSkip);
+    };
+  }, []);
+
+  if (authState === 'loading') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <OrbLogo size={40} />
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 12 }}>Carregando...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authState === 'logged-out') {
+    return <LandingPage />;
+  }
+
+  return <App />;
+}
+
 const root = ReactDOM.createRoot(document.getElementById('app'));
-root.render(<App />);
+root.render(<AppRoot />);
