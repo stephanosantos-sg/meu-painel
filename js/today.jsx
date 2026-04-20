@@ -62,6 +62,9 @@ function ScreenToday({ onNewTask }) {
         </>}
       />
 
+      {/* Daily quote */}
+      <DailyQuote />
+
       {/* Upcoming holidays */}
       <UpcomingHolidays />
 
@@ -563,6 +566,55 @@ function TaskItem({ task, dateCtx, catMap }) {
   );
 }
 
+/* ── Daily Stoic Quote ── */
+function DailyQuote() {
+  const quotes = [
+    { text: 'Não é porque as coisas são difíceis que não ousamos; é porque não ousamos que elas são difíceis.', author: 'Sêneca' },
+    { text: 'A felicidade da sua vida depende da qualidade dos seus pensamentos.', author: 'Marco Aurélio' },
+    { text: 'Temos duas orelhas e uma boca para que possamos ouvir o dobro do que falamos.', author: 'Epicteto' },
+    { text: 'A alma toma a cor dos seus pensamentos.', author: 'Marco Aurélio' },
+    { text: 'Não é o homem que tem pouco, mas o que deseja muito, que é pobre.', author: 'Sêneca' },
+    { text: 'O impedimento à ação impulsiona a ação. O que está no caminho se torna o caminho.', author: 'Marco Aurélio' },
+    { text: 'Somos o que repetidamente fazemos. A excelência, portanto, não é um ato, mas um hábito.', author: 'Aristóteles' },
+    { text: 'A vida não examinada não vale a pena ser vivida.', author: 'Sócrates' },
+    { text: 'Sorte é o que acontece quando a preparação encontra a oportunidade.', author: 'Sêneca' },
+    { text: 'Você tem poder sobre sua mente — não sobre eventos externos. Perceba isso e encontrará força.', author: 'Marco Aurélio' },
+    { text: 'A riqueza não consiste em ter grandes posses, mas em ter poucas necessidades.', author: 'Epicteto' },
+    { text: 'O segredo da mudança é focar toda a sua energia não em lutar contra o velho, mas em construir o novo.', author: 'Sócrates' },
+    { text: 'Quem conquista a si mesmo é mais poderoso do que quem conquista mil vezes mil homens em batalha.', author: 'Buda' },
+    { text: 'A disciplina é a ponte entre metas e conquistas.', author: 'Jim Rohn' },
+    { text: 'Perde-se frequentemente pela hesitação o que se poderia ganhar pelo risco.', author: 'Sêneca' },
+    { text: 'Não busque que os eventos aconteçam como você deseja, mas deseje que aconteçam como acontecem, e tudo ficará bem.', author: 'Epicteto' },
+    { text: 'Quando você se levantar de manhã, pense no privilégio que é estar vivo — respirar, pensar, aproveitar, amar.', author: 'Marco Aurélio' },
+    { text: 'O homem que move montanhas começa carregando pequenas pedras.', author: 'Confúcio' },
+    { text: 'A virtude é o único bem verdadeiro; o vício, o único mal verdadeiro.', author: 'Sêneca' },
+    { text: 'Nada grandioso foi jamais realizado sem entusiasmo.', author: 'Emerson' },
+    { text: 'Primeiro diga a si mesmo o que você quer ser; depois faça o que tem que fazer.', author: 'Epicteto' },
+    { text: 'A melhor vingança é não ser como seu inimigo.', author: 'Marco Aurélio' },
+    { text: 'Não é que tenhamos pouco tempo, é que desperdiçamos muito.', author: 'Sêneca' },
+    { text: 'Conhece-te a ti mesmo.', author: 'Sócrates' },
+    { text: 'Tudo o que ouvimos é uma opinião, não um fato. Tudo o que vemos é uma perspectiva, não a verdade.', author: 'Marco Aurélio' },
+    { text: 'A mente que se abre a uma nova ideia jamais volta ao seu tamanho original.', author: 'Einstein' },
+    { text: 'Sofrer antes do necessário é sofrer mais do que o necessário.', author: 'Sêneca' },
+    { text: 'A educação é a arma mais poderosa que você pode usar para mudar o mundo.', author: 'Mandela' },
+    { text: 'Cuide do seu corpo. É o único lugar que você tem para viver.', author: 'Jim Rohn' },
+    { text: 'Se queres prever o futuro, estuda o passado.', author: 'Confúcio' },
+    { text: 'A persistência é o caminho do êxito.', author: 'Charles Chaplin' },
+  ];
+  // One quote per day based on day-of-year
+  const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const q = quotes[dayOfYear % quotes.length];
+
+  return (
+    <div style={{ padding: '0 28px 10px' }}>
+      <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+        "{q.text}"
+      </div>
+      <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>— {q.author}</div>
+    </div>
+  );
+}
+
 /* ── Upcoming Holidays (Brazil) ── */
 function UpcomingHolidays() {
   const year = new Date().getFullYear();
@@ -608,7 +660,7 @@ function UpcomingHolidays() {
 
   return (
     <div style={{ padding: '0 28px 8px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-      <span className="eyebrow" style={{ fontSize: 9 }}>Próximos:</span>
+      <span className="eyebrow" style={{ fontSize: 9 }}>Próximos feriados:</span>
       {upcoming.map((h, i) => (
         <span key={i} style={{ fontSize: 11, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 4 }}>
           <span>{h.icon}</span>
