@@ -9,7 +9,11 @@ function loadData() {
 function persistData(D) {
   D.lastModified = Date.now();
   localStorage.setItem(SK, JSON.stringify(D));
-  scheduleSyncSave(D);
+  if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
+    window.OrbitaFirebase.scheduleSyncFirebase(D);
+  } else {
+    scheduleSyncSave(D);
+  }
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -152,12 +156,45 @@ function scheduleSyncSave(D) {
     if (payload._mediaPartial && payload.media && payload.media.livros) {
       payload.media.livros = payload.media.livros.filter(b => b.status === 'Lendo' || b.status === 'Lido' || b.queued);
     }
-    payload._notebooks = undefined;
-    const raw = JSON.stringify(payload);
+    delete payload._notebooks;
+    delete payload._shopArchive;
+    delete payload._habitArchive;
+    // Trim doneSlots to last 60 days
+    const cutoff = dateToStr(new Date(Date.now() - 60 * 86400000));
+    (payload.tasks || []).forEach(t => {
+      if (t.doneSlots) {
+        const trimmed = {};
+        Object.keys(t.doneSlots).forEach(k => { if (k >= cutoff) trimmed[k] = t.doneSlots[k]; });
+        t.doneSlots = trimmed;
+      }
+      delete t.desc;
+    });
+    // Trim habit logs to current year
+    const yr = String(new Date().getFullYear());
+    (payload.habits || []).forEach(h => {
+      if (h.log) {
+        const trimmed = {};
+        Object.keys(h.log).forEach(k => { if (k.startsWith(yr)) trimmed[k] = h.log[k]; });
+        h.log = trimmed;
+      }
+    });
+    // Trim notes
+    payload.notes = (payload.notes || []).slice(0, 30).map(n => ({ text: (n.text||'').slice(0, 500), title: n.title, color: n.color, date: n.date, notebook: n.notebook }));
+    // Trim ideas
+    payload.ideias = (payload.ideias || []).map(i => ({ id: i.id, title: i.title, desc: (i.desc||'').slice(0, 200), steps: i.steps, deadline: i.deadline, difficulty: i.difficulty, cost: i.cost, icon: i.icon }));
+
+    let raw = JSON.stringify(payload);
+    console.log('Sync payload size:', raw.length, 'chars');
     if (raw.length > 48000) {
-      console.warn('Sync: payload still too large (' + raw.length + ' chars), skipping non-essential data');
-      payload.notes = (payload.notes || []).slice(0, 20);
-      payload._shopArchive = [];
+      // Last resort: trim more aggressively
+      payload.notes = payload.notes.slice(0, 10);
+      (payload.media?.livros || []).forEach(b => { delete b.poster; });
+      raw = JSON.stringify(payload);
+      console.log('Sync payload after aggressive trim:', raw.length);
+    }
+    if (raw.length > 49500) {
+      console.error('Sync payload still too large:', raw.length, '— skipping sync');
+      return;
     }
     const form = document.createElement('form');
     form.method = 'POST'; form.action = url; form.target = '_blank'; form.style.display = 'none';

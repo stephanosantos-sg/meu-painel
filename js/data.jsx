@@ -13,6 +13,14 @@ function DataProvider({ children }) {
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  React.useEffect(() => {
+    function onPull(e) {
+      if (e.detail) setData(e.detail);
+    }
+    window.addEventListener('orbita:dataPulled', onPull);
+    return () => window.removeEventListener('orbita:dataPulled', onPull);
+  }, []);
+
   const historyRef = useRef({ past: [], future: [] });
   const MAX_HISTORY = 50;
 

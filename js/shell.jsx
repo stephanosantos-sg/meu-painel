@@ -141,8 +141,67 @@ function Sidebar({ active, setActive }) {
             </div>
           </div>
         )}
+        <SyncStatus />
       </div>
     </aside>
+  );
+}
+
+function SyncStatus() {
+  const [user, setUser] = React.useState(window.OrbitaFirebase ? window.OrbitaFirebase.getCurrentUser() : null);
+  const [showLogin, setShowLogin] = React.useState(false);
+  const [email, setEmail] = React.useState('');
+  const [pass, setPass] = React.useState('');
+
+  React.useEffect(() => {
+    if (window.OrbitaFirebase) window.OrbitaFirebase.init();
+    function onAuth(e) { setUser(e.detail); }
+    window.addEventListener('orbita:authChanged', onAuth);
+    return () => window.removeEventListener('orbita:authChanged', onAuth);
+  }, []);
+
+  if (user) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)' }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158' }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10, color: '#30d158', fontWeight: 500 }}>Sincronizado</div>
+          <div style={{ fontSize: 9, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+        </div>
+        <button onClick={() => window.OrbitaFirebase.signOut()} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 9 }}>sair</button>
+      </div>
+    );
+  }
+
+  if (showLogin) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}>
+        <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)}
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', color: 'var(--ink-1)', fontSize: 11, fontFamily: 'var(--font-ui)', outline: 'none' }} />
+        <input placeholder="Senha" type="password" value={pass} onChange={e => setPass(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') window.OrbitaFirebase.signInWithEmail(email, pass); }}
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', color: 'var(--ink-1)', fontSize: 11, fontFamily: 'var(--font-ui)', outline: 'none' }} />
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="btn-ghost small" style={{ flex: 1, justifyContent: 'center', fontSize: 10 }}
+            onClick={() => window.OrbitaFirebase.signInWithEmail(email, pass)}>Entrar</button>
+          <button className="btn-ghost small" style={{ fontSize: 10 }} onClick={() => setShowLogin(false)}>✕</button>
+        </div>
+        <button onClick={() => window.OrbitaFirebase.signInWithGoogle()} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '7px 0',
+          background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', borderRadius: 6,
+          color: 'var(--ink-2)', fontSize: 10, fontFamily: 'var(--font-ui)', cursor: 'pointer',
+        }}>
+          <span style={{ fontSize: 13 }}>G</span> Entrar com Google
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button className="cmd-button" onClick={() => setShowLogin(true)}>
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-4)' }} />
+      <span style={{ fontSize: 11 }}>Fazer login para sync</span>
+    </button>
   );
 }
 
