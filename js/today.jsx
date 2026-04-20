@@ -144,23 +144,50 @@ function ScreenToday({ onNewTask }) {
                 </div>
               </div>
             )}
-            <div className="panel">
-              <div className="eyebrow" style={{ marginBottom: 12 }}>Tarefas de hoje · {doneTodayCount}/{todayTasks.length}</div>
-              <div className="task-list">
-                {todayTasks.sort((a, b) => {
-                  const aTime = a.time || (a.times && a.times[0] && a.times[0].time) || 'zz';
-                  const bTime = b.time || (b.times && b.times[0] && b.times[0].time) || 'zz';
-                  if (aTime !== bTime) return aTime.localeCompare(bTime);
-                  return (a.prio || 4) - (b.prio || 4);
-                }).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
-              </div>
-              {todayTasks.length === 0 && !filterTypes.habito && (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)' }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
-                  <div style={{ fontSize: 13 }}>Nenhuma tarefa neste filtro</div>
-                </div>
-              )}
-            </div>
+            {(() => {
+              const pending = todayTasks.filter(t => !Orbita.isTaskDone(t, today));
+              const done = todayTasks.filter(t => Orbita.isTaskDone(t, today));
+              const sortByTime = (a, b) => {
+                const aT = a.time || (a.times && a.times[0] && a.times[0].time) || 'zz';
+                const bT = b.time || (b.times && b.times[0] && b.times[0].time) || 'zz';
+                return aT !== bT ? aT.localeCompare(bT) : (a.prio || 4) - (b.prio || 4);
+              };
+              return <>
+                {pending.length > 0 && (
+                  <div className="panel">
+                    <div className="eyebrow" style={{ marginBottom: 12 }}>Pendentes · {pending.length}</div>
+                    <div className="task-list">
+                      {pending.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
+                    </div>
+                  </div>
+                )}
+                {pending.length === 0 && todayTasks.length > 0 && (
+                  <div className="panel" style={{ textAlign: 'center', padding: '24px', background: 'rgba(48,209,88,0.06)', border: '1px solid rgba(48,209,88,0.15)' }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
+                    <div style={{ fontSize: 15, fontWeight: 500, color: '#30d158' }}>Tudo feito por hoje!</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{doneTodayCount} tarefas concluídas</div>
+                  </div>
+                )}
+                {pending.length === 0 && todayTasks.length === 0 && (
+                  <div className="panel" style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)' }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
+                    <div style={{ fontSize: 13 }}>Nenhuma tarefa neste filtro</div>
+                  </div>
+                )}
+                {done.length > 0 && (
+                  <details style={{ marginTop: 4 }}>
+                    <summary style={{ cursor: 'pointer', padding: '8px 0', fontSize: 12, color: 'var(--ink-3)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10 }}>▸</span> Feitos hoje · {done.length}
+                    </summary>
+                    <div className="panel" style={{ marginTop: 4, opacity: 0.6 }}>
+                      <div className="task-list">
+                        {done.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
+                      </div>
+                    </div>
+                  </details>
+                )}
+              </>;
+            })()}
             {showHabitsInList && todayHabits.length > 0 && (
               <div className="panel">
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Hábitos de hoje · {habitsDone}/{todayHabits.length}</div>

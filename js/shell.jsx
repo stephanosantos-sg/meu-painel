@@ -3,7 +3,6 @@
 const NAV = [
   { section: 'WORKSPACE', items: [
     { id: 'today', icon: '☀︎', label: 'Hoje' },
-    { id: 'lembretes', icon: '↓', label: 'Lembretes' },
   ]},
   { section: 'JORNADA', items: [
     { id: 'habits', icon: '✦', label: 'Hábitos' },
@@ -35,13 +34,11 @@ function Sidebar({ active, setActive, className }) {
 
   const today = Orbita.todayStr();
   const todayTasks = (data.tasks || []).filter(t => Orbita.isTaskForDate(t, today) && !Orbita.isTaskDone(t, today));
-  const lembretesCount = (data.tasks || []).filter(t => !t.date && !t.done).length;
   const dow = new Date().getDay();
   const bestStreak = (data.habits || []).reduce((best, h) => Math.max(best, Orbita.getStreak(h)), 0);
 
   function getBadge(id) {
     if (id === 'today') return todayTasks.length || null;
-    if (id === 'lembretes') return lembretesCount || null;
     return null;
   }
 

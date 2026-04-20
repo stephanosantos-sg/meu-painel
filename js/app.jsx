@@ -210,7 +210,6 @@ function App() {
     today: () => <ScreenToday onNewTask={openNewTask} />,
     habits: () => <ScreenHabits onNewHabit={openNewHabit} />,
     goals: () => <ScreenGoals />,
-    lembretes: () => <ScreenLembretes onNewTask={openNewTask} />,
     profile: () => <ScreenProfile />,
     ideas: () => <ScreenIdeas />,
     books: () => <ScreenBooks />,
