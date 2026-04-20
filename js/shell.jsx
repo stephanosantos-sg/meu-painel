@@ -130,10 +130,6 @@ function Sidebar({ active, setActive }) {
           <span>Comandos</span>
           <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>⌘K</span>
         </button>
-        <button className="cmd-button" onClick={() => window._openImport && window._openImport()}>
-          <span style={{ fontSize: 13 }}>↑</span>
-          <span>Importar / Exportar</span>
-        </button>
         {bestStreak > 0 && (
           <div className="streak-mini">
             <span style={{ fontSize: 14 }}>🔥</span>
@@ -143,12 +139,12 @@ function Sidebar({ active, setActive }) {
             </div>
           </div>
         )}
-        <SyncStatus />
       </div>
     </aside>
   );
 }
 
+/* SyncStatus removed — login is handled by landing page, sync is automatic */
 function SyncStatus() {
   const [user, setUser] = React.useState(window.OrbitaFirebase ? window.OrbitaFirebase.getCurrentUser() : null);
   const [showLogin, setShowLogin] = React.useState(false);
