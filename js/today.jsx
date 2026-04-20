@@ -579,8 +579,8 @@ function TaskItem({ task, dateCtx, catMap }) {
           {cat && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: color + '22', color: color }}>{cat.icon} {cat.name}</span>}
           {t.freq !== 'pontual' && <span className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{t.freq}</span>}
           <button onClick={e => { e.stopPropagation(); if (confirm('Deletar "' + t.text + '"?')) deleteTask(t.id); }}
-            style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 10, padding: '0 2px', marginLeft: 'auto', opacity: 0.5, transition: 'opacity 100ms' }}
-            onMouseEnter={e => e.target.style.opacity = 1} onMouseLeave={e => e.target.style.opacity = 0.5}>✕</button>
+            style={{ background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.2)', borderRadius: 5, color: '#ff5555', cursor: 'pointer', fontSize: 10, padding: '2px 6px', marginLeft: 'auto', transition: 'all 100ms' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.2)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.08)'; }}>✕</button>
         </div>
         {/* Multi-slot times */}
         {hasSlots && (

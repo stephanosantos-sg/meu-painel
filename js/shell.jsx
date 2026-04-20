@@ -215,10 +215,10 @@ function TopBar({ title, subtitle, actions }) {
         <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 42, lineHeight: 1, letterSpacing: '-0.03em' }}>{title}</h1>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {actions}
         <div className="mono" style={{ fontSize: 12, color: 'var(--ink-2)', padding: '8px 12px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10 }}>{time}</div>
         <button onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }}>⌕</button>
         <button onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }}>⚙</button>
+        {actions}
       </div>
     </div>
   );
