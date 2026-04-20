@@ -1545,10 +1545,10 @@ function renderTaskGroup(title, tasks, dateCtx, cls, collapsed) {
 
     html += `</div>
       <div class="task-actions">
-        <button class="task-action" onclick="startFocusMode('${esc(t.text).replace(/'/g,'')}')" title="Modo Foco">🎯</button>
-        <button class="task-action" onclick="startPomo('${esc(t.text).replace(/'/g,'')}')" title="Pomodoro">🍅</button>
-        <button class="task-action" onclick="editTask('${t.id}')" title="Editar">✏️</button>
-        <button class="task-action del" onclick="deleteTask('${t.id}')" title="Excluir">&#10005;</button>
+        <button class="task-action" onclick="event.stopPropagation();startFocusMode('${esc(t.text).replace(/'/g,'')}')" title="Modo Foco">🎯</button>
+        <button class="task-action" onclick="event.stopPropagation();startPomo('${esc(t.text).replace(/'/g,'')}')" title="Pomodoro">🍅</button>
+        <button class="task-action" onclick="event.stopPropagation();editTask('${t.id}')" title="Editar">✏️</button>
+        <button class="task-action del" onclick="event.stopPropagation();deleteTask('${t.id}')" title="Excluir">&#10005;</button>
       </div>
     </div>`;
 
@@ -5713,7 +5713,7 @@ function renderMidia(H, C) {
               <span style="font-size:0.72rem;color:var(--text3)">Página</span>
               <input type="number" value="${progress}" min="0" max="${pages||9999}" style="width:60px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.8rem;text-align:center" onchange="updateBookProgress(${idx},parseInt(this.value)||0)">
               <span style="font-size:0.72rem;color:var(--text3)">de ${pages||'?'}</span>
-              ${!pages?`<input type="number" placeholder="Total pág." style="width:80px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:0.75rem" onchange="D.media.livros[${idx}].pages=parseInt(this.value)||0;save();render()">`:''}
+              ${!pages?`<span style="font-size:0.68rem;color:var(--text3);cursor:pointer" onclick="event.stopPropagation();fetchBookMetaForItem(${idx},'${esc(book.title).replace(/'/g,'')}')">🔍 buscar páginas</span>`:''}
             </div>
             <div style="display:flex;gap:4px;margin-top:8px;align-items:center">
               <button onclick="cycleBookStatus(${idx})" class="btn btn-ghost btn-sm" style="font-size:0.72rem">Mudar status</button>
@@ -5724,6 +5724,13 @@ function renderMidia(H, C) {
         </div>`;
       });
       html += `</div>`;
+      // Auto-fetch pages for books without them
+      lendo.forEach(book => {
+        if (!book.pages) {
+          const bi = origItems.indexOf(book);
+          setTimeout(function(){ fetchBookMetaForItem(bi, book.title); }, 500);
+        }
+      });
     }
     // Queue with drag & drop (limited to 20)
     if (fila.length) {
