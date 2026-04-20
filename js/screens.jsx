@@ -192,7 +192,8 @@ function GoalModal({ onClose, editGoal }) {
   const fileRef = React.useRef();
   const dragRef = React.useRef({ startY: 0, startCoverY: 0 });
 
-  function addMilestone() { if (!newMs.trim()) return; setMilestones(p => [...p, { text: newMs.trim(), done: false, progress: 0 }]); setNewMs(''); }
+  const [newMsDate, setNewMsDate] = React.useState('');
+  function addMilestone() { if (!newMs.trim()) return; setMilestones(p => [...p, { text: newMs.trim(), done: false, progress: 0, suggestedDate: newMsDate || null }]); setNewMs(''); setNewMsDate(''); }
 
   function handleSave() {
     if (!title.trim()) return;
@@ -302,6 +303,9 @@ function GoalModal({ onClose, editGoal }) {
                     <div className={`check ${m.done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7 }}
                       onClick={() => setMilestones(p => p.map((x,j) => j === i ? {...x, done: !x.done} : x))}>{m.done && '✓'}</div>
                     <span style={{ flex: 1, fontSize: 12, textDecoration: m.done ? 'line-through' : 'none' }}>{m.text}</span>
+                    {m.suggestedDate && <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{Orbita.fmtDate(m.suggestedDate)}</span>}
+                    <input type="date" value={m.suggestedDate || ''} onChange={e => setMilestones(p => p.map((x,j) => j === i ? {...x, suggestedDate: e.target.value || null} : x))}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: 10, width: 20, cursor: 'pointer', padding: 0 }} title="Data" />
                     <button onClick={() => setMilestones(p => p.filter((_,j) => j !== i))} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 11 }}>✕</button>
                   </div>
                 ))}
@@ -310,6 +314,8 @@ function GoalModal({ onClose, editGoal }) {
             <div style={{ display: 'flex', gap: 6 }}>
               <input className="form-input" placeholder="Nova etapa..." value={newMs} onChange={e => setNewMs(e.target.value)}
                 style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addMilestone(); } }} />
+              <input className="form-input" type="date" value={newMsDate} onChange={e => setNewMsDate(e.target.value)}
+                style={{ width: 120, padding: '6px 8px', fontSize: 11 }} title="Data da etapa (opcional)" />
               <button className="btn-ghost small" onClick={addMilestone}>＋</button>
             </div>
           </div>

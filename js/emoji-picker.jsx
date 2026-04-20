@@ -30,7 +30,11 @@ function EmojiPicker({ value, onChange, label }) {
 
   function select(emoji) { onChange(emoji); setOpen(false); setSearch(''); }
 
-  const allEmojis = search ? Object.values(EMOJI_DATA).flat().filter((e, i, arr) => arr.indexOf(e) === i) : EMOJI_DATA[cat] || [];
+  const allEmojis = search
+    ? Object.entries(EMOJI_DATA).flatMap(([catName, emojis]) =>
+        catName.toLowerCase().includes(search.toLowerCase()) ? emojis : []
+      ).filter((e, i, arr) => arr.indexOf(e) === i)
+    : EMOJI_DATA[cat] || [];
 
   return (
     <div style={{ position: 'relative' }} ref={ref}>
@@ -55,7 +59,7 @@ function EmojiPicker({ value, onChange, label }) {
               style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px', color: 'var(--ink-1)', fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none' }} />
           </div>
           {!search && (
-            <div style={{ display: 'flex', gap: 1, padding: '6px 6px', overflowX: 'auto', borderBottom: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', gap: 1, padding: '6px 6px', overflowX: 'auto', borderBottom: '1px solid var(--line)', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
               {Object.keys(EMOJI_DATA).map(c => (
                 <button key={c} onClick={() => setCat(c)} style={{
                   padding: '3px 7px', borderRadius: 6, fontSize: 9, fontWeight: 500,
