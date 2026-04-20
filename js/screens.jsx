@@ -31,7 +31,7 @@ function ScreenLembretes({ onNewTask }) {
       <div style={{ padding: '0 28px 40px' }}>
         {tasks.length === 0 && (
           <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>↓</div>
             <div style={{ fontSize: 15, fontWeight: 500 }}>Sem lembretes</div>
             <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>Adicione tarefas sem data para fazer quando der</div>
           </div>

@@ -148,7 +148,7 @@
 }
 .task-item:hover { border-color: var(--glass-border-hover); background: rgba(255,255,255,0.04); }
 .task-item.done { opacity: 0.5; }
-.task-item .task-text { font-size: 13.5px; font-weight: 500; flex: 1; }
+.task-item .task-text { font-size: 14px; font-weight: 500; flex: 1; letter-spacing: -0.01em; }
 .task-item.done .task-text { text-decoration: line-through; color: var(--ink-3); }
 .task-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
 .task-slots { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
