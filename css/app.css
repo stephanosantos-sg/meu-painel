@@ -256,6 +256,31 @@ select.form-input { cursor: pointer; }
   .app-shell { grid-template-columns: 220px 1fr; }
 }
 
+/* ═══ LIGHT THEME OVERRIDES ═══ */
+body.theme-light { color: #1a1a2e; }
+body.theme-light::before { display: none; }
+body.theme-light .sidebar { background: rgba(255,255,255,0.7); border-right-color: rgba(0,0,0,0.06); }
+body.theme-light .sidebar-avatar { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.06); }
+body.theme-light .nav-item { color: #3a3a4a; }
+body.theme-light .nav-item:hover { background: rgba(0,0,0,0.04); }
+body.theme-light .nav-item.active { background: var(--gradient-neon-soft); color: var(--neon-a); }
+body.theme-light .panel { background: rgba(255,255,255,0.6); border-color: rgba(0,0,0,0.06); }
+body.theme-light .modal-panel { background: rgba(255,255,255,0.95); }
+body.theme-light .cmd-panel { background: rgba(255,255,255,0.95); }
+body.theme-light .form-input { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: #1a1a2e; }
+body.theme-light .check { border-color: rgba(0,0,0,0.15); }
+body.theme-light .task-item { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+body.theme-light .task-item:hover { background: rgba(0,0,0,0.04); }
+body.theme-light .xp-bar { background: rgba(0,0,0,0.06); }
+body.theme-light .cmd-button { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.06); color: #3a3a4a; }
+body.theme-light .streak-mini { background: rgba(255,90,60,0.06); border-color: rgba(255,90,60,0.15); }
+body.theme-light .mobile-nav { background: rgba(255,255,255,0.92); border-top-color: rgba(0,0,0,0.06); }
+body.theme-light .tab-btn { border-color: rgba(0,0,0,0.08); color: #6a6a7a; }
+body.theme-light .tab-btn.active, body.theme-light .tab-btn:hover { color: #1a1a2e; border-color: rgba(0,0,0,0.15); }
+body.theme-light .toast { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.1); color: #1a1a2e; }
+body.theme-light .btn-ghost { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: #3a3a4a; }
+body.theme-light ::selection { background: var(--neon-a); color: #fff; }
+
 /* Mobile nav: hidden on desktop */
 .mobile-nav { display: none; }
 .mobile-overlay { display: none; }

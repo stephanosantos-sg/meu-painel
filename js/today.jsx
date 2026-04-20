@@ -65,10 +65,9 @@ function ScreenToday({ onNewTask }) {
         actions={<>
           <span className="chip chip-neon">Lvl {xp.level} · {pct}%</span>
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
-          <button onClick={() => window._startPomo && window._startPomo()} style={{
-            width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, fontSize: 16, cursor: 'pointer',
-            background: 'rgba(255,46,136,0.12)', border: '1px solid rgba(255,46,136,0.3)', color: 'var(--neon-a)', transition: 'all 120ms',
-          }} title="Pomodoro">🍅</button>
+          <button className="btn-ghost" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
+            🍅 Pomodoro
+          </button>
         </>}
       />
 
@@ -311,58 +310,68 @@ function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCo
   });
   timedItems.sort((a, b) => a.time.localeCompare(b.time));
 
-  const events = timedItems.map(item => {
-    const [hh, mm] = item.time.split(':').map(Number);
-    const start = hh + mm / 60;
+  // Group by hour
+  const byHour = {};
+  timedItems.forEach(item => {
+    const hr = item.time.split(':')[0];
+    if (!byHour[hr]) byHour[hr] = [];
     const done = item.type === 'slot' ? Orbita.isSlotDone(item.task, today, item.time) : Orbita.isTaskDone(item.task, today);
     const cat = catMap[item.task.cat];
     const color = cat ? Orbita.resolveColor(cat.color) : '#b066ff';
-    return { start, end: start + 0.5, text: item.label || item.task.text, done, color, icon: item.task.icon || '', taskId: item.task.id, slotTime: item.type === 'slot' ? item.time : null };
+    byHour[hr].push({ ...item, done, color });
   });
 
-  const hours = [];
-  for (let i = 6; i <= 22; i++) hours.push(String(i).padStart(2, '0'));
+  const nowHour = Math.floor(nowH);
 
   return (
     <div className="screen-grid">
-      <div className="panel">
+      <div className="panel" style={{ padding: 20 }}>
         <div className="panel-head">
           <div>
-            <div className="eyebrow">Timeline · 6h → 22h</div>
+            <div className="eyebrow">Timeline</div>
             <h3 className="panel-title">Seu dia.</h3>
           </div>
         </div>
-        <div className="timeline">
-          {hours.map((hr, i) => (
-            <div key={hr} className="timeline-row">
-              <div className="timeline-hour mono">{hr}:00</div>
-              <div className="timeline-slot">
-                {parseInt(hr) === Math.floor(nowH) && (
-                  <div className="now-line" style={{ top: `${(nowH - parseInt(hr)) * 60}px` }}>
-                    <span className="now-dot" /><span className="mono">agora</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          {events.map((e, i) => {
-            const top = (e.start - 6) * 60;
-            const height = Math.max(32, (e.end - e.start) * 60 - 4);
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {Array.from({ length: 17 }, (_, i) => i + 6).map(hr => {
+            const hrStr = String(hr).padStart(2, '0');
+            const items = byHour[hrStr] || [];
+            const isNow = hr === nowHour;
+            if (items.length === 0 && !isNow) return null;
             return (
-              <div key={i} className={`timeline-event ${e.done ? 'done' : ''}`}
-                onClick={() => e.slotTime ? toggleSlot(e.taskId, today, e.slotTime) : toggleTask(e.taskId, today)}
-                style={{ top, height, borderLeftColor: e.color, background: `linear-gradient(90deg, ${e.color}22, ${e.color}08)`, cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div className={`check ${e.done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7 }}>{e.done && '✓'}</div>
-                  {e.icon && <span style={{ fontSize: 12 }}>{e.icon}</span>}
-                  <span style={{ fontSize: 12, fontWeight: 500, flex: 1, textDecoration: e.done ? 'line-through' : 'none', color: e.done ? 'var(--ink-3)' : 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.text}</span>
-                  <span className="mono" style={{ fontSize: 9, color: e.done ? 'var(--ink-4)' : e.color }}>+5</span>
+              <div key={hr} style={{ display: 'flex', gap: 12, padding: '6px 0', borderTop: '1px solid var(--line)', position: 'relative' }}>
+                <div className="mono" style={{ width: 40, fontSize: 11, color: isNow ? 'var(--neon-a)' : 'var(--ink-4)', paddingTop: 4, flexShrink: 0, fontWeight: isNow ? 600 : 400 }}>
+                  {hrStr}:00
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {isNow && items.length === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
+                      <span className="now-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff2e88', boxShadow: '0 0 8px #ff2e88' }} />
+                      <span className="mono" style={{ fontSize: 10, color: '#ff2e88' }}>agora</span>
+                    </div>
+                  )}
+                  {items.map((e, i) => (
+                    <div key={i} onClick={() => e.slotTime ? toggleSlot(e.task.id, today, e.slotTime) : toggleTask(e.task.id, today)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                        borderLeft: `3px solid ${e.color}`, background: `linear-gradient(90deg, ${e.color}11, transparent)`,
+                        opacity: e.done ? 0.5 : 1, transition: 'all 140ms',
+                      }}>
+                      <div className={`check ${e.done ? 'checked' : ''}`} style={{ width: 18, height: 18, fontSize: 9 }}>{e.done && '✓'}</div>
+                      {e.task.icon && <span style={{ fontSize: 14 }}>{e.task.icon}</span>}
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 500, textDecoration: e.done ? 'line-through' : 'none', color: e.done ? 'var(--ink-3)' : 'var(--ink-1)' }}>
+                        {e.label || e.task.text}
+                      </span>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{e.time}</span>
+                      <span className="mono" style={{ fontSize: 10, color: e.done ? 'var(--ink-4)' : e.color }}>+5</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
           })}
         </div>
-        {events.length === 0 && <div style={{ textAlign: 'center', padding: 24, color: 'var(--ink-3)' }}>Nenhuma tarefa com horário hoje</div>}
+        {timedItems.length === 0 && <div style={{ textAlign: 'center', padding: 24, color: 'var(--ink-3)' }}>Nenhuma tarefa com horário hoje</div>}
       </div>
       <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
         todayHabits={todayHabits} habitsDone={habitsDone} today={today} />
@@ -538,7 +547,7 @@ function MonthViewInline({ baseDate, tasks, catMap }) {
 
 /* ── TaskItem — with working subtask toggles and bigger click targets ── */
 function TaskItem({ task, dateCtx, catMap }) {
-  const { toggleTask, toggleSlot, toggleSubtask } = useData();
+  const { toggleTask, toggleSlot, toggleSubtask, deleteTask } = useData();
   const t = task;
   const done = Orbita.isTaskDone(t, dateCtx);
   const cat = catMap[t.cat];
@@ -570,6 +579,9 @@ function TaskItem({ task, dateCtx, catMap }) {
           {t.time && !hasSlots && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>⏱ {t.time}</span>}
           {cat && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: color + '22', color: color }}>{cat.icon} {cat.name}</span>}
           {t.freq !== 'pontual' && <span className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{t.freq}</span>}
+          <button onClick={e => { e.stopPropagation(); if (confirm('Deletar "' + t.text + '"?')) deleteTask(t.id); }}
+            style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 10, padding: '0 2px', marginLeft: 'auto', opacity: 0.5, transition: 'opacity 100ms' }}
+            onMouseEnter={e => e.target.style.opacity = 1} onMouseLeave={e => e.target.style.opacity = 0.5}>✕</button>
         </div>
         {/* Multi-slot times */}
         {hasSlots && (

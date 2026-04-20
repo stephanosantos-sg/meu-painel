@@ -13,6 +13,7 @@ const THEMES = [
   { id: 'porcelana', name: 'Porcelana', bg: '#f5f0eb', orb1: '#d4a0ff', orb2: '#ff8fbf', accent: '#8b6fff', accent2: '#d4a0ff', surface: 'rgba(0,0,0,0.04)', text: '#1a1a2e', line: 'rgba(0,0,0,0.10)' },
   { id: 'paper', name: 'Paper', bg: '#fafaf5', orb1: '#a8a0f0', orb2: '#f0a0c0', accent: '#6c63ff', accent2: '#a855f7', surface: 'rgba(0,0,0,0.04)', text: '#1a1a2e', line: 'rgba(0,0,0,0.10)' },
   { id: 'midnight', name: 'Midnight', bg: '#0a0a1a', orb1: '#4a00e0', orb2: '#8e2de2', accent: '#8e2de2', accent2: '#a855f7', surface: 'rgba(255,255,255,0.04)', text: '#e0e0f0', line: 'rgba(255,255,255,0.08)' },
+  { id: 'fluminense', name: 'Fluminense', bg: '#0a0808', orb1: '#870A28', orb2: '#00613C', accent: '#870A28', accent2: '#00613C', surface: 'rgba(255,255,255,0.04)', text: '#f0e8e8', line: 'rgba(255,255,255,0.08)' },
 ];
 
 function applyTheme(themeId) {
@@ -23,9 +24,12 @@ function applyTheme(themeId) {
     // Reset to original tokens.css — remove all inline overrides
     const props = ['--bg-0','--bg-1','--bg-2','--bg-3','--neon-a','--neon-b','--neon-c','--ink-0','--ink-1','--ink-2','--ink-3','--ink-4',
       '--line','--line-2','--glass-bg','--glass-bg-strong','--glass-border','--glass-border-hover','--gradient-neon','--gradient-neon-soft',
-      '--neon-glow','--shadow-card','--shadow-float'];
+      '--neon-glow','--shadow-card','--shadow-float','--glass-blur','--glass-blur-strong'];
     props.forEach(p => root.style.removeProperty(p));
     document.body.style.background = '';
+    document.body.style.removeProperty('--grain-opacity');
+    document.body.classList.remove('theme-light');
+    const oldWm = document.getElementById('theme-watermark'); if (oldWm) oldWm.remove();
     return;
   }
 
@@ -44,28 +48,48 @@ function applyTheme(themeId) {
   root.style.setProperty('--gradient-neon-soft', `linear-gradient(135deg, ${theme.accent}33, ${theme.accent2}28)`);
   root.style.setProperty('--neon-glow', `0 0 40px ${theme.accent}55, 0 0 80px ${theme.accent2}35`);
 
+  document.body.classList.toggle('theme-light', isLight);
+  document.body.style.setProperty('--grain-opacity', isLight ? '0' : '0.4');
+
   if (isLight) {
-    root.style.setProperty('--ink-0', '#000000');
+    root.style.setProperty('--ink-0', '#111118');
+    root.style.setProperty('--ink-1', '#1a1a2e');
     root.style.setProperty('--ink-2', '#3a3a4a');
     root.style.setProperty('--ink-3', '#6a6a7a');
     root.style.setProperty('--ink-4', '#9a9aaa');
-    root.style.setProperty('--bg-1', '#f0efe8');
+    root.style.setProperty('--bg-1', theme.bg);
     root.style.setProperty('--bg-2', '#e8e6de');
     root.style.setProperty('--bg-3', '#dddbd4');
+    root.style.setProperty('--line', 'rgba(0,0,0,0.08)');
     root.style.setProperty('--line-2', 'rgba(0,0,0,0.14)');
-    root.style.setProperty('--glass-bg', 'rgba(0,0,0,0.04)');
-    root.style.setProperty('--glass-bg-strong', 'rgba(0,0,0,0.07)');
-    root.style.setProperty('--glass-border', 'rgba(0,0,0,0.10)');
-    root.style.setProperty('--glass-border-hover', 'rgba(0,0,0,0.20)');
-    root.style.setProperty('--shadow-card', '0 1px 0 rgba(255,255,255,0.5) inset, 0 2px 12px -4px rgba(0,0,0,0.12)');
-    root.style.setProperty('--shadow-float', '0 4px 24px -8px rgba(0,0,0,0.18)');
+    root.style.setProperty('--glass-bg', 'rgba(255,255,255,0.6)');
+    root.style.setProperty('--glass-bg-strong', 'rgba(255,255,255,0.75)');
+    root.style.setProperty('--glass-border', 'rgba(0,0,0,0.08)');
+    root.style.setProperty('--glass-border-hover', 'rgba(0,0,0,0.18)');
+    root.style.setProperty('--glass-blur', 'blur(20px) saturate(120%)');
+    root.style.setProperty('--glass-blur-strong', 'blur(30px) saturate(130%)');
+    root.style.setProperty('--shadow-card', '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)');
+    root.style.setProperty('--shadow-float', '0 4px 20px -6px rgba(0,0,0,0.15)');
+    root.style.setProperty('--gradient-neon-soft', `linear-gradient(135deg, ${theme.accent}22, ${theme.accent2}18)`);
   } else {
+    document.body.style.removeProperty('--grain-opacity');
     root.style.setProperty('--ink-2', '#a8a8bc');
     root.style.setProperty('--ink-3', '#6a6a80');
     root.style.setProperty('--ink-4', '#3a3a4a');
     root.style.setProperty('--line-2', 'rgba(255,255,255,0.14)');
     root.style.setProperty('--glass-bg-strong', 'rgba(255,255,255,0.07)');
     root.style.setProperty('--glass-border-hover', 'rgba(255,255,255,0.16)');
+  }
+
+  // Remove previous watermark
+  const oldWm = document.getElementById('theme-watermark');
+  if (oldWm) oldWm.remove();
+
+  if (themeId === 'fluminense') {
+    const wm = document.createElement('div');
+    wm.id = 'theme-watermark';
+    wm.style.cssText = 'position:fixed;bottom:10%;right:5%;width:300px;height:300px;opacity:0.08;pointer-events:none;z-index:0;background-size:contain;background-repeat:no-repeat;background-position:center;background-image:url("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Fluminense_FC_Logo.svg/200px-Fluminense_FC_Logo.svg.png")';
+    document.body.appendChild(wm);
   }
 
   document.body.style.background = `
