@@ -75,7 +75,7 @@ function ScreenToday({ onNewTask }) {
       <UpcomingHolidays />
 
       {/* View tabs */}
-      <div style={{ padding: '0 28px 16px', display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div className="tab-scroll" style={{ padding: '0 28px 16px', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto' }}>
         {views.map(v => (
           <button key={v.id} className={`tab-btn ${view === v.id ? 'active' : ''}`} onClick={() => setView(v.id)}>{v.label}</button>
         ))}

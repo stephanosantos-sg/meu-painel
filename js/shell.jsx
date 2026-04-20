@@ -22,7 +22,7 @@ const NAV = [
   ]},
 ];
 
-function Sidebar({ active, setActive }) {
+function Sidebar({ active, setActive, className }) {
   const { data } = useData();
   const xp = data.xp || { total: 0, level: 1, class: null };
   const cls = xp.class;
@@ -46,7 +46,7 @@ function Sidebar({ active, setActive }) {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${className || ''}`}>
       <div className="sidebar-top">
         <div className="sidebar-logo">
           <OrbLogo size={26} />

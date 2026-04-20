@@ -222,14 +222,44 @@ function App() {
 
   const Screen = screens[active] || screens.today;
 
+  const [mobileMenu, setMobileMenu] = React.useState(false);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+
+  function mobileNav(id) { setActive(id); setMobileMenu(false); }
+
   return (
     <DataProvider>
       <div className="app-shell">
-        <Sidebar active={active} setActive={setActive} />
+        {/* Sidebar: always on desktop, drawer on mobile */}
+        <Sidebar active={active} setActive={id => { setActive(id); setMobileMenu(false); }} className={mobileMenu ? 'mobile-open' : ''} />
+        {mobileMenu && <div className="mobile-overlay" onClick={() => setMobileMenu(false)} />}
+
         <main className="workspace">
           <Screen />
         </main>
-        <QuickBar onPomo={() => setShowPomo(true)} onSync={() => {}} />
+
+        {/* Desktop quick bar */}
+        <div className="quick-bar-desktop">
+          <QuickBar onPomo={() => setShowPomo(true)} onSync={() => {}} />
+        </div>
+
+        {/* Mobile bottom nav */}
+        <div className="mobile-nav">
+          {[
+            { id: 'today', icon: '☀︎', label: 'Hoje' },
+            { id: 'habits', icon: '✦', label: 'Hábitos' },
+            { id: 'goals', icon: '◎', label: 'Objetivos' },
+            { id: 'charts', icon: '◉', label: 'Gráficos' },
+            { id: '_menu', icon: '☰', label: 'Menu' },
+          ].map(it => (
+            <button key={it.id} className={`mobile-nav-item ${active === it.id ? 'active' : ''}`}
+              onClick={() => it.id === '_menu' ? setMobileMenu(m => !m) : mobileNav(it.id)}>
+              <span className="mn-icon">{it.icon}</span>
+              <span>{it.label}</span>
+            </button>
+          ))}
+        </div>
+
         <CommandPalette setActive={setActive} setShowTaskModal={setShowTaskModal} setShowHabitModal={setShowHabitModal} />
         <ToastLayer />
         {showTaskModal && <TaskModal onClose={() => setShowTaskModal(false)} editTask={editTask} />}
