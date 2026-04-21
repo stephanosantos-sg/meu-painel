@@ -193,6 +193,14 @@ function App() {
 
   React.useEffect(() => {
     function onKey(e) {
+      if (e.key === 'Escape') {
+        if (showTaskModal) { setShowTaskModal(false); return; }
+        if (showHabitModal) { setShowHabitModal(false); return; }
+        if (showThemes) { setShowThemes(false); return; }
+        if (showCategories) { setShowCategories(false); return; }
+        if (showImport) { setShowImport(false); return; }
+        return;
+      }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) openNewTask();
       if (e.key === 'h' && !e.metaKey && !e.ctrlKey) openNewHabit();
@@ -201,7 +209,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active]);
+  }, [active, showTaskModal, showHabitModal, showThemes, showCategories, showImport]);
 
   window._openThemes = () => setShowThemes(true);
   window._openCategories = () => setShowCategories(true);
