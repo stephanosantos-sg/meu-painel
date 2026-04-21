@@ -1,7 +1,9 @@
 /* Orbita v2 — App Layout + Components */
 
 /* ═══ APP LAYOUT ═══ */
-.app-shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; max-width: 1680px; margin: 0 auto; }
+.app-shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; max-width: 1680px; margin: 0 auto; overflow-x: hidden; }
+.tab-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+.tab-scroll::-webkit-scrollbar { display: none; }
 .workspace { min-width: 0; padding: 28px 0 0; overflow-x: hidden; overflow-y: auto; max-height: 100vh; }
 
 /* ─── SIDEBAR ─── */
