@@ -264,6 +264,8 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
   const [sel, setSel] = React.useState(0);
+  const { data } = useData();
+
   React.useEffect(() => {
     const toggle = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setOpen(o => !o); }
@@ -275,18 +277,103 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
     return () => { window.removeEventListener('keydown', toggle); window.removeEventListener('orbita:openCmd', ext); };
   }, []);
 
-  const items = [
+  const commands = [
     { icon: '＋', label: 'Nova tarefa', hint: 'N', cat: 'Ação', action: () => { setShowTaskModal(true); setOpen(false); } },
     { icon: '✦', label: 'Novo hábito', hint: 'H', cat: 'Ação', action: () => { setShowHabitModal(true); setOpen(false); } },
     { icon: '◉', label: 'Pomodoro', hint: 'P', cat: 'Ação', action: () => { window._startPomo && window._startPomo(); setOpen(false); } },
-    { icon: '⚙', label: 'Temas', hint: 'T', cat: 'Ação', action: () => { window._openThemes && window._openThemes(); setOpen(false); } },
+    { icon: '◐', label: 'Temas', hint: 'T', cat: 'Ação', action: () => { window._openThemes && window._openThemes(); setOpen(false); } },
     { icon: '☀︎', label: 'Home', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
     { icon: '✦', label: 'Hábitos', cat: 'Nav', action: () => { setActive('habits'); setOpen(false); } },
     { icon: '◎', label: 'Objetivos', cat: 'Nav', action: () => { setActive('goals'); setOpen(false); } },
     { icon: '▢', label: 'Livros', cat: 'Nav', action: () => { setActive('books'); setOpen(false); } },
+    { icon: '▷', label: 'Mídia', cat: 'Nav', action: () => { setActive('media'); setOpen(false); } },
+    { icon: '⊞', label: 'Listas', cat: 'Nav', action: () => { setActive('shopping'); setOpen(false); } },
+    { icon: '✎', label: 'Notas', cat: 'Nav', action: () => { setActive('notes'); setOpen(false); } },
+    { icon: '▤', label: 'Histórico', cat: 'Nav', action: () => { setActive('history'); setOpen(false); } },
     { icon: '◉', label: 'Gráficos', cat: 'Nav', action: () => { setActive('charts'); setOpen(false); } },
     { icon: '★', label: 'Perfil', cat: 'Nav', action: () => { setActive('profile'); setOpen(false); } },
-  ].filter(it => !q || it.label.toLowerCase().includes(q.toLowerCase()));
+  ];
+
+  const ql = q.toLowerCase().trim();
+  let items = [];
+
+  if (!ql) {
+    items = commands;
+  } else {
+    const cmdMatches = commands.filter(c => c.label.toLowerCase().includes(ql));
+    const contentResults = [];
+    const seen = new Set();
+    function addResult(icon, label, sub, cat, action) {
+      const key = cat + label;
+      if (seen.has(key)) return;
+      seen.add(key);
+      contentResults.push({ icon, label, sub, cat, action });
+    }
+
+    (data.tasks || []).forEach(t => {
+      if ((t.text || '').toLowerCase().includes(ql) || (t.desc || '').toLowerCase().includes(ql)) {
+        addResult(t.icon || '☀︎', t.text, t.freq + (t.date ? ` · ${t.date}` : ''), 'Tarefa',
+          () => { setActive('today'); setOpen(false); });
+      }
+    });
+    (data.habits || []).forEach(h => {
+      if ((h.name || '').toLowerCase().includes(ql)) {
+        addResult(h.icon || '✦', h.name, null, 'Hábito',
+          () => { setActive('habits'); setOpen(false); });
+      }
+    });
+    (data.goals || []).forEach(g => {
+      if ((g.title || '').toLowerCase().includes(ql) || (g.desc || '').toLowerCase().includes(ql)) {
+        addResult('◎', g.title, g.deadline ? `prazo ${g.deadline}` : null, 'Objetivo',
+          () => { setActive('goals'); setOpen(false); });
+      }
+    });
+    const media = data.media || {};
+    (media.livros || []).forEach(b => {
+      if ((b.title || '').toLowerCase().includes(ql) || (b.author || '').toLowerCase().includes(ql)) {
+        addResult('▢', b.title, b.author || null, 'Livro',
+          () => { setActive('books'); setOpen(false); });
+      }
+    });
+    (media.filmes || []).forEach(f => {
+      if ((f.title || '').toLowerCase().includes(ql) || (f.director || '').toLowerCase().includes(ql)) {
+        addResult('▷', f.title, f.director || f.year || null, 'Filme',
+          () => { setActive('media'); setOpen(false); });
+      }
+    });
+    (media.series || []).forEach(s => {
+      if ((s.title || '').toLowerCase().includes(ql)) {
+        addResult('▷', s.title, s.year || null, 'Série',
+          () => { setActive('media'); setOpen(false); });
+      }
+    });
+    (data.notes || []).forEach(n => {
+      if ((n.text || '').toLowerCase().includes(ql)) {
+        addResult('✎', n.text.substring(0, 60) + (n.text.length > 60 ? '...' : ''), n.date || null, 'Nota',
+          () => { setActive('notes'); setOpen(false); });
+      }
+    });
+    (data.ideias || []).forEach(idea => {
+      if ((idea.title || '').toLowerCase().includes(ql) || (idea.desc || '').toLowerCase().includes(ql)) {
+        addResult('◆', idea.title, null, 'Ideia',
+          () => { setActive('ideas'); setOpen(false); });
+      }
+    });
+    (data.shopLists || []).forEach(list => {
+      if ((list.name || '').toLowerCase().includes(ql)) {
+        addResult('⊞', list.name, `${(list.items||[]).length} itens`, 'Lista',
+          () => { setActive('shopping'); setOpen(false); });
+      }
+      (list.items || []).forEach(item => {
+        if ((item.text || '').toLowerCase().includes(ql)) {
+          addResult('⊞', item.text, `em ${list.name}`, 'Item',
+            () => { setActive('shopping'); setOpen(false); });
+        }
+      });
+    });
+
+    items = [...cmdMatches, ...contentResults.slice(0, 20)];
+  }
 
   function onKey(e) {
     if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s+1, items.length-1)); }
@@ -300,15 +387,21 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
       <div className="cmd-panel" onClick={e => e.stopPropagation()}>
         <div className="cmd-input-row">
           <span style={{ fontSize: 15, color: 'var(--ink-3)' }}>⌕</span>
-          <input autoFocus placeholder="O que você quer fazer?" value={q} onChange={e => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} />
+          <input autoFocus placeholder="Buscar tarefas, livros, hábitos..." value={q} onChange={e => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} />
           <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', padding: '3px 8px', border: '1px solid var(--line)', borderRadius: 6 }}>ESC</span>
         </div>
         <div className="cmd-list">
+          {items.length === 0 && ql && (
+            <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>
+              Nenhum resultado para "{q}"
+            </div>
+          )}
           {items.map((it, i) => (
             <div key={i} className={`cmd-item ${i === sel ? 'selected' : ''}`} onClick={() => it.action()}>
               <div className="cmd-icon">{it.icon}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{it.label}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</div>
+                {it.sub && <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 1 }}>{it.sub}</div>}
               </div>
               {it.hint && <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--line)', background: 'rgba(255,255,255,0.04)', color: 'var(--ink-3)' }}>{it.hint}</kbd>}
               <span className="chip" style={{ fontSize: 10 }}>{it.cat}</span>
