@@ -18,6 +18,7 @@ function TaskModal({ onClose, editTask }) {
   const [times, setTimes] = React.useState(editTask?.times ? editTask.times.map(t => ({...t})) : []);
   const [newTimeVal, setNewTimeVal] = React.useState('');
   const [newTimeLabel, setNewTimeLabel] = React.useState('');
+  const [dateEnd, setDateEnd] = React.useState(editTask?.dateEnd || '');
   const [dependsOn, setDependsOn] = React.useState(editTask?.dependsOn || '');
 
   const dayLabels = ['D','S','T','Q','Q','S','S'];
@@ -60,6 +61,7 @@ function TaskModal({ onClose, editTask }) {
       text: text.trim(),
       desc: desc.trim() || null,
       date: noDate ? null : (date || null),
+      dateEnd: noDate ? null : (dateEnd || null),
       time: (freq === 'pontual' && times.length === 0) ? (time || null) : null,
       freq,
       prio,
@@ -151,12 +153,18 @@ function TaskModal({ onClose, editTask }) {
             </div>
           )}
 
-          {/* Date + No date + Time */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'end' }}>
+          {/* Date + End date + No date + Time */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'end' }}>
             <div className="form-group">
               <label className="form-label">Data início</label>
               <input className="form-input" type="date" value={noDate ? '' : date} onChange={e => setDate(e.target.value)} disabled={noDate} style={{ opacity: noDate ? 0.4 : 1 }} />
             </div>
+            <div className="form-group">
+              <label className="form-label">Data fim (opcional)</label>
+              <input className="form-input" type="date" value={noDate ? '' : dateEnd} onChange={e => setDateEnd(e.target.value)} disabled={noDate} min={date} style={{ opacity: noDate ? 0.4 : 1 }} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 12, alignItems: 'end' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 10, cursor: 'pointer' }} onClick={() => setNoDate(n => !n)}>
               <div className={`check ${noDate ? 'checked' : ''}`} style={{ width: 16, height: 16, fontSize: 8 }}>{noDate && '✓'}</div>
               <span style={{ fontSize: 11, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>Sem data</span>

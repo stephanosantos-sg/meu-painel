@@ -24,7 +24,10 @@ function todayStr() { return dateToStr(new Date()); }
 function isTaskForDate(t, ds) {
   if (t.done && (!t.times || !t.times.length)) return false;
   if (!t.date) return false;
-  if (t.freq === 'pontual') return t.date === ds;
+  if (t.freq === 'pontual') {
+    if (t.dateEnd) return ds >= t.date && ds <= t.dateEnd;
+    return t.date === ds;
+  }
   if (t.freq === 'diaria') return t.date <= ds;
   if (t.freq === 'semanal') {
     if (t.date > ds) return false;

@@ -695,9 +695,12 @@ function TaskItem({ task, dateCtx, catMap }) {
     toggleTask(t.id, dateCtx);
   }
 
+  const [hovered, setHovered] = React.useState(false);
+
   return (
     <div className={`task-item ${done ? 'done' : ''}`}
       onClick={onMainClick}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ cursor: hasSlots ? 'default' : 'pointer' }}>
       {!hasSlots && (
         <div className={`check ${done ? 'checked' : ''}`} style={{ width: 22, height: 22, fontSize: 11, flexShrink: 0 }}>
@@ -713,9 +716,16 @@ function TaskItem({ task, dateCtx, catMap }) {
           {t.time && !hasSlots && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>⏱ {t.time}</span>}
           {cat && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: color + '22', color: color }}>{cat.icon} {cat.name}</span>}
           {t.freq !== 'pontual' && <span className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{t.freq}</span>}
-          <button onClick={e => { e.stopPropagation(); if (confirm('Deletar "' + t.text + '"?')) deleteTask(t.id); }}
-            style={{ background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.2)', borderRadius: 5, color: '#ff5555', cursor: 'pointer', fontSize: 10, padding: '2px 6px', marginLeft: 'auto', transition: 'all 100ms' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.2)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.08)'; }}>✕</button>
+          {t.dateEnd && <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>até {Orbita.fmtDate(t.dateEnd)}</span>}
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 4, opacity: hovered ? 1 : 0, transition: 'opacity 150ms' }}>
+            <button onClick={e => { e.stopPropagation(); window._editTask && window._editTask(t); }}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line)', borderRadius: 5, color: 'var(--ink-3)', cursor: 'pointer', fontSize: 10, padding: '2px 6px', transition: 'all 100ms' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = 'var(--ink-1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--ink-3)'; }}>✎</button>
+            <button onClick={e => { e.stopPropagation(); if (confirm('Deletar "' + t.text + '"?')) deleteTask(t.id); }}
+              style={{ background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.2)', borderRadius: 5, color: '#ff5555', cursor: 'pointer', fontSize: 10, padding: '2px 6px', transition: 'all 100ms' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.2)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.08)'; }}>✕</button>
+          </span>
         </div>
         {/* Multi-slot times — collapsible */}
         {hasSlots && (

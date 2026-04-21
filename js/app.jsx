@@ -207,6 +207,7 @@ function App() {
   window._openCategories = () => setShowCategories(true);
   window._openImport = () => setShowImport(true);
   window._startPomo = () => setShowPomo(true);
+  window._editTask = (task) => { setEditTask(task); setShowTaskModal(true); };
 
   const screens = {
     today: () => <ScreenToday onNewTask={openNewTask} />,
