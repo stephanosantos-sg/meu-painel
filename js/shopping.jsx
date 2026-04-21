@@ -78,7 +78,7 @@ function ScreenShopping() {
           if (!list.items) list.items = [];
           const total = list.items.length;
           const done = list.items.filter(i => i.done).length;
-          const totalPrice = list.items.reduce((s, i) => s + (i.price || 0), 0);
+          const totalPrice = list.items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
           return (
             <div key={list.id} className="panel" style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -105,7 +105,7 @@ function ScreenShopping() {
                     <div className={`check ${item.done ? 'checked' : ''}`} style={{ width: 16, height: 16, fontSize: 8 }}
                       onClick={() => toggleItem(list.id, idx)}>{item.done && '✓'}</div>
                     <span style={{ flex: 1, fontSize: 13, textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{item.text}</span>
-                    {item.price > 0 && <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>R$ {item.price.toFixed(2)}</span>}
+                    {parseFloat(item.price) > 0 && <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>R$ {parseFloat(item.price).toFixed(2)}</span>}
                     <button onClick={() => deleteItem(list.id, idx)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 12 }}>✕</button>
                   </div>
                 ))}
