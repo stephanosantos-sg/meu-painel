@@ -4,7 +4,7 @@ function Onboarding({ onComplete }) {
   const [step, setStep] = React.useState(0);
   const [name, setName] = React.useState('');
   const [birthday, setBirthday] = React.useState('');
-  const [avatar, setAvatar] = React.useState({ hair: '#5a3418', eye: '#3a9b4e', shirt: '#4a6fa5' });
+  const [avatar, setAvatar] = React.useState({ gender: 'male', hair: '#5a3418', eye: '#3a9b4e', shirt: '#4a6fa5' });
 
   const HAIR_COLORS = [
     { c: '#5a3418', l: 'Castanho' }, { c: '#1a1014', l: 'Preto' }, { c: '#c4922a', l: 'Loiro' },
@@ -81,6 +81,27 @@ function Onboarding({ onComplete }) {
         <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 32, lineHeight: 1, marginBottom: 24 }}>
           Seu avatar
         </h2>
+
+        {/* Gender selection */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          {[
+            { id: 'male', label: 'Masculino', icon: '♂' },
+            { id: 'female', label: 'Feminino', icon: '♀' },
+          ].map(g => (
+            <button key={g.id} onClick={() => setAvatar(a => ({...a, gender: g.id}))}
+              style={{
+                flex: 1, padding: '12px 0', borderRadius: 12, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: avatar.gender === g.id ? 'var(--gradient-neon-soft)' : 'var(--glass-bg)',
+                border: avatar.gender === g.id ? '2px solid var(--neon-a)' : '2px solid var(--glass-border)',
+                color: avatar.gender === g.id ? '#fff' : 'var(--ink-3)',
+                fontFamily: 'var(--font-ui)', transition: 'all 150ms',
+                boxShadow: avatar.gender === g.id ? '0 0 16px rgba(255,46,136,0.15)' : 'none',
+              }}>
+              <span style={{ fontSize: 18 }}>{g.icon}</span> {g.label}
+            </button>
+          ))}
+        </div>
 
         <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
           {/* Avatar preview */}
