@@ -74,7 +74,7 @@ function ScreenToday({ onNewTask }) {
 
   return (
     <>
-      <TopBar title={isToday ? `${greet}, Stephano.` : fmtDate.charAt(0).toUpperCase() + fmtDate.slice(1)} subtitle={isToday ? fmtDate : (greet ? `${greet} · Vendo outro dia` : 'Vendo outro dia')}
+      <TopBar title={isToday ? `${greet}, ${(data._profile && data._profile.name) || 'Aventureiro'}.` : fmtDate.charAt(0).toUpperCase() + fmtDate.slice(1)} subtitle={isToday ? fmtDate : (greet ? `${greet} · Vendo outro dia` : 'Vendo outro dia')}
         actions={<>
           <button className="btn-ghost" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
             ◉ Pomodoro
@@ -90,6 +90,9 @@ function ScreenToday({ onNewTask }) {
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
         </>}
       />
+
+      {/* Birthday banner */}
+      <BirthdayBanner profile={data._profile} />
 
       {/* Daily quote */}
       <DailyQuote />
@@ -809,6 +812,32 @@ function TaskItem({ task, dateCtx, catMap }) {
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Birthday Banner ── */
+function BirthdayBanner({ profile }) {
+  if (!profile || !profile.birthday) return null;
+  const today = new Date();
+  const bday = profile.birthday;
+  const todayMD = `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const bdayMD = bday.substring(5);
+  if (todayMD !== bdayMD) return null;
+  const name = profile.name || 'Aventureiro';
+  return (
+    <div style={{
+      margin: '0 28px 12px', padding: '16px 24px', borderRadius: 16,
+      background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.25)',
+      textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 32, marginBottom: 6 }}>🎂</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22 }}>
+        Feliz aniversário, {name}!
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 4 }}>
+        Que este novo ano seja épico. +50 XP de presente!
       </div>
     </div>
   );

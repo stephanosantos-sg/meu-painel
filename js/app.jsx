@@ -281,20 +281,27 @@ function App() {
 }
 
 function AppRoot() {
-  const [authState, setAuthState] = React.useState('loading'); // loading, logged-in, logged-out, skipped
+  const [authState, setAuthState] = React.useState('loading');
   const [user, setUser] = React.useState(null);
+  const [needsOnboarding, setNeedsOnboarding] = React.useState(false);
 
   React.useEffect(() => {
     if (window.OrbitaFirebase) window.OrbitaFirebase.init();
-
-    // Check if user previously skipped login
     const skipped = localStorage.getItem('orbita_skipLogin');
 
     function onAuth(e) {
       if (e.detail) {
         setUser(e.detail);
+        const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+        if (!d._profile || !d._profile.onboardingDone) {
+          setNeedsOnboarding(true);
+        }
         setAuthState('logged-in');
       } else if (skipped) {
+        const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+        if (!d._profile || !d._profile.onboardingDone) {
+          setNeedsOnboarding(true);
+        }
         setAuthState('skipped');
       } else {
         setAuthState('logged-out');
@@ -302,13 +309,16 @@ function AppRoot() {
     }
     function onSkip() {
       localStorage.setItem('orbita_skipLogin', '1');
+      const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+      if (!d._profile || !d._profile.onboardingDone) {
+        setNeedsOnboarding(true);
+      }
       setAuthState('skipped');
     }
 
     window.addEventListener('orbita:authChanged', onAuth);
     window.addEventListener('orbita:skipLogin', onSkip);
 
-    // Timeout: if auth doesn't resolve in 2s, check skip
     setTimeout(() => {
       setAuthState(prev => {
         if (prev === 'loading') return skipped ? 'skipped' : 'logged-out';
@@ -321,6 +331,15 @@ function AppRoot() {
       window.removeEventListener('orbita:skipLogin', onSkip);
     };
   }, []);
+
+  function handleOnboardingComplete(profile) {
+    const d = JSON.parse(localStorage.getItem('meuPainel_v4') || JSON.stringify(Orbita.defaultData()));
+    d._profile = profile;
+    if (!d.tasks) Object.assign(d, Orbita.defaultData());
+    localStorage.setItem('meuPainel_v4', JSON.stringify(d));
+    setNeedsOnboarding(false);
+    window.dispatchEvent(new CustomEvent('orbita:dataPulled', { detail: d }));
+  }
 
   if (authState === 'loading') {
     return (
@@ -335,6 +354,10 @@ function AppRoot() {
 
   if (authState === 'logged-out') {
     return <LandingPage />;
+  }
+
+  if (needsOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   return <App />;

@@ -65,7 +65,7 @@ function Sidebar({ active, setActive, className }) {
               {clsInfo ? (clsInfo.icon + ' ' + clsInfo.name) : ('🧭 ' + Orbita.TITLES_MAP(xp.level))}
             </span>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Stephano</div>
+          <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(data._profile && data._profile.name) || 'Aventureiro'}</div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 2 }}>
             Lvl {xp.level} · {xp.total >= 1000 ? (xp.total/1000).toFixed(1)+'k' : xp.total} xp
           </div>
