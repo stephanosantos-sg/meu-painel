@@ -140,6 +140,11 @@ function Sidebar({ active, setActive, className }) {
             </div>
           </div>
         )}
+        <button className="cmd-button" onClick={() => { if (confirm('Sair da conta?')) { window.OrbitaFirebase && window.OrbitaFirebase.signOut(); localStorage.removeItem('orbita_skipLogin'); location.reload(); } }}
+          style={{ opacity: 0.6 }}>
+          <span style={{ fontSize: 12 }}>⏻</span>
+          <span style={{ fontSize: 11 }}>Sair</span>
+        </button>
       </div>
     </aside>
   );

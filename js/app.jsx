@@ -289,19 +289,24 @@ function AppRoot() {
     if (window.OrbitaFirebase) window.OrbitaFirebase.init();
     const skipped = localStorage.getItem('orbita_skipLogin');
 
+    function checkOnboarding() {
+      const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+      const hasData = (d.tasks && d.tasks.length > 0) || (d.habits && d.habits.length > 0);
+      if (hasData && (!d._profile || !d._profile.onboardingDone)) {
+        d._profile = { ...(d._profile || {}), onboardingDone: true, name: d._profile?.name || 'Stephano' };
+        localStorage.setItem('meuPainel_v4', JSON.stringify(d));
+        return false;
+      }
+      return !d._profile || !d._profile.onboardingDone;
+    }
+
     function onAuth(e) {
       if (e.detail) {
         setUser(e.detail);
-        const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
-        if (!d._profile || !d._profile.onboardingDone) {
-          setNeedsOnboarding(true);
-        }
+        if (checkOnboarding()) setNeedsOnboarding(true);
         setAuthState('logged-in');
       } else if (skipped) {
-        const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
-        if (!d._profile || !d._profile.onboardingDone) {
-          setNeedsOnboarding(true);
-        }
+        if (checkOnboarding()) setNeedsOnboarding(true);
         setAuthState('skipped');
       } else {
         setAuthState('logged-out');
@@ -309,10 +314,7 @@ function AppRoot() {
     }
     function onSkip() {
       localStorage.setItem('orbita_skipLogin', '1');
-      const d = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
-      if (!d._profile || !d._profile.onboardingDone) {
-        setNeedsOnboarding(true);
-      }
+      if (checkOnboarding()) setNeedsOnboarding(true);
       setAuthState('skipped');
     }
 
