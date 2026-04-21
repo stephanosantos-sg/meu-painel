@@ -2,7 +2,7 @@
 
 const NAV = [
   { section: 'WORKSPACE', items: [
-    { id: 'today', icon: '☀︎', label: 'Hoje' },
+    { id: 'today', icon: '☀︎', label: 'Home' },
   ]},
   { section: 'JORNADA', items: [
     { id: 'habits', icon: '✦', label: 'Hábitos' },
@@ -279,7 +279,7 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
     { icon: '✦', label: 'Novo hábito', hint: 'H', cat: 'Ação', action: () => { setShowHabitModal(true); setOpen(false); } },
     { icon: '◉', label: 'Pomodoro', hint: 'P', cat: 'Ação', action: () => { window._startPomo && window._startPomo(); setOpen(false); } },
     { icon: '⚙', label: 'Temas', hint: 'T', cat: 'Ação', action: () => { window._openThemes && window._openThemes(); setOpen(false); } },
-    { icon: '☀︎', label: 'Hoje', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
+    { icon: '☀︎', label: 'Home', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
     { icon: '✦', label: 'Hábitos', cat: 'Nav', action: () => { setActive('habits'); setOpen(false); } },
     { icon: '◎', label: 'Objetivos', cat: 'Nav', action: () => { setActive('goals'); setOpen(false); } },
     { icon: '▢', label: 'Livros', cat: 'Nav', action: () => { setActive('books'); setOpen(false); } },

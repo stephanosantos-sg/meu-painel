@@ -7,19 +7,33 @@ function ScreenToday({ onNewTask }) {
   const [monthBase, setMonthBase] = React.useState(new Date());
   const [filterCat, setFilterCat] = React.useState('all');
   const [showFilters, setShowFilters] = React.useState(false);
+  const [selectedDate, setSelectedDate] = React.useState(new Date());
 
   React.useEffect(() => {
     function onFilterCat(e) { setFilterCat(e.detail); }
     window.addEventListener('orbita:filterCat', onFilterCat);
     return () => window.removeEventListener('orbita:filterCat', onFilterCat);
   }, []);
+
+  React.useEffect(() => {
+    if (calendarConnected) fetchCalendarEvents(Orbita.dateToStr(selectedDate));
+  }, [selectedDate, calendarConnected]);
+
   const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true, feitas: false });
-  const today = Orbita.todayStr();
+  const realToday = Orbita.todayStr();
+  const today = Orbita.dateToStr(selectedDate);
+  const isToday = today === realToday;
   const now = new Date();
   const h = now.getHours();
-  const greet = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-  const fmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(now);
-  const dow = now.getDay();
+  const greet = isToday ? (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') : '';
+  const fmtDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(selectedDate);
+  const dow = selectedDate.getDay();
+
+  function shiftDay(n) {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + n);
+    setSelectedDate(d);
+  }
 
   const tasks = data.tasks || [];
   const cats = data.categories || [];
@@ -60,11 +74,19 @@ function ScreenToday({ onNewTask }) {
 
   return (
     <>
-      <TopBar title={`${greet}, Stephano.`} subtitle={fmt}
+      <TopBar title={isToday ? `${greet}, Stephano.` : fmtDate.charAt(0).toUpperCase() + fmtDate.slice(1)} subtitle={isToday ? fmtDate : (greet ? `${greet} · Vendo outro dia` : 'Vendo outro dia')}
         actions={<>
           <button className="btn-ghost" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
             ◉ Pomodoro
           </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--gradient-neon-soft)', borderRadius: 12, border: '1px solid rgba(255,46,136,0.22)', overflow: 'hidden' }}>
+            <button onClick={() => shiftDay(-1)} style={{ padding: '10px 12px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', transition: 'all 100ms' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>←</button>
+            {!isToday && <button onClick={() => setSelectedDate(new Date())} style={{ padding: '10px 14px', background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.12)', borderRight: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 100ms' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>Hoje</button>}
+            <button onClick={() => shiftDay(1)} style={{ padding: '10px 12px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', transition: 'all 100ms' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>→</button>
+          </div>
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
         </>}
       />

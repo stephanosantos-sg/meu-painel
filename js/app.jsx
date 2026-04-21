@@ -243,7 +243,7 @@ function App() {
         {/* Mobile bottom nav */}
         <div className="mobile-nav">
           {[
-            { id: 'today', icon: '☀︎', label: 'Hoje' },
+            { id: 'today', icon: '☀︎', label: 'Home' },
             { id: 'habits', icon: '✦', label: 'Hábitos' },
             { id: 'goals', icon: '◎', label: 'Objetivos' },
             { id: 'charts', icon: '◉', label: 'Gráficos' },
