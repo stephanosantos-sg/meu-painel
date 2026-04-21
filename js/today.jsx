@@ -696,8 +696,12 @@ function TaskItem({ task, dateCtx, catMap }) {
   const hasSlots = t.times && t.times.length > 0;
 
   function onMainClick(e) {
-    if (hasSlots) return;
-    toggleTask(t.id, dateCtx);
+    window._editTask && window._editTask(t);
+  }
+
+  function onCheckClick(e) {
+    e.stopPropagation();
+    if (!hasSlots) toggleTask(t.id, dateCtx);
   }
 
   const [hovered, setHovered] = React.useState(false);
@@ -706,9 +710,9 @@ function TaskItem({ task, dateCtx, catMap }) {
     <div className={`task-item ${done ? 'done' : ''}`}
       onClick={onMainClick}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ cursor: hasSlots ? 'default' : 'pointer' }}>
+      style={{ cursor: 'pointer' }}>
       {!hasSlots && (
-        <div className={`check ${done ? 'checked' : ''}`} style={{ width: 22, height: 22, fontSize: 11, flexShrink: 0 }}>
+        <div className={`check ${done ? 'checked' : ''}`} onClick={onCheckClick} style={{ width: 22, height: 22, fontSize: 11, flexShrink: 0, cursor: 'pointer' }}>
           {done && '✓'}
         </div>
       )}
