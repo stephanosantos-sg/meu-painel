@@ -680,9 +680,14 @@ function MonthViewInline({ baseDate, tasks, catMap, fetchCalendarRange, calendar
 /* ── TaskItem — with working subtask toggles and bigger click targets ── */
 function TaskItem({ task, dateCtx, catMap }) {
   const { toggleTask, toggleSlot, toggleSubtask, deleteTask } = useData();
-  const [subsOpen, setSubsOpen] = React.useState(false);
-  const [slotsOpen, setSlotsOpen] = React.useState(true);
   const t = task;
+  const collapseKey = `orbita_collapse_${t.id}`;
+  const saved = React.useMemo(() => { try { return JSON.parse(localStorage.getItem(collapseKey) || '{}'); } catch { return {}; } }, [t.id]);
+  const [subsOpen, setSubsOpen] = React.useState(saved.subs !== undefined ? saved.subs : false);
+  const [slotsOpen, setSlotsOpen] = React.useState(saved.slots !== undefined ? saved.slots : true);
+  function persistCollapse(slots, subs) { localStorage.setItem(collapseKey, JSON.stringify({ slots, subs })); }
+  function toggleSlots() { const v = !slotsOpen; setSlotsOpen(v); persistCollapse(v, subsOpen); }
+  function toggleSubs() { const v = !subsOpen; setSubsOpen(v); persistCollapse(slotsOpen, v); }
   const done = Orbita.isTaskDone(t, dateCtx);
   const cat = catMap[t.cat];
   const color = cat ? Orbita.resolveColor(cat.color) : null;
@@ -730,10 +735,10 @@ function TaskItem({ task, dateCtx, catMap }) {
         {/* Multi-slot times — collapsible */}
         {hasSlots && (
           <div style={{ marginTop: 6 }}>
-            <div onClick={e => { e.stopPropagation(); setSlotsOpen(o => !o); }}
+            <div onClick={e => { e.stopPropagation(); toggleSlots(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '3px 0', fontSize: 11, color: 'var(--ink-3)' }}>
               <span style={{ fontSize: 8, transition: 'transform 150ms', transform: slotsOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
-              <span>{t.times.filter(s => Orbita.isSlotDone(t, dateCtx, s.time)).length}/{t.times.length} horários</span>
+              <span>{t.times.filter(s => Orbita.isSlotDone(t, dateCtx, s.time)).length}/{t.times.length} subtarefas</span>
             </div>
             {slotsOpen && (
               <div className="task-slots" style={{ marginTop: 4 }}>
@@ -758,7 +763,7 @@ function TaskItem({ task, dateCtx, catMap }) {
         {/* Subtasks — collapsible */}
         {t.subtasks && t.subtasks.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <div onClick={e => { e.stopPropagation(); setSubsOpen(o => !o); }}
+            <div onClick={e => { e.stopPropagation(); toggleSubs(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '3px 0', fontSize: 11, color: 'var(--ink-3)' }}>
               <span style={{ fontSize: 8, transition: 'transform 150ms', transform: subsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
               <span>{t.subtasks.filter(s => s.done).length}/{t.subtasks.length} subtarefas</span>
