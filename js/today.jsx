@@ -1,7 +1,7 @@
 /* Orbita v2 — Screen: Hoje — with view tabs (Lista, Timeline, Kanban, Semana, Mês) */
 
 function ScreenToday({ onNewTask }) {
-  const { data, toggleTask, toggleSlot, toggleHabitDay, calendarEvents, calendarConnected, fetchCalendarEvents } = useData();
+  const { data, toggleTask, toggleSlot, toggleHabitDay, calendarEvents, calendarConnected, fetchCalendarEvents, fetchCalendarRange } = useData();
   const [view, setView] = React.useState('list');
   const [weekBase, setWeekBase] = React.useState(new Date());
   const [monthBase, setMonthBase] = React.useState(new Date());
@@ -246,13 +246,13 @@ function ScreenToday({ onNewTask }) {
         todayHabits={todayHabits} habitsDone={habitsDone} calendarEvents={calendarEvents} />}
 
       {/* Kanban view */}
-      {view === 'kanban' && <KanbanView tasks={todayTasks} cats={cats} catMap={catMap} today={today} />}
+      {view === 'kanban' && <KanbanView tasks={todayTasks} cats={cats} catMap={catMap} today={today} calendarEvents={calendarEvents} />}
 
       {/* Week view */}
-      {view === 'week' && <WeekViewInline baseDate={weekBase} tasks={tasks} catMap={catMap} />}
+      {view === 'week' && <WeekViewInline baseDate={weekBase} tasks={tasks} catMap={catMap} fetchCalendarRange={fetchCalendarRange} calendarConnected={calendarConnected} />}
 
       {/* Month view */}
-      {view === 'month' && <MonthViewInline baseDate={monthBase} tasks={tasks} catMap={catMap} />}
+      {view === 'month' && <MonthViewInline baseDate={monthBase} tasks={tasks} catMap={catMap} fetchCalendarRange={fetchCalendarRange} calendarConnected={calendarConnected} />}
 
     </>
   );
@@ -411,7 +411,7 @@ function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCo
 }
 
 /* ── Kanban view ── */
-function KanbanView({ tasks, cats, catMap, today }) {
+function KanbanView({ tasks, cats, catMap, today, calendarEvents }) {
   const { toggleTask } = useData();
   const groups = {};
   const noCat = { id: '_none', name: 'Sem categoria', icon: '📋', color: '#b066ff' };
@@ -428,6 +428,35 @@ function KanbanView({ tasks, cats, catMap, today }) {
 
   return (
     <div className="kanban" style={{ height: 'calc(100vh - 220px)' }}>
+      {calendarEvents && calendarEvents.length > 0 && (
+        <div className="kanban-col">
+          <div className="kanban-col-head" style={{ borderBottom: '1px solid #ffa83030' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: '#ffa830' }} />
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Eventos</span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{calendarEvents.length}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10, overflowY: 'auto' }}>
+            {calendarEvents.map(ev => {
+              const evColor = ev.color || '#ffa830';
+              const startTime = ev.allDay ? 'Dia inteiro' : new Date(ev.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+              const isPast = !ev.allDay && new Date(ev.end) < new Date();
+              return (
+                <div key={ev.id} className="kanban-card" style={{ cursor: ev.htmlLink ? 'pointer' : 'default', opacity: isPast ? 0.5 : 1, borderLeft: `3px solid ${evColor}` }}
+                  onClick={() => ev.htmlLink && window.open(ev.htmlLink, '_blank')}>
+                  <div style={{ fontSize: 12.5, fontWeight: 500 }}>{ev.title}</div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
+                    <span className="mono" style={{ fontSize: 10, color: evColor }}>{startTime}</span>
+                    {ev.location && <span style={{ fontSize: 9, color: 'var(--ink-3)' }}>📍</span>}
+                    {ev.htmlLink && <span style={{ fontSize: 9, color: 'var(--ink-4)', marginLeft: 'auto' }}>↗</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {cols.map(col => {
         const color = Orbita.resolveColor(col.cat.color);
         return (
@@ -470,7 +499,7 @@ function KanbanView({ tasks, cats, catMap, today }) {
 }
 
 /* ── Week view (inline) ── */
-function WeekViewInline({ baseDate, tasks, catMap }) {
+function WeekViewInline({ baseDate, tasks, catMap, fetchCalendarRange, calendarConnected }) {
   const { toggleTask } = useData();
   const today = Orbita.todayStr();
   const start = new Date(baseDate);
@@ -479,12 +508,28 @@ function WeekViewInline({ baseDate, tasks, catMap }) {
   for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); days.push(d); }
   const dayLabels = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
+  const [weekEvents, setWeekEvents] = React.useState([]);
+  React.useEffect(() => {
+    if (!calendarConnected || !fetchCalendarRange) return;
+    const startStr = Orbita.dateToStr(days[0]);
+    const endStr = Orbita.dateToStr(days[6]);
+    fetchCalendarRange(startStr, endStr).then(evs => setWeekEvents(evs || []));
+  }, [calendarConnected, baseDate.getTime()]);
+
+  function eventsForDay(ds) {
+    return weekEvents.filter(ev => {
+      const evDate = (ev.start || '').substring(0, 10);
+      return evDate === ds;
+    });
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, padding: '0 28px 40px' }}>
       {days.map((d, i) => {
         const ds = Orbita.dateToStr(d);
         const isToday = ds === today;
         const dayTasks = tasks.filter(t => Orbita.isTaskForDate(t, ds));
+        const dayEvents = eventsForDay(ds);
         return (
           <div key={i} className="panel" style={{
             padding: 14, minHeight: 200,
@@ -496,6 +541,19 @@ function WeekViewInline({ baseDate, tasks, catMap }) {
               <div style={{ fontSize: 20, fontWeight: isToday ? 700 : 400, color: isToday ? '#fff' : 'var(--ink-2)', fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>{d.getDate()}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {dayEvents.map(ev => {
+                const evColor = ev.color || '#ffa830';
+                const time = ev.allDay ? '' : new Date(ev.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div key={ev.id} onClick={() => ev.htmlLink && window.open(ev.htmlLink, '_blank')} style={{
+                    padding: '6px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                    borderLeft: `2px solid ${evColor}`, background: `${evColor}11`, color: 'var(--ink-1)',
+                  }}>
+                    {ev.title}
+                    {time && <div className="mono" style={{ fontSize: 9, color: evColor, marginTop: 2 }}>{time}</div>}
+                  </div>
+                );
+              })}
               {dayTasks.map(t => {
                 const done = Orbita.isTaskDone(t, ds);
                 const cat = catMap[t.cat];
@@ -512,7 +570,7 @@ function WeekViewInline({ baseDate, tasks, catMap }) {
                   </div>
                 );
               })}
-              {dayTasks.length === 0 && <div style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', padding: 8 }}>—</div>}
+              {dayTasks.length === 0 && dayEvents.length === 0 && <div style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', padding: 8 }}>—</div>}
             </div>
           </div>
         );
@@ -522,7 +580,7 @@ function WeekViewInline({ baseDate, tasks, catMap }) {
 }
 
 /* ── Month view (inline) ── */
-function MonthViewInline({ baseDate, tasks, catMap }) {
+function MonthViewInline({ baseDate, tasks, catMap, fetchCalendarRange, calendarConnected }) {
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const first = new Date(year, month, 1);
@@ -533,6 +591,18 @@ function MonthViewInline({ baseDate, tasks, catMap }) {
   const cells = [];
   for (let i = 0; i < startDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const [monthEvents, setMonthEvents] = React.useState([]);
+  React.useEffect(() => {
+    if (!calendarConnected || !fetchCalendarRange) return;
+    const startStr = `${year}-${String(month+1).padStart(2,'0')}-01`;
+    const endStr = `${year}-${String(month+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+    fetchCalendarRange(startStr, endStr).then(evs => setMonthEvents(evs || []));
+  }, [calendarConnected, year, month]);
+
+  function eventsForDay(ds) {
+    return monthEvents.filter(ev => (ev.start || '').substring(0, 10) === ds);
+  }
 
   return (
     <div className="panel" style={{ padding: 20, margin: '0 28px 40px' }}>
@@ -545,7 +615,8 @@ function MonthViewInline({ baseDate, tasks, catMap }) {
           const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
           const isToday = ds === today;
           const dayTasks = tasks.filter(t => Orbita.isTaskForDate(t, ds));
-          const doneCount = dayTasks.filter(t => Orbita.isTaskDone(t, ds)).length;
+          const dayEvents = eventsForDay(ds);
+          const allItems = [...dayEvents.map(ev => ({ type: 'ev', ev })), ...dayTasks.map(t => ({ type: 'task', t }))];
           return (
             <div key={i} style={{
               padding: '8px 4px', borderRadius: 8, textAlign: 'center', minHeight: 60,
@@ -553,19 +624,27 @@ function MonthViewInline({ baseDate, tasks, catMap }) {
               border: isToday ? '1px solid rgba(255,46,136,0.3)' : '1px solid transparent',
             }}>
               <div style={{ fontSize: 12, fontWeight: isToday ? 600 : 400, color: isToday ? '#fff' : 'var(--ink-2)' }}>{d}</div>
-              {dayTasks.length > 0 && (
+              {allItems.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 4, textAlign: 'left' }}>
-                  {dayTasks.slice(0, 3).map((t, j) => {
-                    const ct = catMap[t.cat];
+                  {allItems.slice(0, 3).map((item, j) => {
+                    if (item.type === 'ev') {
+                      const evColor = item.ev.color || '#ffa830';
+                      return (
+                        <div key={'ev'+j} style={{ fontSize: 8, lineHeight: 1.3, padding: '1px 3px', borderRadius: 3, borderLeft: `2px solid ${evColor}`, background: `${evColor}11`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.ev.title}
+                        </div>
+                      );
+                    }
+                    const ct = catMap[item.t.cat];
                     const clr = ct ? Orbita.resolveColor(ct.color) : 'var(--neon-c)';
-                    const dn = Orbita.isTaskDone(t, ds);
+                    const dn = Orbita.isTaskDone(item.t, ds);
                     return (
-                      <div key={j} style={{ fontSize: 8, lineHeight: 1.3, padding: '1px 3px', borderRadius: 3, borderLeft: `2px solid ${clr}`, background: `${clr}11`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: dn ? 0.4 : 1, textDecoration: dn ? 'line-through' : 'none' }}>
-                        {t.icon && <span style={{ marginRight: 1 }}>{t.icon}</span>}{t.text}
+                      <div key={'t'+j} style={{ fontSize: 8, lineHeight: 1.3, padding: '1px 3px', borderRadius: 3, borderLeft: `2px solid ${clr}`, background: `${clr}11`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: dn ? 0.4 : 1, textDecoration: dn ? 'line-through' : 'none' }}>
+                        {item.t.icon && <span style={{ marginRight: 1 }}>{item.t.icon}</span>}{item.t.text}
                       </div>
                     );
                   })}
-                  {dayTasks.length > 3 && <div className="mono" style={{ fontSize: 7, color: 'var(--ink-3)', textAlign: 'center' }}>+{dayTasks.length - 3} mais</div>}
+                  {allItems.length > 3 && <div className="mono" style={{ fontSize: 7, color: 'var(--ink-3)', textAlign: 'center' }}>+{allItems.length - 3} mais</div>}
                 </div>
               )}
             </div>

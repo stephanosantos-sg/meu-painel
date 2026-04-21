@@ -31,6 +31,11 @@ function DataProvider({ children }) {
     setCalendarEvents(events);
   }, []);
 
+  const fetchCalendarRange = useCallback(async (startStr, endStr) => {
+    if (!window.OrbitaCalendar || !window.OrbitaCalendar.isConnected()) return [];
+    return await window.OrbitaCalendar.fetchRangeEvents(startStr, endStr);
+  }, []);
+
   React.useEffect(() => {
     function onConnected() {
       setCalendarConnected(true);
@@ -288,7 +293,7 @@ function DataProvider({ children }) {
   }, []);
 
   const value = {
-    data, toasts, calendarEvents, calendarConnected, fetchCalendarEvents,
+    data, toasts, calendarEvents, calendarConnected, fetchCalendarEvents, fetchCalendarRange,
     toggleTask, toggleSlot, toggleHabitDay, toggleSubtask,
     saveTask, deleteTask,
     saveHabit, deleteHabit,

@@ -110,6 +110,47 @@ const OrbitaCalendar = (() => {
     }
   }
 
+  async function fetchRangeEvents(startDate, endDate) {
+    if (!_accessToken) return [];
+    const cacheKey = `${startDate}_${endDate}`;
+    const now = Date.now();
+    if (_eventsCache[cacheKey] && now - _lastFetch < CACHE_TTL) {
+      return _eventsCache[cacheKey];
+    }
+    const params = new URLSearchParams({
+      timeMin: new Date(startDate + 'T00:00:00').toISOString(),
+      timeMax: new Date(endDate + 'T23:59:59').toISOString(),
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '200',
+    });
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+        { headers: { Authorization: `Bearer ${_accessToken}` } }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      const events = (json.items || []).map(ev => ({
+        id: ev.id,
+        title: ev.summary || '(sem título)',
+        start: ev.start.dateTime || ev.start.date,
+        end: ev.end.dateTime || ev.end.date,
+        allDay: !ev.start.dateTime,
+        location: ev.location || null,
+        color: ev.colorId ? GCAL_COLORS[ev.colorId] : null,
+        htmlLink: ev.htmlLink,
+        status: ev.status,
+      })).filter(ev => ev.status !== 'cancelled');
+      _eventsCache[cacheKey] = events;
+      _lastFetch = now;
+      return events;
+    } catch (e) {
+      console.error('Google Calendar range fetch failed:', e);
+      return [];
+    }
+  }
+
   function clearCache() {
     _eventsCache = {};
     _lastFetch = 0;
@@ -134,6 +175,7 @@ const OrbitaCalendar = (() => {
     isConnected,
     fetchEvents,
     fetchWeekEvents,
+    fetchRangeEvents,
     clearCache,
     disconnect,
     GCAL_COLORS,
