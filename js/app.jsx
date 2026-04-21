@@ -219,6 +219,7 @@ function App() {
     media: () => <ScreenMedia />,
     shopping: () => <ScreenShopping />,
     notes: () => <ScreenNotes />,
+    history: () => <ScreenHistory />,
     charts: () => <ScreenCharts />,
   };
 

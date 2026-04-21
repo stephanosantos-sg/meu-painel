@@ -16,6 +16,7 @@ const NAV = [
     { id: 'notes', icon: '✎', label: 'Notas' },
   ]},
   { section: 'VOCÊ', items: [
+    { id: 'history', icon: '▤', label: 'Histórico' },
     { id: 'charts', icon: '◉', label: 'Gráficos' },
     { id: 'profile', icon: '★', label: 'Perfil' },
   ]},
@@ -45,7 +46,7 @@ function Sidebar({ active, setActive, className }) {
   return (
     <aside className={`sidebar ${className || ''}`}>
       <div className="sidebar-top">
-        <div className="sidebar-logo">
+        <div className="sidebar-logo" onClick={() => setActive('today')} style={{ cursor: 'pointer' }}>
           <OrbLogo size={26} />
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em' }}>Orbita</div>
