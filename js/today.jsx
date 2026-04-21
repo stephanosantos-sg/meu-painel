@@ -722,6 +722,27 @@ function TaskItem({ task, dateCtx, catMap }) {
           {cat && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: color + '22', color: color }}>{cat.icon} {cat.name}</span>}
           {t.freq !== 'pontual' && <span className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{t.freq}</span>}
           {t.dateEnd && <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>até {Orbita.fmtDate(t.dateEnd)}</span>}
+          {t.dateEnd && t.date && (() => {
+            const start = new Date(t.date + 'T00:00:00').getTime();
+            const end = new Date(t.dateEnd + 'T23:59:59').getTime();
+            const now = Date.now();
+            const total = end - start;
+            const elapsed = Math.min(now - start, total);
+            const pctTime = total > 0 ? Math.max(0, Math.min(100, Math.round(elapsed / total * 100))) : 100;
+            const overdue = now > end;
+            const daysLeft = Math.max(0, Math.ceil((end - now) / 86400000));
+            const barColor = overdue ? '#ff5555' : pctTime > 75 ? '#ffa830' : 'var(--neon-a)';
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 120px' }}>
+                <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  <div style={{ width: `${pctTime}%`, height: '100%', borderRadius: 2, background: barColor, transition: 'width 300ms' }} />
+                </div>
+                <span className="mono" style={{ fontSize: 9, color: barColor, whiteSpace: 'nowrap' }}>
+                  {overdue ? 'atrasada' : `${daysLeft}d`}
+                </span>
+              </div>
+            );
+          })()}
           <span style={{ marginLeft: 'auto', display: 'flex', gap: 4, opacity: hovered ? 1 : 0, transition: 'opacity 150ms' }}>
             <button onClick={e => { e.stopPropagation(); window._editTask && window._editTask(t); }}
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line)', borderRadius: 5, color: 'var(--ink-3)', cursor: 'pointer', fontSize: 10, padding: '2px 6px', transition: 'all 100ms' }}
