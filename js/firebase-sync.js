@@ -33,15 +33,51 @@ function initFirebase() {
   });
 }
 
-async function signInWithGoogle() {
+async function signInWithGoogle(requestCalendar) {
   initFirebase();
   const provider = new firebase.auth.GoogleAuthProvider();
+  if (requestCalendar || localStorage.getItem('orbita_gcalConnected')) {
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  }
   try {
-    await _auth.signInWithPopup(provider);
+    const result = await _auth.signInWithPopup(provider);
+    const credential = result.credential;
+    if (credential && credential.accessToken && window.OrbitaCalendar) {
+      window.OrbitaCalendar.setAccessToken(credential.accessToken);
+      if (requestCalendar) localStorage.setItem('orbita_gcalConnected', '1');
+      window.dispatchEvent(new CustomEvent('orbita:calendarConnected'));
+    }
   } catch (e) {
     console.error('Google sign-in failed:', e);
     alert('Erro no login: ' + e.message);
   }
+}
+
+async function connectGoogleCalendar() {
+  initFirebase();
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  try {
+    const result = await _auth.currentUser.linkWithPopup(provider);
+    const credential = result.credential;
+    if (credential && credential.accessToken && window.OrbitaCalendar) {
+      window.OrbitaCalendar.setAccessToken(credential.accessToken);
+      localStorage.setItem('orbita_gcalConnected', '1');
+      window.dispatchEvent(new CustomEvent('orbita:calendarConnected'));
+    }
+  } catch (e) {
+    if (e.code === 'auth/credential-already-in-use' || e.code === 'auth/provider-already-linked') {
+      await signInWithGoogle(true);
+    } else {
+      console.error('Calendar connect failed:', e);
+      alert('Erro ao conectar Google Calendar: ' + e.message);
+    }
+  }
+}
+
+function disconnectGoogleCalendar() {
+  if (window.OrbitaCalendar) window.OrbitaCalendar.disconnect();
+  window.dispatchEvent(new CustomEvent('orbita:calendarDisconnected'));
 }
 
 async function signInWithEmail(email, password) {
@@ -162,4 +198,6 @@ window.OrbitaFirebase = {
   pushToCloud,
   pullFromCloud,
   scheduleSyncFirebase,
+  connectGoogleCalendar,
+  disconnectGoogleCalendar,
 };

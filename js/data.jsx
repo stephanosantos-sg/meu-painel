@@ -10,6 +10,10 @@ function DataProvider({ children }) {
     return d || Orbita.defaultData();
   });
   const [toasts, setToasts] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarConnected, setCalendarConnected] = useState(
+    () => !!localStorage.getItem('orbita_gcalConnected') && window.OrbitaCalendar && window.OrbitaCalendar.isConnected()
+  );
   const dataRef = useRef(data);
   dataRef.current = data;
 
@@ -19,6 +23,38 @@ function DataProvider({ children }) {
     }
     window.addEventListener('orbita:dataPulled', onPull);
     return () => window.removeEventListener('orbita:dataPulled', onPull);
+  }, []);
+
+  const fetchCalendarEvents = useCallback(async (dateStr) => {
+    if (!window.OrbitaCalendar || !window.OrbitaCalendar.isConnected()) return;
+    const events = await window.OrbitaCalendar.fetchEvents(dateStr);
+    setCalendarEvents(events);
+  }, []);
+
+  React.useEffect(() => {
+    function onConnected() {
+      setCalendarConnected(true);
+      fetchCalendarEvents(Orbita.todayStr());
+    }
+    function onDisconnected() {
+      setCalendarConnected(false);
+      setCalendarEvents([]);
+    }
+    function onExpired() {
+      setCalendarConnected(false);
+      setCalendarEvents([]);
+    }
+    window.addEventListener('orbita:calendarConnected', onConnected);
+    window.addEventListener('orbita:calendarDisconnected', onDisconnected);
+    window.addEventListener('orbita:calendarTokenExpired', onExpired);
+    if (window.OrbitaCalendar && window.OrbitaCalendar.isConnected()) {
+      fetchCalendarEvents(Orbita.todayStr());
+    }
+    return () => {
+      window.removeEventListener('orbita:calendarConnected', onConnected);
+      window.removeEventListener('orbita:calendarDisconnected', onDisconnected);
+      window.removeEventListener('orbita:calendarTokenExpired', onExpired);
+    };
   }, []);
 
   const historyRef = useRef({ past: [], future: [] });
@@ -252,7 +288,7 @@ function DataProvider({ children }) {
   }, []);
 
   const value = {
-    data, toasts,
+    data, toasts, calendarEvents, calendarConnected, fetchCalendarEvents,
     toggleTask, toggleSlot, toggleHabitDay, toggleSubtask,
     saveTask, deleteTask,
     saveHabit, deleteHabit,

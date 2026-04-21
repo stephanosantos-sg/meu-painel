@@ -1,7 +1,7 @@
 /* Orbita v2 — Screen: Hoje — with view tabs (Lista, Timeline, Kanban, Semana, Mês) */
 
 function ScreenToday({ onNewTask }) {
-  const { data, toggleTask, toggleSlot, toggleHabitDay } = useData();
+  const { data, toggleTask, toggleSlot, toggleHabitDay, calendarEvents, calendarConnected, fetchCalendarEvents } = useData();
   const [view, setView] = React.useState('list');
   const [weekBase, setWeekBase] = React.useState(new Date());
   const [monthBase, setMonthBase] = React.useState(new Date());
@@ -28,13 +28,12 @@ function ScreenToday({ onNewTask }) {
   const allTodayTasks = tasks.filter(t => Orbita.isTaskForDate(t, today));
   const catFiltered = filterCat === 'all' ? allTodayTasks : allTodayTasks.filter(t => t.cat === filterCat);
   const todayTasks = catFiltered.filter(t => {
-    const hasTime = t.time || (t.times && t.times.length > 0);
     if (t.freq === 'pontual' && !filterTypes.pontual) return false;
     if (t.freq !== 'pontual' && !filterTypes.recorrente) return false;
-    if (hasTime && !filterTypes.evento) return false;
     return true;
   });
   const showHabitsInList = filterTypes.habito;
+  const showCalendarEvents = filterTypes.evento;
   const overdueTasks = tasks.filter(t => {
     if (t.done || !t.date || t.date >= today) return false;
     if (t.freq !== 'pontual') return false;
@@ -221,6 +220,9 @@ function ScreenToday({ onNewTask }) {
                 </div>
               </div>
             )}
+            {showCalendarEvents && (
+              <CalendarEventsPanel events={calendarEvents} connected={calendarConnected} />
+            )}
           </div>
           <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
             todayHabits={todayHabits} habitsDone={habitsDone} today={today} />
@@ -230,7 +232,7 @@ function ScreenToday({ onNewTask }) {
       {/* Timeline view */}
       {view === 'timeline' && <TimelineView tasks={tasks} catMap={catMap} today={today} nowH={h + now.getMinutes()/60}
         xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
-        todayHabits={todayHabits} habitsDone={habitsDone} />}
+        todayHabits={todayHabits} habitsDone={habitsDone} calendarEvents={calendarEvents} />}
 
       {/* Kanban view */}
       {view === 'kanban' && <KanbanView tasks={todayTasks} cats={cats} catMap={catMap} today={today} />}
@@ -297,7 +299,7 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
 }
 
 /* ── Timeline view ── */
-function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone }) {
+function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, calendarEvents }) {
   const { toggleTask, toggleSlot } = useData();
   const timedItems = [];
   todayTasks.forEach(t => {
@@ -307,6 +309,12 @@ function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCo
       timedItems.push({ task: t, time: t.time, type: 'single' });
     }
   });
+  (calendarEvents || []).forEach(ev => {
+    if (ev.allDay) return;
+    const d = new Date(ev.start);
+    const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    timedItems.push({ calEvent: ev, time, label: ev.title, type: 'gcal', color: ev.color || '#ffa830' });
+  });
   timedItems.sort((a, b) => a.time.localeCompare(b.time));
 
   // Group by hour
@@ -314,10 +322,15 @@ function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCo
   timedItems.forEach(item => {
     const hr = item.time.split(':')[0];
     if (!byHour[hr]) byHour[hr] = [];
-    const done = item.type === 'slot' ? Orbita.isSlotDone(item.task, today, item.time) : Orbita.isTaskDone(item.task, today);
-    const cat = catMap[item.task.cat];
-    const color = cat ? Orbita.resolveColor(cat.color) : '#b066ff';
-    byHour[hr].push({ ...item, done, color });
+    if (item.type === 'gcal') {
+      const isPast = item.calEvent && new Date(item.calEvent.end) < new Date();
+      byHour[hr].push({ ...item, done: isPast, color: item.color });
+    } else {
+      const done = item.type === 'slot' ? Orbita.isSlotDone(item.task, today, item.time) : Orbita.isTaskDone(item.task, today);
+      const cat = catMap[item.task.cat];
+      const color = cat ? Orbita.resolveColor(cat.color) : '#b066ff';
+      byHour[hr].push({ ...item, done, color });
+    }
   });
 
   const nowHour = Math.floor(nowH);
@@ -350,19 +363,27 @@ function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCo
                     </div>
                   )}
                   {items.map((e, i) => (
-                    <div key={i} onClick={() => e.slotTime ? toggleSlot(e.task.id, today, e.slotTime) : toggleTask(e.task.id, today)}
+                    <div key={i} onClick={() => {
+                      if (e.type === 'gcal') { if (e.calEvent.htmlLink) window.open(e.calEvent.htmlLink, '_blank'); }
+                      else if (e.type === 'slot') toggleSlot(e.task.id, today, e.time);
+                      else toggleTask(e.task.id, today);
+                    }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
                         borderLeft: `3px solid ${e.color}`, background: `linear-gradient(90deg, ${e.color}11, transparent)`,
                         opacity: e.done ? 0.5 : 1, transition: 'all 140ms',
                       }}>
-                      <div className={`check ${e.done ? 'checked' : ''}`} style={{ width: 18, height: 18, fontSize: 9 }}>{e.done && '✓'}</div>
-                      {e.task.icon && <span style={{ fontSize: 14 }}>{e.task.icon}</span>}
+                      {e.type === 'gcal'
+                        ? <span style={{ fontSize: 14 }}>📅</span>
+                        : <div className={`check ${e.done ? 'checked' : ''}`} style={{ width: 18, height: 18, fontSize: 9 }}>{e.done && '✓'}</div>
+                      }
+                      {e.type !== 'gcal' && e.task.icon && <span style={{ fontSize: 14 }}>{e.task.icon}</span>}
                       <span style={{ flex: 1, fontSize: 13, fontWeight: 500, textDecoration: e.done ? 'line-through' : 'none', color: e.done ? 'var(--ink-3)' : 'var(--ink-1)' }}>
-                        {e.label || e.task.text}
+                        {e.label || (e.task && e.task.text) || ''}
                       </span>
                       <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{e.time}</span>
-                      <span className="mono" style={{ fontSize: 10, color: e.done ? 'var(--ink-4)' : e.color }}>+5</span>
+                      {e.type !== 'gcal' && <span className="mono" style={{ fontSize: 10, color: e.done ? 'var(--ink-4)' : e.color }}>+5</span>}
+                      {e.type === 'gcal' && <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>↗</span>}
                     </div>
                   ))}
                 </div>
@@ -547,6 +568,8 @@ function MonthViewInline({ baseDate, tasks, catMap }) {
 /* ── TaskItem — with working subtask toggles and bigger click targets ── */
 function TaskItem({ task, dateCtx, catMap }) {
   const { toggleTask, toggleSlot, toggleSubtask, deleteTask } = useData();
+  const [subsOpen, setSubsOpen] = React.useState(false);
+  const [slotsOpen, setSlotsOpen] = React.useState(true);
   const t = task;
   const done = Orbita.isTaskDone(t, dateCtx);
   const cat = catMap[t.cat];
@@ -582,38 +605,56 @@ function TaskItem({ task, dateCtx, catMap }) {
             style={{ background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.2)', borderRadius: 5, color: '#ff5555', cursor: 'pointer', fontSize: 10, padding: '2px 6px', marginLeft: 'auto', transition: 'all 100ms' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.2)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,85,85,0.08)'; }}>✕</button>
         </div>
-        {/* Multi-slot times */}
+        {/* Multi-slot times — collapsible */}
         {hasSlots && (
-          <div className="task-slots">
-            {t.times.map(s => {
-              const slotDone = Orbita.isSlotDone(t, dateCtx, s.time);
-              return (
-                <div key={s.time} className={`task-slot ${slotDone ? 'done' : ''}`}
-                  onClick={e => { e.stopPropagation(); toggleSlot(t.id, dateCtx, s.time); }}
-                  style={{ cursor: 'pointer', padding: '6px 10px', borderRadius: 8, background: slotDone ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)', transition: 'all 140ms' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-                  onMouseLeave={e => e.currentTarget.style.background = slotDone ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'}>
-                  <div className={`check ${slotDone ? 'checked' : ''}`} style={{ width: 16, height: 16, fontSize: 8 }}>{slotDone && '✓'}</div>
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{s.time}</span>
-                  <span style={{ fontSize: 12.5, textDecoration: slotDone ? 'line-through' : 'none', color: slotDone ? 'var(--ink-3)' : 'var(--ink-1)' }}>{s.label || t.text}</span>
-                </div>
-              );
-            })}
+          <div style={{ marginTop: 6 }}>
+            <div onClick={e => { e.stopPropagation(); setSlotsOpen(o => !o); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '3px 0', fontSize: 11, color: 'var(--ink-3)' }}>
+              <span style={{ fontSize: 8, transition: 'transform 150ms', transform: slotsOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
+              <span>{t.times.filter(s => Orbita.isSlotDone(t, dateCtx, s.time)).length}/{t.times.length} horários</span>
+            </div>
+            {slotsOpen && (
+              <div className="task-slots" style={{ marginTop: 4 }}>
+                {t.times.map(s => {
+                  const slotDone = Orbita.isSlotDone(t, dateCtx, s.time);
+                  return (
+                    <div key={s.time} className={`task-slot ${slotDone ? 'done' : ''}`}
+                      onClick={e => { e.stopPropagation(); toggleSlot(t.id, dateCtx, s.time); }}
+                      style={{ cursor: 'pointer', padding: '6px 10px', borderRadius: 8, background: slotDone ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)', transition: 'all 140ms' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+                      onMouseLeave={e => e.currentTarget.style.background = slotDone ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'}>
+                      <div className={`check ${slotDone ? 'checked' : ''}`} style={{ width: 16, height: 16, fontSize: 8 }}>{slotDone && '✓'}</div>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{s.time}</span>
+                      <span style={{ fontSize: 12.5, textDecoration: slotDone ? 'line-through' : 'none', color: slotDone ? 'var(--ink-3)' : 'var(--ink-1)' }}>{s.label || t.text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
-        {/* Subtasks — clickable! */}
+        {/* Subtasks — collapsible */}
         {t.subtasks && t.subtasks.length > 0 && (
-          <div className="subtask-list" style={{ marginTop: 8 }}>
-            {t.subtasks.map((s, i) => (
-              <div key={i} className="subtask-item"
-                onClick={e => { e.stopPropagation(); toggleSubtask(t.id, i); }}
-                style={{ cursor: 'pointer', padding: '4px 6px', borderRadius: 6, transition: 'background 100ms' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <div className={`check ${s.done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7 }}>{s.done && '✓'}</div>
-                <span style={{ textDecoration: s.done ? 'line-through' : 'none', color: s.done ? 'var(--ink-3)' : 'var(--ink-2)' }}>{s.text}</span>
+          <div style={{ marginTop: 8 }}>
+            <div onClick={e => { e.stopPropagation(); setSubsOpen(o => !o); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '3px 0', fontSize: 11, color: 'var(--ink-3)' }}>
+              <span style={{ fontSize: 8, transition: 'transform 150ms', transform: subsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+              <span>{t.subtasks.filter(s => s.done).length}/{t.subtasks.length} subtarefas</span>
+            </div>
+            {subsOpen && (
+              <div className="subtask-list" style={{ marginTop: 4 }}>
+                {t.subtasks.map((s, i) => (
+                  <div key={i} className="subtask-item"
+                    onClick={e => { e.stopPropagation(); toggleSubtask(t.id, i); }}
+                    style={{ cursor: 'pointer', padding: '4px 6px', borderRadius: 6, transition: 'background 100ms' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <div className={`check ${s.done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7 }}>{s.done && '✓'}</div>
+                    <span style={{ textDecoration: s.done ? 'line-through' : 'none', color: s.done ? 'var(--ink-3)' : 'var(--ink-2)' }}>{s.text}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -727,5 +768,87 @@ function UpcomingHolidays() {
   );
 }
 
+/* ── Calendar Events Panel (Google Calendar) ── */
+function CalendarEventsPanel({ events, connected }) {
+  if (!connected) {
+    return (
+      <div className="panel" style={{ padding: 20, textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 10 }}>📅</div>
+        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Google Calendar</div>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 14, lineHeight: 1.5 }}>
+          Conecte seu Google Calendar para ver seus eventos aqui.
+        </div>
+        <button className="btn btn-primary" style={{ padding: '10px 20px', fontSize: 13 }}
+          onClick={() => {
+            if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
+              window.OrbitaFirebase.connectGoogleCalendar();
+            } else {
+              window.OrbitaFirebase.signInWithGoogle(true);
+            }
+          }}>
+          Conectar Google Calendar
+        </button>
+      </div>
+    );
+  }
+
+  if (events.length === 0) {
+    return (
+      <div className="panel" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div className="eyebrow">Eventos · Google Calendar</div>
+          <button className="btn-ghost small" onClick={() => window.OrbitaFirebase.disconnectGoogleCalendar()}
+            style={{ fontSize: 9, color: 'var(--ink-4)' }}>desconectar</button>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--ink-3)', padding: '12px 0', textAlign: 'center' }}>
+          Nenhum evento para hoje
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel" style={{ padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="eyebrow">Eventos · {events.length}</div>
+        <button className="btn-ghost small" onClick={() => window.OrbitaFirebase.disconnectGoogleCalendar()}
+          style={{ fontSize: 9, color: 'var(--ink-4)' }}>desconectar</button>
+      </div>
+      <div className="task-list">
+        {events.map(ev => {
+          const evColor = ev.color || '#ffa830';
+          const startTime = ev.allDay ? 'Dia inteiro' : new Date(ev.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          const endTime = !ev.allDay ? new Date(ev.end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+          const isPast = !ev.allDay && new Date(ev.end) < new Date();
+          return (
+            <div key={ev.id} className="task-item" style={{
+              cursor: ev.htmlLink ? 'pointer' : 'default',
+              opacity: isPast ? 0.5 : 1,
+              borderLeft: `3px solid ${evColor}`,
+              paddingLeft: 12,
+            }}
+            onClick={() => ev.htmlLink && window.open(ev.htmlLink, '_blank')}>
+              <div style={{ flex: 1 }}>
+                <div className="task-text" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 14 }}>📅</span>
+                  {ev.title}
+                </div>
+                <div className="task-meta">
+                  <span className="mono" style={{ fontSize: 10, color: evColor }}>
+                    {startTime}{endTime ? ` — ${endTime}` : ''}
+                  </span>
+                  {ev.location && <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>📍 {ev.location}</span>}
+                </div>
+              </div>
+              {ev.htmlLink && <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>↗</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 window.ScreenToday = ScreenToday;
 window.TaskItem = TaskItem;
+window.CalendarEventsPanel = CalendarEventsPanel;
