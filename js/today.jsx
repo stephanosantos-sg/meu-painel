@@ -13,7 +13,7 @@ function ScreenToday({ onNewTask }) {
     window.addEventListener('orbita:filterCat', onFilterCat);
     return () => window.removeEventListener('orbita:filterCat', onFilterCat);
   }, []);
-  const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true });
+  const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true, feitas: false });
   const today = Orbita.todayStr();
   const now = new Date();
   const h = now.getHours();
@@ -63,7 +63,7 @@ function ScreenToday({ onNewTask }) {
       <TopBar title={`${greet}, Stephano.`} subtitle={fmt}
         actions={<>
           <button className="btn-ghost" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
-            🍅 Pomodoro
+            ◉ Pomodoro
           </button>
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
         </>}
@@ -101,6 +101,7 @@ function ScreenToday({ onNewTask }) {
           { key: 'recorrente', label: 'Recorrentes', color: '#5b8dff' },
           { key: 'evento', label: 'Eventos', color: '#ffa830' },
           { key: 'habito', label: 'Hábitos', color: '#3ccf91' },
+          { key: 'feitas', label: 'Feitas', color: '#888' },
         ].map(f => {
           const on = filterTypes[f.key];
           return (
@@ -153,6 +154,7 @@ function ScreenToday({ onNewTask }) {
               </div>
             )}
             {(() => {
+              const showDone = filterTypes.feitas;
               const pending = todayTasks.filter(t => !Orbita.isTaskDone(t, today));
               const done = todayTasks.filter(t => Orbita.isTaskDone(t, today));
               const sortByTime = (a, b) => {
@@ -161,39 +163,48 @@ function ScreenToday({ onNewTask }) {
                 return aT !== bT ? aT.localeCompare(bT) : (a.prio || 4) - (b.prio || 4);
               };
               return <>
-                {pending.length > 0 && (
+                {showDone ? (
                   <div className="panel">
-                    <div className="eyebrow" style={{ marginBottom: 12 }}>Pendentes · {pending.length}</div>
+                    <div className="eyebrow" style={{ marginBottom: 12 }}>Todas · {todayTasks.length} ({done.length} feitas)</div>
                     <div className="task-list">
-                      {pending.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
+                      {todayTasks.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
                     </div>
                   </div>
-                )}
-                {pending.length === 0 && todayTasks.length > 0 && (
-                  <div className="panel" style={{ textAlign: 'center', padding: '24px', background: 'rgba(48,209,88,0.06)', border: '1px solid rgba(48,209,88,0.15)' }}>
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
-                    <div style={{ fontSize: 15, fontWeight: 500, color: '#30d158' }}>Tudo feito por hoje!</div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{doneTodayCount} tarefas concluídas</div>
-                  </div>
-                )}
-                {pending.length === 0 && todayTasks.length === 0 && (
-                  <div className="panel" style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)' }}>
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
-                    <div style={{ fontSize: 13 }}>Nenhuma tarefa neste filtro</div>
-                  </div>
-                )}
-                {done.length > 0 && (
-                  <details style={{ marginTop: 4 }}>
-                    <summary style={{ cursor: 'pointer', padding: '8px 0', fontSize: 12, color: 'var(--ink-3)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 10 }}>▸</span> Feitos hoje · {done.length}
-                    </summary>
-                    <div className="panel" style={{ marginTop: 4, opacity: 0.6 }}>
+                ) : (<>
+                  {pending.length > 0 && (
+                    <div className="panel">
+                      <div className="eyebrow" style={{ marginBottom: 12 }}>Pendentes · {pending.length}</div>
                       <div className="task-list">
-                        {done.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
+                        {pending.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
                       </div>
                     </div>
-                  </details>
-                )}
+                  )}
+                  {pending.length === 0 && todayTasks.length > 0 && (
+                    <div className="panel" style={{ textAlign: 'center', padding: '24px', background: 'rgba(48,209,88,0.06)', border: '1px solid rgba(48,209,88,0.15)' }}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: '#30d158' }}>Tudo feito por hoje!</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{doneTodayCount} tarefas concluídas</div>
+                    </div>
+                  )}
+                  {pending.length === 0 && todayTasks.length === 0 && (
+                    <div className="panel" style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)' }}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
+                      <div style={{ fontSize: 13 }}>Nenhuma tarefa neste filtro</div>
+                    </div>
+                  )}
+                  {done.length > 0 && (
+                    <details style={{ marginTop: 4 }}>
+                      <summary style={{ cursor: 'pointer', padding: '8px 0', fontSize: 12, color: 'var(--ink-3)', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 10 }}>▸</span> Feitos hoje · {done.length}
+                      </summary>
+                      <div className="panel" style={{ marginTop: 4, opacity: 0.6 }}>
+                        <div className="task-list">
+                          {done.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
+                        </div>
+                      </div>
+                    </details>
+                  )}
+                </>)}
               </>;
             })()}
             {showHabitsInList && todayHabits.length > 0 && (

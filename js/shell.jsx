@@ -203,6 +203,40 @@ function SyncStatus() {
   );
 }
 
+function TopBarCalendarBtn() {
+  const { calendarConnected } = useData();
+  const [connected, setConnected] = React.useState(calendarConnected);
+  React.useEffect(() => {
+    const onC = () => setConnected(true);
+    const onD = () => setConnected(false);
+    window.addEventListener('orbita:calendarConnected', onC);
+    window.addEventListener('orbita:calendarDisconnected', onD);
+    return () => { window.removeEventListener('orbita:calendarConnected', onC); window.removeEventListener('orbita:calendarDisconnected', onD); };
+  }, []);
+  function handleClick() {
+    if (connected) {
+      if (confirm('Desconectar Google Calendar?')) window.OrbitaFirebase.disconnectGoogleCalendar();
+    } else {
+      if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
+        window.OrbitaFirebase.connectGoogleCalendar();
+      } else {
+        window.OrbitaFirebase.signInWithGoogle(true);
+      }
+    }
+  }
+  return (
+    <button onClick={handleClick} title={connected ? 'Google Calendar conectado' : 'Conectar Google Calendar'}
+      style={{
+        width: 36, height: 36, display: 'grid', placeItems: 'center', position: 'relative',
+        background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10,
+        color: connected ? '#30d158' : 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms',
+      }}>
+      ⏻
+      {connected && <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#30d158' }} />}
+    </button>
+  );
+}
+
 function TopBar({ title, subtitle, actions }) {
   const [now, setNow] = React.useState(new Date());
   React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
@@ -216,8 +250,9 @@ function TopBar({ title, subtitle, actions }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div className="mono" style={{ fontSize: 12, color: 'var(--ink-2)', padding: '8px 12px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10 }}>{time}</div>
-        <button onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }}>⌕</button>
-        <button onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }}>⚙</button>
+        <button onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }} title="Buscar">⌕</button>
+        <button onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }} title="Temas">◐</button>
+        <TopBarCalendarBtn />
         {actions}
       </div>
     </div>
@@ -242,7 +277,7 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
   const items = [
     { icon: '＋', label: 'Nova tarefa', hint: 'N', cat: 'Ação', action: () => { setShowTaskModal(true); setOpen(false); } },
     { icon: '✦', label: 'Novo hábito', hint: 'H', cat: 'Ação', action: () => { setShowHabitModal(true); setOpen(false); } },
-    { icon: '🍅', label: 'Pomodoro', hint: 'P', cat: 'Ação', action: () => { window._startPomo && window._startPomo(); setOpen(false); } },
+    { icon: '◉', label: 'Pomodoro', hint: 'P', cat: 'Ação', action: () => { window._startPomo && window._startPomo(); setOpen(false); } },
     { icon: '⚙', label: 'Temas', hint: 'T', cat: 'Ação', action: () => { window._openThemes && window._openThemes(); setOpen(false); } },
     { icon: '☀︎', label: 'Hoje', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
     { icon: '✦', label: 'Hábitos', cat: 'Nav', action: () => { setActive('habits'); setOpen(false); } },

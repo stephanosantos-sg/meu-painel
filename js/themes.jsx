@@ -109,17 +109,8 @@ function mixColors(c1, c2) {
 }
 
 function ThemePicker({ onClose }) {
-  const { data, commit, calendarConnected } = useData();
+  const { data, commit } = useData();
   const current = data._theme || 'default';
-  const [gcalStatus, setGcalStatus] = React.useState(calendarConnected ? 'connected' : 'disconnected');
-
-  React.useEffect(() => {
-    function onConn() { setGcalStatus('connected'); }
-    function onDisc() { setGcalStatus('disconnected'); }
-    window.addEventListener('orbita:calendarConnected', onConn);
-    window.addEventListener('orbita:calendarDisconnected', onDisc);
-    return () => { window.removeEventListener('orbita:calendarConnected', onConn); window.removeEventListener('orbita:calendarDisconnected', onDisc); };
-  }, []);
 
   function selectTheme(id) {
     applyTheme(id);
@@ -130,37 +121,10 @@ function ThemePicker({ onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(680px, 92vw)', maxHeight: '85vh' }}>
         <div className="modal-header">
-          <h2>Configurações</h2>
+          <h2>Temas</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <div style={{ padding: '16px 24px 12px' }}>
-          <div className="panel" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: gcalStatus === 'connected' ? 'rgba(48,209,88,0.12)' : 'rgba(255,168,48,0.12)', display: 'grid', placeItems: 'center', fontSize: 20, flexShrink: 0 }}>📅</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Google Calendar</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
-                {gcalStatus === 'connected' ? 'Eventos aparecem em Hoje → Eventos' : 'Veja seus eventos do Google Calendar no Orbita'}
-              </div>
-            </div>
-            {gcalStatus === 'connected' ? (
-              <button className="btn-ghost small" onClick={() => window.OrbitaFirebase.disconnectGoogleCalendar()}
-                style={{ fontSize: 11, color: '#ff5555' }}>Desconectar</button>
-            ) : (
-              <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12 }}
-                onClick={() => {
-                  if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
-                    window.OrbitaFirebase.connectGoogleCalendar();
-                  } else {
-                    window.OrbitaFirebase.signInWithGoogle(true);
-                  }
-                }}>Conectar</button>
-            )}
-          </div>
-        </div>
-        <div style={{ padding: '4px 24px 8px' }}>
-          <div className="eyebrow">Temas</div>
-        </div>
-        <div style={{ padding: '8px 24px 24px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, overflowY: 'auto', maxHeight: '60vh' }}>
+        <div style={{ padding: '20px 24px 24px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, overflowY: 'auto', maxHeight: '70vh' }}>
           {THEMES.map(theme => {
             const active = current === theme.id;
             const isLight = theme.id === 'porcelana' || theme.id === 'paper';
