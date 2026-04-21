@@ -146,7 +146,7 @@ function Pomodoro({ onClose }) {
       {!running && seconds === preset * 60 && (
         <div style={{ marginTop: 24, width: 280 }}>
           <input className="form-input" placeholder="No que vai focar? (opcional)" value={focusText}
-            onChange={e => setFocusText(e.target.value)} style={{ textAlign: 'center', fontSize: 13 }}
+            onChange={e => setFocusText(e.target.value)} style={{ textAlign: 'center', fontSize: 13, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
             onKeyDown={e => { if (e.key === 'Enter') setRunning(true); }} />
         </div>
       )}
