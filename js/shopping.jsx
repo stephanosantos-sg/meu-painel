@@ -75,6 +75,7 @@ function ScreenShopping() {
           </div>
         )}
         {lists.map(list => {
+          if (!list.items) list.items = [];
           const total = list.items.length;
           const done = list.items.filter(i => i.done).length;
           const totalPrice = list.items.reduce((s, i) => s + (i.price || 0), 0);
