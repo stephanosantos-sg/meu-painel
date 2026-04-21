@@ -36,6 +36,14 @@ function Pomodoro({ onClose }) {
     return () => { document.title = 'Orbita v2'; };
   }, [seconds, running]);
 
+  React.useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); setMini(true); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   function reset(mins) {
     clearInterval(intervalRef.current);
     setRunning(false);
@@ -47,6 +55,14 @@ function Pomodoro({ onClose }) {
   const s = seconds % 60;
   const pct = 1 - seconds / (preset * 60);
   const circumference = Math.PI * 2 * 42;
+  const cs = typeof getComputedStyle !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+  const neonA = cs ? cs.getPropertyValue('--neon-a').trim() || '#ff2e88' : '#ff2e88';
+  const neonB = cs ? cs.getPropertyValue('--neon-b').trim() || '#5b8dff' : '#5b8dff';
+  const bgColor = cs ? cs.getPropertyValue('--bg-0').trim() || '#08080c' : '#08080c';
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
 
   if (mini) {
     return (
@@ -54,7 +70,7 @@ function Pomodoro({ onClose }) {
         position: 'fixed', bottom: 20, right: 20, zIndex: 900,
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '10px 16px', borderRadius: 14,
-        background: 'rgba(14,14,20,0.95)', border: '1px solid var(--line-2)',
+        background: 'var(--glass-bg-strong, rgba(14,14,20,0.95))', border: '1px solid var(--glass-border)',
         backdropFilter: 'blur(20px)', boxShadow: 'var(--shadow-float)',
       }}>
         <span style={{ fontSize: 16 }}>🍅</span>
@@ -71,7 +87,8 @@ function Pomodoro({ onClose }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 900,
-      background: 'rgba(8,8,12,0.97)', backdropFilter: 'blur(40px)',
+      background: `radial-gradient(ellipse 500px 400px at 20% 80%, ${hexToRgba(neonA, 0.35)}, transparent), radial-gradient(ellipse 450px 350px at 80% 20%, ${hexToRgba(neonB, 0.25)}, transparent), ${bgColor}`,
+      backdropFilter: 'blur(40px)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       animation: 'fadeIn 200ms',
     }}>
@@ -85,14 +102,14 @@ function Pomodoro({ onClose }) {
 
       <div style={{ position: 'relative', width: 260, height: 260, marginBottom: 32 }}>
         <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--line, rgba(255,255,255,0.06))" strokeWidth="4" />
           <circle cx="50" cy="50" r="42" fill="none" stroke="url(#pomoGrad)" strokeWidth="4" strokeLinecap="round"
             strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct)}
             style={{ transition: 'stroke-dashoffset 1s linear' }} />
           <defs>
             <linearGradient id="pomoGrad" x1="0" x2="1">
-              <stop offset="0" stopColor="#ff2e88" />
-              <stop offset="1" stopColor="#5b8dff" />
+              <stop offset="0" stopColor={neonA} />
+              <stop offset="1" stopColor={neonB} />
             </linearGradient>
           </defs>
         </svg>
