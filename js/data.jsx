@@ -12,7 +12,7 @@ function DataProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarConnected, setCalendarConnected] = useState(
-    () => !!localStorage.getItem('orbita_gcalConnected') && window.OrbitaCalendar && window.OrbitaCalendar.isConnected()
+    () => !!localStorage.getItem('orbita_gcalConnected') && !!localStorage.getItem('orbita_gcalToken')
   );
   const dataRef = useRef(data);
   dataRef.current = data;
