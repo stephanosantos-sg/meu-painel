@@ -325,8 +325,8 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
 
       {/* Hábitos — green border */}
       {todayHabits.length > 0 && (
-        <div className="panel" style={{ padding: 20, borderLeft: '3px solid #3ccf91' }}>
-          <div className="eyebrow" style={{ color: '#3ccf91', marginBottom: 14 }}>✦ Hábitos de hoje · {habitsDone}/{todayHabits.length}</div>
+        <div className="panel" style={{ padding: 20, borderLeft: '3px solid var(--neon-b, #5b8dff)' }}>
+          <div className="eyebrow" style={{ color: 'var(--neon-b, #5b8dff)', marginBottom: 14 }}>✦ Hábitos de hoje · {habitsDone}/{todayHabits.length}</div>
           {todayHabits.map(hab => {
             const done = hab.log && hab.log[today];
             const streak = Orbita.getStreak(hab);
