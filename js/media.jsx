@@ -4,13 +4,16 @@ function ScreenBooks() {
   const { data, commit } = useData();
   const books = (data.media && data.media.livros) || [];
   const reading = books.filter(b => b.status === 'Lendo');
-  const queued = books.filter(b => b.queued && b.status !== 'Lendo' && b.status !== 'Lido');
+  const queued = books.filter(b => b.queued && b.status !== 'Lendo' && b.status !== 'Lido' && b.status !== 'Biblioteca');
   const done = books.filter(b => b.status === 'Lido');
+  const library = books.filter(b => b.status === 'Biblioteca');
   const [showAdd, setShowAdd] = React.useState(false);
   const [editIdx, setEditIdx] = React.useState(null);
   const [newTitle, setNewTitle] = React.useState('');
   const [newAuthor, setNewAuthor] = React.useState('');
   const [fetching, setFetching] = React.useState(false);
+  const [libSearch, setLibSearch] = React.useState('');
+  const [showLibrary, setShowLibrary] = React.useState(false);
 
   function addBook(status) {
     if (!newTitle.trim()) return;
@@ -68,8 +71,9 @@ function ScreenBooks() {
       if (!b) return;
       b.status = status;
       if (status === 'Lido') { b.done = true; b.progress = b.pages || 100; b.queued = false; }
-      if (status === 'Lendo') { b.queued = false; }
+      if (status === 'Lendo') { b.queued = false; b.done = false; }
       if (status === 'Fila') { b.queued = true; b.done = false; }
+      if (status === 'Biblioteca') { b.queued = false; b.done = false; }
     });
   }
 
@@ -107,7 +111,7 @@ function ScreenBooks() {
 
   return (
     <>
-      <TopBar title="Biblioteca." subtitle={`${reading.length} lendo · ${queued.length} na fila · ${done.length} lidos`}
+      <TopBar title="Livros." subtitle={`${reading.length} lendo · ${queued.length} na fila · ${done.length} lidos${library.length ? ` · ${library.length} no acervo` : ''}`}
         actions={<button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => setShowAdd(true)}>＋ Livro</button>}
       />
       <div style={{ padding: '0 28px 40px' }}>
@@ -191,6 +195,14 @@ function ScreenBooks() {
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{b.title}</div>
                     {b.author && <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{b.author}</div>}
+                    {b.pages && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.round((b.progress || 0) / b.pages * 100)}%`, height: '100%', background: 'var(--gradient-neon)', borderRadius: 2 }} />
+                        </div>
+                        <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)', marginTop: 3, textAlign: 'center' }}>{b.progress || 0}/{b.pages}</div>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 4, marginTop: 8, justifyContent: 'center' }}>
                       <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Lendo')}>Começar</button>
                       <button className="btn-ghost small" onClick={() => setEditIdx(realIdx)}>✎</button>
@@ -236,6 +248,51 @@ function ScreenBooks() {
           </div>
         )}
 
+        {/* Biblioteca (archive) */}
+        {library.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <div className="eyebrow">Biblioteca</div>
+                <h3 className="panel-title" style={{ marginTop: 4 }}>Acervo.</h3>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>{library.length} livros</span>
+                <button className="btn-ghost small" onClick={() => setShowLibrary(s => !s)}>{showLibrary ? '▲ Fechar' : '▼ Abrir'}</button>
+              </div>
+            </div>
+            {showLibrary && (
+              <>
+                <input className="form-input" placeholder="Buscar na biblioteca..." value={libSearch} onChange={e => setLibSearch(e.target.value)}
+                  style={{ width: '100%', marginBottom: 14, fontSize: 13 }} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10, maxHeight: 500, overflowY: 'auto' }}>
+                  {library.filter(b => {
+                    if (!libSearch.trim()) return true;
+                    const q = libSearch.toLowerCase();
+                    return (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q);
+                  }).map((b, i) => {
+                    const realIdx = books.indexOf(b);
+                    return (
+                      <div key={realIdx} className="panel" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <BookCover book={b} size={40} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
+                          {b.author && <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{b.author}</div>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Fila')} title="Mover para fila">→ Fila</button>
+                          <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Lendo')} title="Começar a ler">▶</button>
+                          <button className="btn-ghost small" onClick={() => setEditIdx(realIdx)} style={{ fontSize: 10 }}>✎</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {books.length === 0 && (
           <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>📚</div>
@@ -265,8 +322,9 @@ function ScreenBooks() {
                 Metadados (capa, páginas, gênero) são buscados automaticamente via Open Library e Google Books
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ flexWrap: 'wrap', gap: 6 }}>
               <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancelar</button>
+              <button className="btn-ghost" onClick={() => addBook('Biblioteca')}>Biblioteca</button>
               <button className="btn-ghost" onClick={() => addBook('Lendo')}>Começar a ler</button>
               <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={() => addBook('Fila')}>Adicionar à fila</button>
             </div>
@@ -342,7 +400,7 @@ function BookEditModal({ book, idx, onClose, commit, onReFetch }) {
           <div className="form-group">
             <label className="form-label">Status</label>
             <div className="form-chips">
-              {['Fila','Lendo','Lido'].map(s => (
+              {['Biblioteca','Fila','Lendo','Lido'].map(s => (
                 <div key={s} className={`form-chip ${status === s ? 'active' : ''}`} onClick={() => setStatus(s)}>{s}</div>
               ))}
             </div>
