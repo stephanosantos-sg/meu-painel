@@ -169,29 +169,32 @@ function ScreenToday({ onNewTask }) {
             </button>
           );
         })}
-        {cats.length > 0 && <>
-          <div style={{ width: 1, height: 16, background: 'var(--line)', marginLeft: 2 }} />
+      </div>
+
+      {/* Categories row */}
+      {cats.length > 0 && (
+        <div className="tab-scroll" style={{ padding: '0 28px 14px', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto' }}>
           <button onClick={() => setFilterCat('all')} style={{
-            padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+            padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
             background: filterCat === 'all' ? 'rgba(255,255,255,0.06)' : 'transparent',
             border: filterCat === 'all' ? '1px solid var(--line-2)' : '1px solid transparent',
             color: filterCat === 'all' ? 'var(--ink-1)' : 'var(--ink-4)', fontFamily: 'var(--font-ui)',
-          }}>Todas</button>
+          }}>Todas categorias</button>
           {cats.map(c => {
             const color = Orbita.resolveColor(c.color);
             return (
               <button key={c.id} onClick={() => setFilterCat(filterCat === c.id ? 'all' : c.id)} style={{
-                display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
                 background: filterCat === c.id ? color + '22' : 'transparent',
-                border: filterCat === c.id ? `1px solid ${color}44` : '1px solid transparent',
+                border: filterCat === c.id ? `1px solid ${color}44` : '1px solid var(--line)',
                 color: filterCat === c.id ? color : 'var(--ink-4)', fontFamily: 'var(--font-ui)',
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: 2, background: color }} /> {c.name}
               </button>
             );
           })}
-        </>}
-      </div>
+        </div>
+      )}
 
       {/* List view (default) */}
       {view === 'list' && (
