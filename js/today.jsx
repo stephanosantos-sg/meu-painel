@@ -189,15 +189,6 @@ function ScreenToday({ onNewTask }) {
       {view === 'list' && (
         <div className="screen-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {overdueTasks.length > 0 && (
-              <div className="panel" style={{ borderLeft: '3px solid var(--neon-a)' }}>
-                <div className="eyebrow" style={{ color: 'var(--neon-a)', marginBottom: 12 }}>⚠ Atrasadas · {overdueTasks.length}</div>
-                <div className="task-list">
-                  {overdueTasks.map(t => <TaskItem key={t.id} task={t} dateCtx={t.date} catMap={catMap} />)}
-                </div>
-              </div>
-            )}
-            <GoalsOverview goals={data.goals || []} />
             {(() => {
               const showDone = filterTypes.feitas;
               const pending = todayTasks.filter(t => !Orbita.isTaskDone(t, today));
@@ -281,7 +272,8 @@ function ScreenToday({ onNewTask }) {
             )}
           </div>
           <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
-            todayHabits={todayHabits} habitsDone={habitsDone} today={today} />
+            todayHabits={todayHabits} habitsDone={habitsDone} today={today}
+            overdueTasks={overdueTasks} catMap={catMap} goals={data.goals || []} />
         </div>
       )}
 
@@ -304,7 +296,7 @@ function ScreenToday({ onNewTask }) {
 }
 
 /* ── Right panel (XP + stats + habits) ── */
-function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today }) {
+function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals }) {
   const { toggleHabitDay } = useData();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -330,26 +322,42 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
           <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, lineHeight: 1, marginTop: 6 }}>{habitsDone}/{todayHabits.length}</div>
         </div>
       </div>
-      <div className="panel" style={{ padding: 20 }}>
-        <div className="eyebrow" style={{ marginBottom: 14 }}>Hábitos de hoje</div>
-        {todayHabits.length === 0 && <div style={{ fontSize: 13, color: 'var(--ink-3)', padding: '12px 0' }}>Nenhum hábito para hoje</div>}
-        {todayHabits.map(hab => {
-          const done = hab.log && hab.log[today];
-          const streak = Orbita.getStreak(hab);
-          const hColor = Orbita.resolveColor(hab.color);
-          return (
-            <div key={hab.id} onClick={() => toggleHabitDay(hab.id, today)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', marginBottom: 2, borderRadius: 8, cursor: 'pointer', opacity: done ? 0.5 : 1, transition: 'all 200ms', background: 'rgba(255,255,255,0.02)' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
-              <div className={`check ${done ? 'checked' : ''}`} style={done ? { background: hColor, borderColor: 'transparent' } : {}}>{done && '✓'}</div>
-              <span style={{ fontSize: 14 }}>{hab.icon || '⭐'}</span>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 500, textDecoration: done ? 'line-through' : 'none' }}>{hab.name}</span>
-              {streak > 0 && <span className="mono" style={{ fontSize: 10, color: '#ff5a3c' }}>🔥 {streak}</span>}
-            </div>
-          );
-        })}
-      </div>
+
+      {/* Hábitos — green border */}
+      {todayHabits.length > 0 && (
+        <div className="panel" style={{ padding: 20, borderLeft: '3px solid #3ccf91' }}>
+          <div className="eyebrow" style={{ color: '#3ccf91', marginBottom: 14 }}>✦ Hábitos de hoje · {habitsDone}/{todayHabits.length}</div>
+          {todayHabits.map(hab => {
+            const done = hab.log && hab.log[today];
+            const streak = Orbita.getStreak(hab);
+            const hColor = Orbita.resolveColor(hab.color);
+            return (
+              <div key={hab.id} onClick={() => toggleHabitDay(hab.id, today)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', marginBottom: 2, borderRadius: 8, cursor: 'pointer', opacity: done ? 0.5 : 1, transition: 'all 200ms', background: 'rgba(255,255,255,0.02)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                <div className={`check ${done ? 'checked' : ''}`} style={done ? { background: hColor, borderColor: 'transparent' } : {}}>{done && '✓'}</div>
+                <span style={{ fontSize: 14 }}>{hab.icon || '⭐'}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, textDecoration: done ? 'line-through' : 'none' }}>{hab.name}</span>
+                {streak > 0 && <span className="mono" style={{ fontSize: 10, color: '#ff5a3c' }}>🔥 {streak}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Atrasadas — pink border */}
+      {overdueTasks && overdueTasks.length > 0 && (
+        <div className="panel" style={{ borderLeft: '3px solid var(--neon-a)' }}>
+          <div className="eyebrow" style={{ color: 'var(--neon-a)', marginBottom: 12 }}>⚠ Atrasadas · {overdueTasks.length}</div>
+          <div className="task-list">
+            {overdueTasks.map(t => <TaskItem key={t.id} task={t} dateCtx={t.date} catMap={catMap} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Objetivos — purple border */}
+      <GoalsOverview goals={goals || []} />
     </div>
   );
 }
