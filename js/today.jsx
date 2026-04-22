@@ -16,7 +16,13 @@ function ScreenToday({ onNewTask }) {
   }, []);
 
   React.useEffect(() => {
-    if (calendarConnected) fetchCalendarEvents(Orbita.dateToStr(selectedDate));
+    if (calendarConnected) {
+      fetchCalendarEvents(Orbita.dateToStr(selectedDate));
+    } else if (localStorage.getItem('orbita_gcalToken')) {
+      // Token exists but connected state not set yet — retry after short delay
+      const t = setTimeout(() => fetchCalendarEvents(Orbita.dateToStr(selectedDate)), 500);
+      return () => clearTimeout(t);
+    }
   }, [selectedDate, calendarConnected]);
 
   const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true, atrasada: true, objetivo: true, feitas: false });
@@ -301,7 +307,7 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
       </div>
 
       {/* Eventos Google Calendar */}
-      {showEvents && calendarConnected && calendarEvents && calendarEvents.length > 0 && (
+      {showEvents && calendarEvents && calendarEvents.length > 0 && (
         <div className="panel" style={{ padding: 20, borderLeft: '3px solid #ea4335' }}>
           <div className="eyebrow" style={{ color: '#ea4335', marginBottom: 12 }}>📅 Eventos · {calendarEvents.length}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
