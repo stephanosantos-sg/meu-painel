@@ -16,9 +16,9 @@ const NAV = [
     { id: 'notes', icon: '✎', label: 'Notas' },
   ]},
   { section: 'VOCÊ', items: [
-    { id: 'history', icon: '▤', label: 'Histórico' },
-    { id: 'charts', icon: '◉', label: 'Gráficos' },
     { id: 'profile', icon: '★', label: 'Perfil' },
+    { id: 'charts', icon: '◉', label: 'Gráficos' },
+    { id: 'history', icon: '▤', label: 'Histórico' },
   ]},
 ];
 

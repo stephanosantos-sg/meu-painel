@@ -452,6 +452,7 @@ function ScreenMedia() {
   const [tab, setTab] = React.useState('filmes');
   const [showAdd, setShowAdd] = React.useState(false);
   const [newTitle, setNewTitle] = React.useState('');
+  const [editMediaIdx, setEditMediaIdx] = React.useState(null);
   const media = data.media || {};
   const items = media[tab] || [];
   const watching = items.filter(i => i.queued && !i.done);
@@ -549,6 +550,7 @@ function ScreenMedia() {
           <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
             {!item.done && <button className="btn-ghost small" onClick={() => toggleDone(idx)}>✓</button>}
             {!item.queued && !item.done && <button className="btn-ghost small" onClick={() => toggleQueue(idx)}>Fila</button>}
+            <button className="btn-ghost small" onClick={() => setEditMediaIdx(idx)}>✎</button>
             <button className="btn-ghost small" onClick={() => reFetch(idx)}>↻</button>
             <button className="btn-ghost small" onClick={() => deleteItem(idx)} style={{ color: 'var(--ink-4)' }}>✕</button>
           </div>
@@ -632,7 +634,90 @@ function ScreenMedia() {
           </div>
         </div>
       )}
+
+      {/* Edit media modal */}
+      {editMediaIdx !== null && items[editMediaIdx] && (
+        <MediaEditModal item={items[editMediaIdx]} idx={editMediaIdx} tabKey={tab} commit={commit} reFetch={reFetch} onClose={() => setEditMediaIdx(null)} />
+      )}
     </>
+  );
+}
+
+function MediaEditModal({ item, idx, tabKey, commit, reFetch, onClose }) {
+  const [title, setTitle] = React.useState(item.title || '');
+  const [year, setYear] = React.useState(item.year || '');
+  const [genre, setGenre] = React.useState(item.genre || '');
+  const [director, setDirector] = React.useState(item.director || '');
+  const [seasons, setSeasons] = React.useState(item.seasons || '');
+  const [currentSeason, setCurrentSeason] = React.useState(item.currentSeason || 1);
+  const [status, setStatus] = React.useState(item.done ? 'done' : item.queued ? 'queue' : 'list');
+
+  function handleSave() {
+    commit(D => {
+      const it = D.media[tabKey][idx];
+      if (!it) return;
+      it.title = title.trim() || it.title;
+      it.year = year || null;
+      it.genre = genre.trim() || null;
+      it.director = director.trim() || null;
+      if (tabKey === 'series') { it.seasons = parseInt(seasons) || null; it.currentSeason = parseInt(currentSeason) || 1; }
+      it.done = status === 'done';
+      it.queued = status === 'queue';
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(480px, 90vw)' }}>
+        <div className="modal-header"><h2>Editar</h2><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Título</label>
+            <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Ano</label>
+              <input className="form-input" value={year} onChange={e => setYear(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Gênero</label>
+              <input className="form-input" value={genre} onChange={e => setGenre(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Diretor</label>
+            <input className="form-input" value={director} onChange={e => setDirector(e.target.value)} />
+          </div>
+          {tabKey === 'series' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Temporadas</label>
+                <input className="form-input" type="number" min="1" value={seasons} onChange={e => setSeasons(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Temporada atual</label>
+                <input className="form-input" type="number" min="1" value={currentSeason} onChange={e => setCurrentSeason(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div className="form-group">
+            <label className="form-label">Status</label>
+            <div className="form-chips">
+              {[{ v: 'list', l: 'Para assistir' }, { v: 'queue', l: 'Assistindo' }, { v: 'done', l: 'Concluído' }].map(s => (
+                <div key={s.v} className={`form-chip ${status === s.v ? 'active' : ''}`} onClick={() => setStatus(s.v)}>{s.l}</div>
+              ))}
+            </div>
+          </div>
+          <button className="btn-ghost small" onClick={() => { reFetch(idx); onClose(); }}>↻ Buscar metadados novamente</button>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={handleSave}>Salvar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
