@@ -76,10 +76,10 @@ function ScreenToday({ onNewTask }) {
     <>
       <TopBar title={isToday ? `${greet}, ${(data._profile && data._profile.name) || 'Aventureiro'}.` : fmtDate.charAt(0).toUpperCase() + fmtDate.slice(1)} subtitle={isToday ? fmtDate : (greet ? `${greet} · Vendo outro dia` : 'Vendo outro dia')}
         actions={<>
-          <button className="btn-ghost" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
+          <button className="btn-ghost desktop-only" onClick={() => window._startPomo && window._startPomo()} style={{ fontSize: 13, gap: 6 }}>
             ◉ Pomodoro
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--gradient-neon-soft)', borderRadius: 12, border: '1px solid rgba(255,46,136,0.22)', overflow: 'hidden' }}>
+          <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--gradient-neon-soft)', borderRadius: 12, border: '1px solid rgba(255,46,136,0.22)', overflow: 'hidden' }}>
             <button onClick={() => shiftDay(-1)} style={{ padding: '10px 12px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', transition: 'all 100ms' }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>←</button>
             {!isToday && <button onClick={() => setSelectedDate(new Date())} style={{ padding: '10px 14px', background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.12)', borderRight: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 100ms' }}
@@ -87,9 +87,28 @@ function ScreenToday({ onNewTask }) {
             <button onClick={() => shiftDay(1)} style={{ padding: '10px 12px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', transition: 'all 100ms' }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>→</button>
           </div>
-          <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
+          <button className="btn btn-primary desktop-only" style={{ padding: '10px 18px', fontSize: 13 }} onClick={onNewTask}>＋ Nova tarefa</button>
         </>}
       />
+
+      {/* Mobile date nav */}
+      <div className="mobile-only" style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={() => shiftDay(-1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>←</button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          {!isToday && <button onClick={() => setSelectedDate(new Date())} style={{ padding: '4px 12px', borderRadius: 6, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>Hoje</button>}
+        </div>
+        <button onClick={() => shiftDay(1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>→</button>
+      </div>
+
+      {/* Mobile FAB */}
+      <button className="mobile-only" onClick={onNewTask} style={{
+        position: 'fixed', bottom: 80, right: 16, zIndex: 600,
+        width: 56, height: 56, borderRadius: 16,
+        background: 'var(--gradient-neon)', border: 'none', color: '#fff',
+        fontSize: 24, fontWeight: 300, cursor: 'pointer',
+        boxShadow: '0 4px 20px rgba(255,46,136,0.4)',
+        display: 'grid', placeItems: 'center',
+      }}>＋</button>
 
       {/* Birthday banner */}
       <BirthdayBanner profile={data._profile} />
