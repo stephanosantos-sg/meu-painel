@@ -14,7 +14,7 @@ function ScreenBooks() {
   const [fetching, setFetching] = React.useState(false);
   const [libSearch, setLibSearch] = React.useState('');
   const [showLibrary, setShowLibrary] = React.useState(true);
-  const [libView, setLibView] = React.useState('list');
+  const [libView, setLibView] = React.useState('grid');
 
   function addBook(status) {
     if (!newTitle.trim()) return;
