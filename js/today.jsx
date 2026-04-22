@@ -245,14 +245,12 @@ function ScreenToday({ onNewTask }) {
                 </>)}
               </>;
             })()}
-            {showCalendarEvents && (
-              <CalendarEventsPanel events={calendarEvents} connected={calendarConnected} />
-            )}
           </div>
           <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
             todayHabits={todayHabits} habitsDone={habitsDone} today={today}
             overdueTasks={overdueTasks} catMap={catMap} goals={data.goals || []}
-            showHabits={filterTypes.habito} showOverdue={filterTypes.atrasada} showGoals={filterTypes.objetivo} />
+            showHabits={filterTypes.habito} showOverdue={filterTypes.atrasada} showGoals={filterTypes.objetivo}
+            showEvents={filterTypes.evento} calendarEvents={calendarEvents} calendarConnected={calendarConnected} />
         </div>
       )}
 
@@ -275,7 +273,7 @@ function ScreenToday({ onNewTask }) {
 }
 
 /* ── Right panel (XP + stats + habits) ── */
-function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals, showHabits, showOverdue, showGoals }) {
+function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals, showHabits, showOverdue, showGoals, showEvents, calendarEvents, calendarConnected }) {
   const { toggleHabitDay } = useData();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -301,6 +299,35 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
           <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, lineHeight: 1, marginTop: 6 }}>{habitsDone}/{todayHabits.length}</div>
         </div>
       </div>
+
+      {/* Eventos Google Calendar */}
+      {showEvents && calendarConnected && calendarEvents && calendarEvents.length > 0 && (
+        <div className="panel" style={{ padding: 20, borderLeft: '3px solid #ea4335' }}>
+          <div className="eyebrow" style={{ color: '#ea4335', marginBottom: 12 }}>📅 Eventos · {calendarEvents.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {calendarEvents.map(ev => {
+              const startTime = ev.allDay ? 'Dia inteiro' : new Date(ev.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+              const endTime = !ev.allDay ? new Date(ev.end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+              const isPast = !ev.allDay && new Date(ev.end) < new Date();
+              return (
+                <div key={ev.id} onClick={() => ev.htmlLink && window.open(ev.htmlLink, '_blank')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px', borderRadius: 8, cursor: ev.htmlLink ? 'pointer' : 'default', opacity: isPast ? 0.5 : 1, background: 'rgba(255,255,255,0.02)', transition: 'all 120ms' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
+                    <div className="mono" style={{ fontSize: 10, color: '#ea4335', marginTop: 2 }}>
+                      {startTime}{endTime ? ` — ${endTime}` : ''}
+                      {ev.location && <span style={{ color: 'var(--ink-3)', marginLeft: 6 }}>📍 {ev.location}</span>}
+                    </div>
+                  </div>
+                  {ev.htmlLink && <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>↗</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Hábitos */}
       {showHabits && todayHabits.length > 0 && (
