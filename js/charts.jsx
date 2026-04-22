@@ -89,17 +89,20 @@ function ScreenCharts() {
           <div className="panel" style={{ padding: 20 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, fontWeight: 400, letterSpacing: '-0.02em', marginBottom: 16 }}>Tarefas concluídas.</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120, marginBottom: 8 }}>
-              {last7.map((d, i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <span className="mono" style={{ fontSize: 10, color: 'var(--ink-2)' }}>{d.done || ''}</span>
-                  <div style={{
-                    width: '100%', borderRadius: 4,
-                    height: `${Math.max(4, (d.done / maxTasks) * 100)}%`,
-                    background: d.isToday ? 'var(--gradient-neon)' : 'rgba(91,141,255,0.5)',
-                    transition: 'height 300ms',
-                  }} />
-                </div>
-              ))}
+              {last7.map((d, i) => {
+                const h = d.done > 0 ? Math.max(8, Math.round((d.done / maxTasks) * 100)) : 0;
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 4 }}>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--ink-2)' }}>{d.done || ''}</span>
+                    <div style={{
+                      width: '100%', borderRadius: 4,
+                      height: h + 'px',
+                      background: d.isToday ? 'var(--gradient-neon)' : 'rgba(91,141,255,0.5)',
+                      transition: 'height 300ms',
+                    }} />
+                  </div>
+                );
+              })}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {last7.map((d, i) => (
@@ -115,13 +118,16 @@ function ScreenCharts() {
           <div className="panel" style={{ padding: 20 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, fontWeight: 400, letterSpacing: '-0.02em', marginBottom: 16 }}>Hábitos feitos.</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120, marginBottom: 8 }}>
-              {last7Habits.map((d, i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <span className="mono" style={{ fontSize: 10, color: 'var(--ink-2)' }}>{d.done || ''}</span>
+              {last7Habits.map((d, i) => {
+                const h = d.done > 0 ? Math.max(8, Math.round((d.done / maxHabits) * 100)) : 0;
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 4 }}>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--ink-2)' }}>{d.done || ''}</span>
                   <div style={{
                     width: '100%', borderRadius: 4,
-                    height: `${Math.max(4, (d.done / maxHabits) * 100)}%`,
+                    height: h + 'px',
                     background: d.isToday ? 'var(--gradient-neon)' : 'rgba(176,102,255,0.5)',
+                    transition: 'height 300ms',
                   }} />
                 </div>
               ))}
