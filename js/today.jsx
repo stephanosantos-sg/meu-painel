@@ -109,12 +109,13 @@ function ScreenToday({ onNewTask }) {
       {/* Mobile FAB */}
       <button className="mobile-only" onClick={onNewTask} style={{
         position: 'fixed', bottom: 80, right: 16, zIndex: 600,
-        width: 56, height: 56, borderRadius: 16,
+        width: 56, height: 56, borderRadius: '50%',
         background: 'var(--gradient-neon)', border: 'none', color: '#fff',
-        fontSize: 24, fontWeight: 300, cursor: 'pointer',
+        fontSize: 28, fontWeight: 300, lineHeight: 1, cursor: 'pointer',
         boxShadow: '0 4px 20px rgba(255,46,136,0.4)',
-        display: 'grid', placeItems: 'center',
-      }}>＋</button>
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        paddingBottom: 2,
+      }}>+</button>
 
       {/* Birthday banner */}
       <BirthdayBanner profile={data._profile} />
