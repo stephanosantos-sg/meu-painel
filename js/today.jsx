@@ -197,6 +197,7 @@ function ScreenToday({ onNewTask }) {
                 </div>
               </div>
             )}
+            <GoalsOverview goals={data.goals || []} />
             {(() => {
               const showDone = filterTypes.feitas;
               const pending = todayTasks.filter(t => !Orbita.isTaskDone(t, today));
@@ -278,7 +279,6 @@ function ScreenToday({ onNewTask }) {
             {showCalendarEvents && (
               <CalendarEventsPanel events={calendarEvents} connected={calendarConnected} />
             )}
-            <GoalsOverview goals={data.goals || []} />
           </div>
           <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
             todayHabits={todayHabits} habitsDone={habitsDone} today={today} />
@@ -979,8 +979,8 @@ function GoalsOverview({ goals }) {
   if (active.length === 0) return null;
 
   return (
-    <div className="panel" style={{ padding: 20 }}>
-      <div className="eyebrow" style={{ marginBottom: 12 }}>Objetivos · {active.length}</div>
+    <div className="panel" style={{ padding: 20, borderLeft: '3px solid var(--neon-c, #b066ff)' }}>
+      <div className="eyebrow" style={{ color: 'var(--neon-c, #b066ff)', marginBottom: 12 }}>◎ Objetivos · {active.length}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {active.map(g => {
           const ms = g.milestones || [];
