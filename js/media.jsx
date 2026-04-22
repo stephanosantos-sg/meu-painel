@@ -125,28 +125,16 @@ function ScreenBooks() {
               <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 32, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{heroBook.title}</div>
               {heroBook.author && <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 6 }}>por {heroBook.author}</div>}
               <div style={{ marginTop: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>página</span>
-                    <input type="number" min="0" max={heroBook.pages || 9999} value={heroBook.progress || 0}
-                      onChange={e => updateProgress(heroIdx, e.target.value)}
-                      onClick={e => e.stopPropagation()}
-                      style={{ width: 60, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--line)', color: '#fff', fontSize: 14, fontFamily: 'var(--font-mono)', textAlign: 'center' }} />
-                  </div>
-                  {heroBook.pages ? (
-                    <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>de {heroBook.pages} · {Math.round((heroBook.progress || 0) / heroBook.pages * 100)}%</span>
-                  ) : (
-                    <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>total desconhecido</span>
-                  )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>página {heroBook.progress || 0}</span>
+                  <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>{heroBook.pages ? `de ${heroBook.pages} · ${Math.round((heroBook.progress || 0) / heroBook.pages * 100)}%` : 'sem total — busque metadados'}</span>
                 </div>
                 <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
                   <div style={{ width: heroBook.pages ? `${Math.round((heroBook.progress || 0) / heroBook.pages * 100)}%` : '0%', height: '100%', background: 'var(--gradient-neon)', borderRadius: 3, transition: 'width 200ms' }} />
                 </div>
-                {heroBook.pages && (
-                  <input type="range" min="0" max={heroBook.pages} value={heroBook.progress || 0}
-                    onChange={e => updateProgress(heroIdx, e.target.value)}
-                    style={{ width: '100%', accentColor: '#ff2e88' }} />
-                )}
+                <input type="range" min="0" max={heroBook.pages || 500} value={heroBook.progress || 0}
+                  onChange={e => updateProgress(heroIdx, e.target.value)}
+                  style={{ width: '100%', accentColor: '#ff2e88' }} />
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button className="btn-ghost" onClick={() => setStatus(heroIdx, 'Lido')}>✓ Concluído</button>
