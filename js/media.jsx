@@ -129,10 +129,13 @@ function ScreenBooks() {
                   <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>página {heroBook.progress || 0}</span>
                   <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>{heroBook.pages ? `de ${heroBook.pages} · ${Math.round((heroBook.progress || 0) / heroBook.pages * 100)}%` : 'sem total — busque metadados'}</span>
                 </div>
-                <input type="range" min="0" max={heroBook.pages || 500} value={heroBook.progress || 0}
-                  onChange={e => updateProgress(heroIdx, e.target.value)}
-                  className="neon-slider"
-                  style={{ width: '100%' }} />
+                {(() => {
+                  const pct = heroBook.pages ? Math.round((heroBook.progress || 0) / heroBook.pages * 100) : Math.round((heroBook.progress || 0) / 500 * 100);
+                  return <input type="range" min="0" max={heroBook.pages || 500} value={heroBook.progress || 0}
+                    onChange={e => updateProgress(heroIdx, e.target.value)}
+                    className="neon-slider"
+                    style={{ width: '100%', background: `linear-gradient(90deg, #ff2e88 0%, #b066ff ${pct}%, rgba(255,255,255,0.06) ${pct}%)` }} />;
+                })()}
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button className="btn-ghost" onClick={() => setStatus(heroIdx, 'Lido')}>✓ Concluído</button>
