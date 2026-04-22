@@ -303,8 +303,28 @@ function AppRoot() {
     function onAuth(e) {
       if (e.detail) {
         setUser(e.detail);
-        if (checkOnboarding()) setNeedsOnboarding(true);
-        setAuthState('logged-in');
+        // Wait for cloud data pull before checking onboarding
+        function onDataPulled() {
+          window.removeEventListener('orbita:dataPulled', onDataPulled);
+          clearTimeout(fallback);
+          if (checkOnboarding()) setNeedsOnboarding(true);
+          setAuthState('logged-in');
+        }
+        // Fallback: if no pull event in 3s, check with local data
+        const fallback = setTimeout(() => {
+          window.removeEventListener('orbita:dataPulled', onDataPulled);
+          if (checkOnboarding()) setNeedsOnboarding(true);
+          setAuthState('logged-in');
+        }, 3000);
+        window.addEventListener('orbita:dataPulled', onDataPulled);
+        // If data already exists locally, don't wait
+        const local = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+        if (local.tasks && local.tasks.length > 0) {
+          window.removeEventListener('orbita:dataPulled', onDataPulled);
+          clearTimeout(fallback);
+          if (checkOnboarding()) setNeedsOnboarding(true);
+          setAuthState('logged-in');
+        }
       } else if (skipped) {
         if (checkOnboarding()) setNeedsOnboarding(true);
         setAuthState('skipped');
