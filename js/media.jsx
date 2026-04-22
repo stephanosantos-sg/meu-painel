@@ -82,14 +82,13 @@ function ScreenBooks() {
       const b = D.media.livros[idx];
       if (!b) return;
       b.progress = Math.min((b.progress || 0) + amount, b.pages || 9999);
-      if (b.pages && b.progress >= b.pages) { b.status = 'Lido'; b.done = true; }
     });
   }
 
   function updateProgress(idx, pages) {
     commit(D => {
       const b = D.media.livros[idx];
-      if (b) { b.progress = parseInt(pages) || 0; if (b.pages && b.progress >= b.pages) { b.status = 'Lido'; b.done = true; } }
+      if (b) { b.progress = parseInt(pages) || 0; }
     });
   }
 
@@ -138,7 +137,11 @@ function ScreenBooks() {
                 })()}
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button className="btn-ghost" onClick={() => setStatus(heroIdx, 'Lido')}>✓ Concluído</button>
+                {heroBook.pages && (heroBook.progress || 0) >= heroBook.pages ? (
+                  <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 14 }} onClick={() => setStatus(heroIdx, 'Lido')}>✓ Marcar como lido</button>
+                ) : (
+                  <button className="btn-ghost" onClick={() => setStatus(heroIdx, 'Lido')}>✓ Concluído</button>
+                )}
                 <button className="btn-ghost small" onClick={() => reFetch(heroIdx)} disabled={fetching}>↻ Metadados</button>
                 <button className="icon-btn" onClick={() => setEditIdx(heroIdx)} style={{ width: 30, height: 30, fontSize: 13 }}>✎</button>
               </div>
