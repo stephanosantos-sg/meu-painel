@@ -10,10 +10,20 @@ const OrbitaCalendar = (() => {
     _accessToken = token;
     _eventsCache = {};
     _lastFetch = 0;
+    if (token) localStorage.setItem('orbita_gcalToken', token);
+    else localStorage.removeItem('orbita_gcalToken');
+  }
+
+  function restoreToken() {
+    if (_accessToken) return;
+    const saved = localStorage.getItem('orbita_gcalToken');
+    if (saved && localStorage.getItem('orbita_gcalConnected')) {
+      _accessToken = saved;
+    }
   }
 
   function getAccessToken() { return _accessToken; }
-  function isConnected() { return !!_accessToken; }
+  function isConnected() { restoreToken(); return !!_accessToken; }
 
   async function fetchEvents(dateStr) {
     if (!_accessToken) return [];
@@ -41,6 +51,7 @@ const OrbitaCalendar = (() => {
 
       if (res.status === 401) {
         _accessToken = null;
+        localStorage.removeItem('orbita_gcalToken');
         window.dispatchEvent(new CustomEvent('orbita:calendarTokenExpired'));
         return [];
       }
@@ -161,6 +172,7 @@ const OrbitaCalendar = (() => {
     _eventsCache = {};
     _lastFetch = 0;
     localStorage.removeItem('orbita_gcalConnected');
+    localStorage.removeItem('orbita_gcalToken');
   }
 
   const GCAL_COLORS = {
