@@ -735,7 +735,7 @@ function TaskItem({ task, dateCtx, catMap }) {
   const cat = catMap[t.cat];
   const color = cat ? Orbita.resolveColor(cat.color) : null;
   const prioClass = t.prio === 1 ? 'p1' : t.prio === 2 ? 'p2' : t.prio === 3 ? 'p3' : 'p4';
-  const prioLabel = t.prio === 1 ? 'urgente' : t.prio === 2 ? 'alta' : t.prio === 3 ? 'média' : '';
+  const prioLabel = t.prio === 1 ? 'urgente' : t.prio === 2 ? 'alta' : t.prio === 3 ? 'média' : 'baixa';
   const hasSlots = t.times && t.times.length > 0;
 
   function onMainClick(e) {
