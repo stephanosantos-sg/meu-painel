@@ -14,6 +14,7 @@ function ScreenBooks() {
   const [fetching, setFetching] = React.useState(false);
   const [libSearch, setLibSearch] = React.useState('');
   const [showLibrary, setShowLibrary] = React.useState(false);
+  const [libView, setLibView] = React.useState('list');
 
   function addBook(status) {
     if (!newTitle.trim()) return;
@@ -264,31 +265,59 @@ function ScreenBooks() {
             </div>
             {showLibrary && (
               <>
-                <input className="form-input" placeholder="Buscar na biblioteca..." value={libSearch} onChange={e => setLibSearch(e.target.value)}
-                  style={{ width: '100%', marginBottom: 14, fontSize: 13 }} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10, maxHeight: 500, overflowY: 'auto' }}>
-                  {library.filter(b => {
+                <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+                  <input className="form-input" placeholder="Buscar na biblioteca..." value={libSearch} onChange={e => setLibSearch(e.target.value)}
+                    style={{ flex: 1, fontSize: 13 }} />
+                  <button className="btn-ghost small" onClick={() => setLibView(v => v === 'list' ? 'grid' : 'list')} title={libView === 'list' ? 'Grid' : 'Lista'}>
+                    {libView === 'list' ? '▦' : '☰'}
+                  </button>
+                </div>
+                {(() => {
+                  const filtered = library.filter(b => {
                     if (!libSearch.trim()) return true;
                     const q = libSearch.toLowerCase();
                     return (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q);
-                  }).map((b, i) => {
-                    const realIdx = books.indexOf(b);
-                    return (
-                      <div key={realIdx} className="panel" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
-                        <BookCover book={b} size={40} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
-                          {b.author && <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{b.author}</div>}
-                        </div>
-                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                          <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Fila')} title="Mover para fila">→ Fila</button>
-                          <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Lendo')} title="Começar a ler">▶</button>
-                          <button className="btn-ghost small" onClick={() => setEditIdx(realIdx)} style={{ fontSize: 10 }}>✎</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                  });
+                  if (libView === 'grid') return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, maxHeight: 600, overflowY: 'auto', padding: 2 }}>
+                      {filtered.map(b => {
+                        const realIdx = books.indexOf(b);
+                        return (
+                          <div key={realIdx} className="panel" style={{ padding: 10, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><BookCover book={b} size={90} /></div>
+                            <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.3 }}>{b.title}</div>
+                            {b.author && <div style={{ fontSize: 9, color: 'var(--ink-3)', marginTop: 2 }}>{b.author}</div>}
+                            <div style={{ display: 'flex', gap: 3, marginTop: 6, justifyContent: 'center' }}>
+                              <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Fila')} style={{ fontSize: 9, padding: '2px 5px' }}>Fila</button>
+                              <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Lendo')} style={{ fontSize: 9, padding: '2px 5px' }}>▶</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 600, overflowY: 'auto', padding: 2 }}>
+                      {filtered.map(b => {
+                        const realIdx = books.indexOf(b);
+                        return (
+                          <div key={realIdx} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line)' }}>
+                            <span className="mono" style={{ fontSize: 9, color: 'var(--ink-4)', width: 24, textAlign: 'right', flexShrink: 0 }}>{filtered.indexOf(b)+1}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
+                              {b.author && <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{b.author}</div>}
+                            </div>
+                            <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                              <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Fila')} style={{ fontSize: 9, padding: '2px 5px' }}>→ Fila</button>
+                              <button className="btn-ghost small" onClick={() => setStatus(realIdx, 'Lendo')} style={{ fontSize: 9, padding: '2px 5px' }}>▶</button>
+                              <button className="btn-ghost small" onClick={() => setEditIdx(realIdx)} style={{ fontSize: 9, padding: '2px 5px' }}>✎</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
