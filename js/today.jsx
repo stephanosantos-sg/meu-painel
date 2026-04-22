@@ -754,11 +754,16 @@ function TaskItem({ task, dateCtx, catMap }) {
       onClick={onMainClick}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ cursor: 'pointer' }}>
-      {!hasSlots && (
-        <div className={`check ${done ? 'checked' : ''}`} onClick={onCheckClick} style={{ width: 22, height: 22, fontSize: 11, flexShrink: 0, cursor: 'pointer' }}>
-          {done && '✓'}
-        </div>
-      )}
+      <div className={`check ${done ? 'checked' : ''}`} onClick={e => {
+        e.stopPropagation();
+        if (hasSlots) {
+          const allDone = t.times.every(s => Orbita.isSlotDone(t, dateCtx, s.time));
+          if (allDone) { toggleTask(t.id, dateCtx); }
+          else { t.times.forEach(s => { if (!Orbita.isSlotDone(t, dateCtx, s.time)) toggleSlot(t.id, dateCtx, s.time); }); }
+        } else { toggleTask(t.id, dateCtx); }
+      }} style={{ width: 22, height: 22, fontSize: 11, flexShrink: 0, cursor: 'pointer' }}>
+        {done && '✓'}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="task-text">
           {t.icon && <span style={{ marginRight: 6 }}>{t.icon}</span>}{t.text}
