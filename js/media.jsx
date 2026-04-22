@@ -217,39 +217,6 @@ function ScreenBooks() {
           </div>
         )}
 
-        {/* Done / Archive */}
-        {done.length > 0 && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div>
-                <div className="eyebrow">Arquivo · {new Date().getFullYear()}</div>
-                <h3 className="panel-title" style={{ marginTop: 4 }}>Concluídos.</h3>
-              </div>
-              <span className="chip chip-neon">{done.length} / meta {data.media?.livros?.length > 0 ? 24 : 24}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
-              {done.map((b, i) => {
-                const realIdx = books.indexOf(b);
-                return (
-                  <div key={realIdx} className="panel" style={{ padding: 14, textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-                      <BookCover book={b} size={110} />
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{b.title}</div>
-                    {b.author && <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{b.author}</div>}
-                    <div style={{ display: 'flex', gap: 2, marginTop: 6, justifyContent: 'center' }}>
-                      {[1,2,3,4,5].map(s => (
-                        <span key={s} onClick={() => setRating(realIdx, s)} style={{ cursor: 'pointer', fontSize: 16, color: s <= (b.userRating || 0) ? '#ffd60a' : 'var(--ink-4)' }}>★</span>
-                      ))}
-                    </div>
-                    <button className="btn-ghost small" onClick={() => setEditIdx(realIdx)} style={{ marginTop: 6, width: '100%', justifyContent: 'center', fontSize: 10 }}>✎ Editar</button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Biblioteca (archive) */}
         {library.length > 0 && (
           <div style={{ marginTop: 24 }}>
@@ -320,6 +287,39 @@ function ScreenBooks() {
                 })()}
               </>
             )}
+          </div>
+        )}
+
+        {/* Concluídos */}
+        {done.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div>
+                <div className="eyebrow">Arquivo · {new Date().getFullYear()}</div>
+                <h3 className="panel-title" style={{ marginTop: 4 }}>Concluídos.</h3>
+              </div>
+              <span className="chip chip-neon">{done.length} lidos</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
+              {done.map((b, i) => {
+                const realIdx = books.indexOf(b);
+                return (
+                  <div key={realIdx} className="panel" style={{ padding: 14, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                      <BookCover book={b} size={110} />
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{b.title}</div>
+                    {b.author && <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{b.author}</div>}
+                    <div style={{ display: 'flex', gap: 2, marginTop: 6, justifyContent: 'center' }}>
+                      {[1,2,3,4,5].map(s => (
+                        <span key={s} onClick={() => setRating(realIdx, s)} style={{ cursor: 'pointer', fontSize: 16, color: s <= (b.userRating || 0) ? '#ffd60a' : 'var(--ink-4)' }}>★</span>
+                      ))}
+                    </div>
+                    <button className="btn-ghost small" onClick={() => setEditIdx(realIdx)} style={{ marginTop: 6, width: '100%', justifyContent: 'center', fontSize: 10 }}>✎ Editar</button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
