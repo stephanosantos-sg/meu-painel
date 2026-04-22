@@ -217,7 +217,7 @@ function ScreenToday({ onNewTask }) {
                 ) : (<>
                   {pending.length > 0 && (
                     <div className="panel">
-                      <div className="eyebrow" style={{ marginBottom: 12 }}>Pendentes · {pending.length}</div>
+                      <div className="eyebrow" style={{ marginBottom: 12 }}>☀︎ Pendentes · {pending.length}</div>
                       <div className="task-list">
                         {pending.sort(sortByTime).map(t => <TaskItem key={t.id} task={t} dateCtx={today} catMap={catMap} />)}
                       </div>
@@ -309,7 +309,7 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
       {/* Eventos Google Calendar */}
       {showEvents && calendarEvents && calendarEvents.length > 0 && (
         <div className="panel" style={{ padding: 20, borderLeft: '3px solid #ea4335' }}>
-          <div className="eyebrow" style={{ color: '#ea4335', marginBottom: 12 }}>📅 Eventos · {calendarEvents.length}</div>
+          <div className="eyebrow" style={{ color: '#ea4335', marginBottom: 12 }}>◈ Eventos Google · {calendarEvents.length}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {calendarEvents.map(ev => {
               const startTime = ev.allDay ? 'Dia inteiro' : new Date(ev.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
