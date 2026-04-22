@@ -19,7 +19,7 @@ function ScreenToday({ onNewTask }) {
     if (calendarConnected) fetchCalendarEvents(Orbita.dateToStr(selectedDate));
   }, [selectedDate, calendarConnected]);
 
-  const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true, feitas: false });
+  const [filterTypes, setFilterTypes] = React.useState({ pontual: true, recorrente: true, evento: true, habito: true, atrasada: true, objetivo: true, feitas: false });
   const realToday = Orbita.todayStr();
   const today = Orbita.dateToStr(selectedDate);
   const isToday = today === realToday;
@@ -144,8 +144,10 @@ function ScreenToday({ onNewTask }) {
           { key: 'pontual', label: 'Pontuais', color: '#b066ff' },
           { key: 'recorrente', label: 'Recorrentes', color: '#5b8dff' },
           { key: 'evento', label: 'Eventos', color: '#ffa830' },
-          { key: 'habito', label: 'Hábitos', color: '#3ccf91' },
-          { key: 'feitas', label: 'Feitas', color: '#888' },
+          { key: 'habito', label: 'Hábitos', color: '#64d2ff' },
+          { key: 'atrasada', label: 'Atrasadas', color: '#ff2e88' },
+          { key: 'objetivo', label: 'Objetivos', color: '#a855f7' },
+          { key: 'feitas', label: 'Feitas', color: '#6b7280' },
         ].map(f => {
           const on = filterTypes[f.key];
           return (
@@ -243,37 +245,14 @@ function ScreenToday({ onNewTask }) {
                 </>)}
               </>;
             })()}
-            {showHabitsInList && todayHabits.length > 0 && (
-              <div className="panel">
-                <div className="eyebrow" style={{ marginBottom: 12 }}>Hábitos de hoje · {habitsDone}/{todayHabits.length}</div>
-                <div className="task-list">
-                  {todayHabits.map(hab => {
-                    const done = hab.log && hab.log[today];
-                    const streak = Orbita.getStreak(hab);
-                    const hColor = Orbita.resolveColor(hab.color);
-                    return (
-                      <div key={hab.id} className={`task-item ${done ? 'done' : ''}`} onClick={() => toggleHabitDay(hab.id, today)} style={{ cursor: 'pointer' }}>
-                        <div className={`check ${done ? 'checked' : ''}`} style={{ width: 22, height: 22, fontSize: 11, background: done ? hColor : undefined, borderColor: done ? 'transparent' : undefined }}>{done && '✓'}</div>
-                        <div style={{ flex: 1 }}>
-                          <div className="task-text">{hab.icon && <span style={{ marginRight: 6 }}>{hab.icon}</span>}{hab.name}</div>
-                          <div className="task-meta">
-                            <span className="mono" style={{ fontSize: 10, color: hColor }}>🔥 {streak}</span>
-                            <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{(hab.days||[]).length}x/sem</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
             {showCalendarEvents && (
               <CalendarEventsPanel events={calendarEvents} connected={calendarConnected} />
             )}
           </div>
           <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
             todayHabits={todayHabits} habitsDone={habitsDone} today={today}
-            overdueTasks={overdueTasks} catMap={catMap} goals={data.goals || []} />
+            overdueTasks={overdueTasks} catMap={catMap} goals={data.goals || []}
+            showHabits={filterTypes.habito} showOverdue={filterTypes.atrasada} showGoals={filterTypes.objetivo} />
         </div>
       )}
 
@@ -296,7 +275,7 @@ function ScreenToday({ onNewTask }) {
 }
 
 /* ── Right panel (XP + stats + habits) ── */
-function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals }) {
+function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals, showHabits, showOverdue, showGoals }) {
   const { toggleHabitDay } = useData();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -323,8 +302,8 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
         </div>
       </div>
 
-      {/* Hábitos — green border */}
-      {todayHabits.length > 0 && (
+      {/* Hábitos */}
+      {showHabits && todayHabits.length > 0 && (
         <div className="panel" style={{ padding: 20, borderLeft: '3px solid var(--neon-b, #5b8dff)' }}>
           <div className="eyebrow" style={{ color: 'var(--neon-b, #5b8dff)', marginBottom: 14 }}>✦ Hábitos de hoje · {habitsDone}/{todayHabits.length}</div>
           {todayHabits.map(hab => {
@@ -346,8 +325,8 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
         </div>
       )}
 
-      {/* Atrasadas — pink border */}
-      {overdueTasks && overdueTasks.length > 0 && (
+      {/* Atrasadas */}
+      {showOverdue && overdueTasks && overdueTasks.length > 0 && (
         <div className="panel" style={{ borderLeft: '3px solid var(--neon-a)' }}>
           <div className="eyebrow" style={{ color: 'var(--neon-a)', marginBottom: 12 }}>⚠ Atrasadas · {overdueTasks.length}</div>
           <div className="task-list">
@@ -356,8 +335,8 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
         </div>
       )}
 
-      {/* Objetivos — purple border */}
-      <GoalsOverview goals={goals || []} />
+      {/* Objetivos */}
+      {showGoals && <GoalsOverview goals={goals || []} />}
     </div>
   );
 }
