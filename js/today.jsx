@@ -429,15 +429,20 @@ function TimelineView({ tasks, catMap, today, nowH, xp, pct, lvlEnd, doneTodayCo
             const items = byHour[hrStr] || [];
             const isNow = hr === nowHour;
             if (items.length === 0 && !isNow) return null;
+            const nowMinPct = isNow ? Math.round(((nowH - hr) * 100)) : 0;
             return (
-              <div key={hr} style={{ display: 'flex', gap: 12, padding: '6px 0', borderTop: '1px solid var(--line)', position: 'relative' }}>
-                <div className="mono" style={{ width: 40, fontSize: 11, color: isNow ? 'var(--neon-a)' : 'var(--ink-4)', paddingTop: 4, flexShrink: 0, fontWeight: isNow ? 600 : 400 }}>
+              <div key={hr} style={{ display: 'flex', gap: 12, padding: '6px 0', borderTop: '1px solid var(--line)', position: 'relative', minHeight: isNow ? 40 : undefined }}>
+                {isNow && (
+                  <div style={{ position: 'absolute', left: 0, right: 0, top: `${Math.max(4, nowMinPct)}%`, height: 2, background: '#ff2e88', zIndex: 2, pointerEvents: 'none', boxShadow: '0 0 6px #ff2e88' }}>
+                    <div style={{ position: 'absolute', left: 0, top: -4, width: 10, height: 10, borderRadius: '50%', background: '#ff2e88' }} />
+                  </div>
+                )}
+                <div className="mono" style={{ width: 40, fontSize: 11, color: isNow ? '#ff2e88' : 'var(--ink-4)', paddingTop: 4, flexShrink: 0, fontWeight: isNow ? 600 : 400 }}>
                   {hrStr}:00
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {isNow && items.length === 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
-                      <span className="now-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff2e88', boxShadow: '0 0 8px #ff2e88' }} />
                       <span className="mono" style={{ fontSize: 10, color: '#ff2e88' }}>agora</span>
                     </div>
                   )}
