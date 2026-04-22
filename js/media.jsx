@@ -4,7 +4,7 @@ function ScreenBooks() {
   const { data, commit } = useData();
   const books = (data.media && data.media.livros) || [];
   const reading = books.filter(b => b.status === 'Lendo');
-  const queued = books.filter(b => b.queued && b.status !== 'Lendo' && b.status !== 'Lido' && b.status !== 'Biblioteca');
+  const queued = books.filter(b => b.status === 'Fila' || (b.queued && b.status !== 'Lendo' && b.status !== 'Lido' && b.status !== 'Biblioteca'));
   const done = books.filter(b => b.status === 'Lido');
   const library = books.filter(b => b.status === 'Biblioteca');
   const [showAdd, setShowAdd] = React.useState(false);
