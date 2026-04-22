@@ -179,11 +179,18 @@ function ScreenGoals() {
                   const mColor = m.done ? 'var(--neon-a)' : mProg > 0 ? 'var(--neon-c)' : 'var(--ink-4)';
                   return (
                     <div key={idx} style={{ padding: '10px 0', borderBottom: idx < ms.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', width: 16 }}>{idx + 1}</span>
                         <div className={`check ${m.done ? 'checked' : ''}`} style={{ width: 20, height: 20, fontSize: 10, cursor: 'pointer' }}
                           onClick={() => toggleMilestone(g.id, idx)}>{m.done && '✓'}</div>
-                        <span style={{ fontSize: 13, flex: 1, fontWeight: 500, textDecoration: m.done ? 'line-through' : 'none', color: m.done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{m.text}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, textDecoration: m.done ? 'line-through' : 'none', color: m.done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{m.text}</span>
+                          {m.suggestedDate && (
+                            <div className="mono" style={{ fontSize: 9, color: m.done ? 'var(--ink-4)' : Orbita.isOverdue(m.suggestedDate) && !m.done ? '#ff5555' : 'var(--ink-3)', marginTop: 2 }}>
+                              {Orbita.isOverdue(m.suggestedDate) && !m.done ? '⚠ ' : ''}prazo · {Orbita.fmtDate(m.suggestedDate)}
+                            </div>
+                          )}
+                        </div>
                         <span className="mono" style={{ fontSize: 11, color: mColor, fontWeight: 600 }}>{mProg}%</span>
                       </div>
                       <div style={{ paddingLeft: 26, marginTop: 4 }}>

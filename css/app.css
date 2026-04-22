@@ -212,6 +212,11 @@
 }
 .form-input:focus { border-color: var(--neon-a); }
 .form-input::placeholder { color: var(--ink-4); }
+.form-input[type="date"], .form-input[type="time"] {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; color-scheme: dark;
+}
+.form-input[type="date"]:focus, .form-input[type="time"]:focus { border-color: var(--neon-a); }
 textarea.form-input { min-height: 60px; resize: vertical; }
 select.form-input { cursor: pointer; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
