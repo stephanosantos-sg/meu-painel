@@ -123,14 +123,10 @@ function ScreenCharts() {
                 return (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 4 }}>
                     <span className="mono" style={{ fontSize: 10, color: 'var(--ink-2)' }}>{d.done || ''}</span>
-                  <div style={{
-                    width: '100%', borderRadius: 4,
-                    height: h + 'px',
-                    background: d.isToday ? 'var(--gradient-neon)' : 'rgba(176,102,255,0.5)',
-                    transition: 'height 300ms',
-                  }} />
-                </div>
-              ))}
+                    <div style={{ width: '100%', borderRadius: 4, height: h + 'px', background: d.isToday ? 'var(--gradient-neon)' : 'rgba(176,102,255,0.5)', transition: 'height 300ms' }} />
+                  </div>
+                );
+              })}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {last7Habits.map((d, i) => (
