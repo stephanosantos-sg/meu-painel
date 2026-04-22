@@ -13,7 +13,7 @@ function ScreenBooks() {
   const [newAuthor, setNewAuthor] = React.useState('');
   const [fetching, setFetching] = React.useState(false);
   const [libSearch, setLibSearch] = React.useState('');
-  const [showLibrary, setShowLibrary] = React.useState(false);
+  const [showLibrary, setShowLibrary] = React.useState(true);
   const [libView, setLibView] = React.useState('list');
 
   function addBook(status) {
