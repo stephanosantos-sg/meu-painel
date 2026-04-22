@@ -278,6 +278,7 @@ function ScreenToday({ onNewTask }) {
             {showCalendarEvents && (
               <CalendarEventsPanel events={calendarEvents} connected={calendarConnected} />
             )}
+            <GoalsOverview goals={data.goals || []} />
           </div>
           <RightPanel xp={xp} pct={pct} lvlEnd={lvlEnd} doneTodayCount={doneTodayCount} todayTasks={todayTasks}
             todayHabits={todayHabits} habitsDone={habitsDone} today={today} />
@@ -969,6 +970,63 @@ function UpcomingHolidays() {
 }
 
 /* ── Calendar Events Panel (Google Calendar) ── */
+/* ── Goals Overview (Home) ── */
+function GoalsOverview({ goals }) {
+  const active = goals.filter(g => {
+    const ms = g.milestones || [];
+    return ms.length === 0 || ms.some(m => !m.done);
+  });
+  if (active.length === 0) return null;
+
+  return (
+    <div className="panel" style={{ padding: 20 }}>
+      <div className="eyebrow" style={{ marginBottom: 12 }}>Objetivos · {active.length}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {active.map(g => {
+          const ms = g.milestones || [];
+          const done = ms.filter(m => m.done).length;
+          const pct = ms.length ? Math.round(done / ms.length * 100) : 0;
+          const next = ms.find(m => !m.done);
+          const overdue = g.deadline && Orbita.isOverdue(g.deadline);
+          return (
+            <div key={g.id} style={{
+              display: 'flex', gap: 12, padding: '10px 12px', borderRadius: 10,
+              background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line)',
+              cursor: 'pointer', transition: 'all 120ms',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>
+                {g.icon || '◎'}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{g.title}</span>
+                  <span className="mono" style={{ fontSize: 10, color: 'var(--neon-a)', fontWeight: 600, marginLeft: 'auto', flexShrink: 0 }}>{pct}%</span>
+                </div>
+                {next && (
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: 'var(--ink-4)' }}>→</span> {next.text}
+                    {next.suggestedDate && <span className="mono" style={{ fontSize: 9, color: Orbita.isOverdue(next.suggestedDate) ? '#ff5555' : 'var(--ink-4)', marginLeft: 4 }}>· {Orbita.fmtDate(next.suggestedDate)}</span>}
+                  </div>
+                )}
+                {g.deadline && (
+                  <div className="mono" style={{ fontSize: 9, color: overdue ? '#ff5555' : 'var(--ink-4)', marginTop: 3 }}>
+                    {overdue ? '⚠ atrasado' : `prazo ${Orbita.fmtDate(g.deadline)}`}
+                  </div>
+                )}
+                <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginTop: 6, overflow: 'hidden' }}>
+                  <div style={{ width: `${pct}%`, height: '100%', background: 'var(--gradient-neon)', borderRadius: 2 }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CalendarEventsPanel({ events, connected }) {
   if (!connected) {
     return (
