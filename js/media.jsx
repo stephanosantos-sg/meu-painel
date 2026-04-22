@@ -542,15 +542,13 @@ function ScreenMedia() {
             <span key={s} onClick={() => setRating(idx, s)} style={{ cursor: 'pointer', fontSize: 14, color: s <= (item.userRating || 0) ? '#ffd60a' : 'var(--ink-4)' }}>★</span>
           ))}
         </div>
-        {hovered && (
-          <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-            {!item.done && <button className="btn-ghost small" onClick={() => toggleDone(idx)}>✓</button>}
-            {!item.queued && !item.done && <button className="btn-ghost small" onClick={() => toggleQueue(idx)}>Fila</button>}
-            <button className="btn-ghost small" onClick={() => setEditMediaIdx(idx)}>✎</button>
-            <button className="btn-ghost small" onClick={() => reFetch(idx)}>↻</button>
-            <button className="btn-ghost small" onClick={() => deleteItem(idx)} style={{ color: 'var(--ink-4)' }}>✕</button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 3, marginTop: 6, flexWrap: 'wrap' }}>
+          {!item.done && <button className="btn-ghost small" onClick={() => toggleDone(idx)} style={{ fontSize: 10, padding: '3px 6px' }}>✓</button>}
+          {!item.queued && !item.done && <button className="btn-ghost small" onClick={() => toggleQueue(idx)} style={{ fontSize: 10, padding: '3px 6px' }}>Fila</button>}
+          <button className="btn-ghost small" onClick={() => setEditMediaIdx(idx)} style={{ fontSize: 10, padding: '3px 6px' }}>✎</button>
+          <button className="btn-ghost small" onClick={() => reFetch(idx)} style={{ fontSize: 10, padding: '3px 6px' }}>↻</button>
+          <button className="btn-ghost small" onClick={() => deleteItem(idx)} style={{ fontSize: 10, padding: '3px 6px', color: 'var(--ink-4)' }}>✕</button>
+        </div>
       </div>
     );
   }
