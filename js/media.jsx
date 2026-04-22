@@ -524,7 +524,17 @@ function ScreenMedia() {
     return (
       <div className="panel" style={{ padding: 14, position: 'relative' }}
         onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
-        {item.poster && <img src={item.poster} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, aspectRatio: '2/3', objectFit: 'cover' }} />}
+        {item.poster ? (
+          <img src={item.poster} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, aspectRatio: '2/3', objectFit: 'cover' }} />
+        ) : (
+          <div style={{
+            width: '100%', aspectRatio: '2/3', borderRadius: 8, marginBottom: 8,
+            background: `linear-gradient(135deg, hsl(${(item.title||'').split('').reduce((s,c)=>s+c.charCodeAt(0),0)%360}, 50%, 35%), hsl(${((item.title||'').split('').reduce((s,c)=>s+c.charCodeAt(0),0)+40)%360}, 40%, 25%))`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
+          }}>
+            <span style={{ fontSize: 32, opacity: 0.6 }}>{tab === 'series' ? '📺' : tab === 'docs' ? '🎥' : '🎬'}</span>
+          </div>
+        )}
         <div style={{ fontSize: 13, fontWeight: 500 }}>{item.title}</div>
         {item.year && <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 2 }}>{item.year}{item.director && ` · ${item.director}`}</div>}
         {item.genre && <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{item.genre}</div>}
