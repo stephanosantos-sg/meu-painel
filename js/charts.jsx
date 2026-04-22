@@ -15,8 +15,11 @@ function ScreenCharts() {
     const d = new Date(); d.setDate(d.getDate() - i);
     const ds = Orbita.dateToStr(d);
     const dayTasks = tasks.filter(t => Orbita.isTaskForDate(t, ds));
-    const done = dayTasks.filter(t => Orbita.isTaskDone(t, ds)).length;
-    last7.push({ ds, day: d.getDate(), dow: dayNames[d.getDay()], total: dayTasks.length, done, isToday: ds === today });
+    // Count done: recurring via isTaskDone, pontual via doneAt matching the day
+    const doneRecurring = dayTasks.filter(t => Orbita.isTaskDone(t, ds)).length;
+    const donePontual = tasks.filter(t => t.freq === 'pontual' && t.done && t.doneAt === ds).length;
+    const done = doneRecurring + donePontual;
+    last7.push({ ds, day: d.getDate(), dow: dayNames[d.getDay()], total: dayTasks.length + donePontual, done, isToday: ds === today });
   }
   const maxTasks = Math.max(1, ...last7.map(d => d.done));
 

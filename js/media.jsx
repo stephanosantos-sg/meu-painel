@@ -439,48 +439,190 @@ function BookCover({ book, size = 100 }) {
 }
 
 function ScreenMedia() {
-  const { data } = useData();
+  const { data, commit } = useData();
   const [tab, setTab] = React.useState('filmes');
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [newTitle, setNewTitle] = React.useState('');
   const media = data.media || {};
   const items = media[tab] || [];
-  const done = items.filter(i => i.done).length;
+  const watching = items.filter(i => i.queued && !i.done);
+  const doneItems = items.filter(i => i.done);
+  const unwatched = items.filter(i => !i.queued && !i.done);
+
+  function fetchOMDB(title, tabKey, idx) {
+    const q = encodeURIComponent(title);
+    const type = tabKey === 'series' ? 'series' : 'movie';
+    fetch(`https://www.omdbapi.com/?t=${q}&type=${type}&apikey=4a3b711b`)
+      .then(r => r.json()).then(d => {
+        if (d.Response === 'False') return;
+        commit(D => {
+          const item = D.media[tabKey][idx];
+          if (!item) return;
+          if (d.Poster && d.Poster !== 'N/A') item.poster = d.Poster;
+          if (d.Year) item.year = d.Year;
+          if (d.Genre) item.genre = d.Genre;
+          if (d.Director && d.Director !== 'N/A') item.director = d.Director;
+          if (d.Runtime && d.Runtime !== 'N/A') item.runtime = d.Runtime;
+          if (d.totalSeasons) item.seasons = parseInt(d.totalSeasons);
+          if (d.imdbRating && d.imdbRating !== 'N/A') item.rating = Math.round(parseFloat(d.imdbRating) / 2);
+        });
+      }).catch(() => {});
+  }
+
+  function addItem(status) {
+    if (!newTitle.trim()) return;
+    const item = { title: newTitle.trim(), done: false, queued: status === 'queue', poster: null, year: null, genre: null, director: null, userRating: 0 };
+    if (tab === 'series') { item.seasons = null; item.currentSeason = 1; }
+    const idx = items.length;
+    commit(D => {
+      if (!D.media) D.media = { livros: [], filmes: [], series: [], docs: [] };
+      if (!D.media[tab]) D.media[tab] = [];
+      D.media[tab].push(item);
+    });
+    fetchOMDB(newTitle.trim(), tab, idx);
+    setNewTitle(''); setShowAdd(false);
+  }
+
+  function toggleDone(idx) {
+    commit(D => {
+      const item = D.media[tab][idx];
+      if (!item) return;
+      item.done = !item.done;
+      if (item.done) item.queued = false;
+    });
+  }
+
+  function toggleQueue(idx) {
+    commit(D => {
+      const item = D.media[tab][idx];
+      if (!item) return;
+      item.queued = !item.queued;
+      if (item.queued) item.done = false;
+    });
+  }
+
+  function setRating(idx, rating) {
+    commit(D => {
+      const item = D.media[tab][idx];
+      if (!item) return;
+      item.userRating = rating;
+      if (rating > 0) { item.done = true; item.queued = false; }
+    });
+  }
+
+  function reFetch(idx) {
+    const item = items[idx];
+    if (item) fetchOMDB(item.title, tab, idx);
+  }
+
+  function deleteItem(idx) {
+    commit(D => { D.media[tab].splice(idx, 1); });
+  }
+
+  const tabLabel = tab === 'filmes' ? 'Filmes' : tab === 'series' ? 'Séries' : 'Documentários';
+
+  function MediaCard({ item, idx }) {
+    const [hovered, setHovered] = React.useState(false);
+    return (
+      <div className="panel" style={{ padding: 14, position: 'relative' }}
+        onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+        {item.poster && <img src={item.poster} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, aspectRatio: '2/3', objectFit: 'cover' }} />}
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{item.title}</div>
+        {item.year && <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 2 }}>{item.year}{item.director && ` · ${item.director}`}</div>}
+        {item.genre && <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{item.genre}</div>}
+        {tab === 'series' && item.seasons && <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{item.seasons} temporadas</div>}
+        <div style={{ display: 'flex', gap: 2, marginTop: 6 }}>
+          {[1,2,3,4,5].map(s => (
+            <span key={s} onClick={() => setRating(idx, s)} style={{ cursor: 'pointer', fontSize: 14, color: s <= (item.userRating || 0) ? '#ffd60a' : 'var(--ink-4)' }}>★</span>
+          ))}
+        </div>
+        {hovered && (
+          <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+            {!item.done && <button className="btn-ghost small" onClick={() => toggleDone(idx)}>✓</button>}
+            {!item.queued && !item.done && <button className="btn-ghost small" onClick={() => toggleQueue(idx)}>Fila</button>}
+            <button className="btn-ghost small" onClick={() => reFetch(idx)}>↻</button>
+            <button className="btn-ghost small" onClick={() => deleteItem(idx)} style={{ color: 'var(--ink-4)' }}>✕</button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
-      <TopBar title="Mídia." subtitle={`${items.length} itens · ${done} assistidos`}
-        actions={
+      <TopBar title="Mídia." subtitle={`${watching.length} assistindo · ${doneItems.length} concluídos · ${items.length} total`}
+        actions={<>
           <div style={{ display: 'flex', gap: 4 }}>
-            {[{ v: 'filmes', l: '🎬 Filmes' },{ v: 'series', l: '📺 Séries' },{ v: 'docs', l: '🎥 Docs' }].map(t => (
+            {[{ v: 'filmes', l: 'Filmes' },{ v: 'series', l: 'Séries' },{ v: 'docs', l: 'Docs' }].map(t => (
               <button key={t.v} className={`tab-btn ${tab === t.v ? 'active' : ''}`} onClick={() => setTab(t.v)}>{t.l}</button>
             ))}
           </div>
-        }
+          <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => setShowAdd(true)}>＋ {tabLabel.slice(0,-1)}</button>
+        </>}
       />
       <div style={{ padding: '0 28px 40px' }}>
+
+        {/* Watching / Queue */}
+        {watching.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>Assistindo agora</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+              {watching.map((item, i) => <MediaCard key={items.indexOf(item)} item={item} idx={items.indexOf(item)} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Unwatched */}
+        {unwatched.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>Para assistir · {unwatched.length}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+              {unwatched.map((item, i) => <MediaCard key={items.indexOf(item)} item={item} idx={items.indexOf(item)} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Done */}
+        {doneItems.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>Concluídos · {doneItems.length}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+              {doneItems.map((item, i) => <MediaCard key={items.indexOf(item)} item={item} idx={items.indexOf(item)} />)}
+            </div>
+          </div>
+        )}
+
         {items.length === 0 && (
           <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>▷</div>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>Nenhum item em {tab}</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>Adicione via o app principal por enquanto</div>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>Nenhum item em {tabLabel}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4, marginBottom: 16 }}>Adicione seu primeiro título</div>
+            <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => setShowAdd(true)}>＋ {tabLabel.slice(0,-1)}</button>
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
-          {items.map((item, i) => (
-            <div key={i} className="panel" style={{ padding: 14 }}>
-              {item.poster && <img src={item.poster} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, aspectRatio: '2/3', objectFit: 'cover' }} />}
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{item.title}</div>
-              {item.year && <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 2 }}>{item.year}{item.director && ` · ${item.director}`}</div>}
-              {item.genre && <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{item.genre}</div>}
-              <div style={{ display: 'flex', gap: 2, marginTop: 6 }}>
-                {[1,2,3,4,5].map(s => (
-                  <span key={s} style={{ fontSize: 12, color: s <= (item.userRating || item.rating || 0) ? '#ffd60a' : 'var(--ink-4)' }}>★</span>
-                ))}
-              </div>
-              {item.done && <span className="chip" style={{ fontSize: 9, padding: '2px 6px', marginTop: 6 }}>✓ Assistido</span>}
-            </div>
-          ))}
-        </div>
       </div>
+
+      {/* Add modal */}
+      {showAdd && (
+        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(420px, 90vw)' }}>
+            <div className="modal-header"><h2>Adicionar {tabLabel.slice(0,-1).toLowerCase()}</h2><button className="modal-close" onClick={() => setShowAdd(false)}>✕</button></div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Título</label>
+                <input className="form-input" autoFocus placeholder={`Nome do ${tabLabel.slice(0,-1).toLowerCase()}`} value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addItem('queue'); }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', padding: '4px 0' }}>Metadados (capa, ano, gênero) são buscados automaticamente via OMDB</div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancelar</button>
+              <button className="btn-ghost" onClick={() => addItem('list')}>Adicionar</button>
+              <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={() => addItem('queue')}>Assistir agora</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
