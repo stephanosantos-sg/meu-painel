@@ -64,22 +64,53 @@ function Pomodoro({ onClose }) {
     return `rgba(${r},${g},${b},${a})`;
   }
 
+  const miniRingSize = 64;
+  const miniRingR = 26;
+  const miniCirc = Math.PI * 2 * miniRingR;
+
   if (mini) {
     return (
       <div style={{
         position: 'fixed', bottom: 20, right: 20, zIndex: 900,
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 16px', borderRadius: 14,
-        background: 'var(--glass-bg-strong, rgba(14,14,20,0.95))', border: '1px solid var(--glass-border)',
+        padding: '16px 20px', borderRadius: 18, width: 320,
+        background: `radial-gradient(ellipse 300px 200px at 90% 20%, ${hexToRgba(neonB, 0.12)}, transparent), var(--glass-bg-strong, rgba(14,14,20,0.95))`,
+        border: '1px solid var(--glass-border)',
         backdropFilter: 'blur(20px)', boxShadow: 'var(--shadow-float)',
       }}>
-        <span style={{ fontSize: 16 }}>🍅</span>
-        <span className="mono" style={{ fontSize: 18, fontWeight: 300, letterSpacing: '-0.02em' }}>
-          {String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}
-        </span>
-        <button className="btn-ghost small" onClick={() => setRunning(r => !r)}>{running ? '⏸' : '▶'}</button>
-        <button className="btn-ghost small" onClick={() => setMini(false)}>↗</button>
-        <button className="btn-ghost small" onClick={onClose}>✕</button>
+        <div className="eyebrow" style={{ fontSize: 9, marginBottom: 10 }}>Pomodoro · Ciclo {cycles + 1}/4</div>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 12 }}>
+          <svg viewBox={`0 0 ${miniRingSize} ${miniRingSize}`} style={{ width: miniRingSize, height: miniRingSize, transform: 'rotate(-90deg)', flexShrink: 0 }}>
+            <circle cx={miniRingSize/2} cy={miniRingSize/2} r={miniRingR} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
+            <circle cx={miniRingSize/2} cy={miniRingSize/2} r={miniRingR} fill="none" stroke={`url(#miniGrad)`} strokeWidth="5" strokeLinecap="round"
+              strokeDasharray={miniCirc} strokeDashoffset={miniCirc * (1 - pct)} style={{ transition: 'stroke-dashoffset 1s linear' }} />
+            <defs>
+              <linearGradient id="miniGrad" x1="0" x2="1">
+                <stop offset="0" stopColor={neonA} />
+                <stop offset="1" stopColor={neonB} />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div>
+            <div className="mono" style={{ fontSize: 32, fontWeight: 300, letterSpacing: '-0.03em', lineHeight: 1 }}>
+              {String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}
+            </div>
+            {focusText && <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>Foco em: {focusText}</div>}
+            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ width: 20, height: 4, borderRadius: 2, background: i < cycles % 4 ? (i < 2 ? neonA : neonB) : 'rgba(255,255,255,0.08)' }} />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn-ghost small" onClick={() => setRunning(r => !r)} style={{ flex: 1, justifyContent: 'center' }}>
+            {running ? '⏸ Pausar' : '▶ Retomar'}
+          </button>
+          <button className="btn-ghost small" onClick={() => { reset(preset === 25 ? 5 : 25); setRunning(true); }} style={{ flex: 1, justifyContent: 'center' }}>
+            ⏭ Skip
+          </button>
+          <button className="btn-ghost small" onClick={() => setMini(false)} title="Expandir">↗</button>
+        </div>
       </div>
     );
   }
