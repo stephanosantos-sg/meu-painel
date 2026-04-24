@@ -829,7 +829,7 @@ function DietExtra({ extras, today, openaiKey, commit }) {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'Você é um nutricionista. Analise o alimento descrito e retorne APENAS um JSON no formato: {"items":[{"name":"nome","qty":"quantidade","calories":número,"protein":número,"carbs":número,"fat":número}],"total_calories":número,"summary":"resumo breve"}. Use valores em gramas para macros e quilocalorias para energia.' },
+            { role: 'system', content: 'Você é um nutricionista brasileiro. Use a Tabela Brasileira de Composição de Alimentos (TACO) da UNICAMP como referência principal. Analise o alimento descrito e retorne APENAS um JSON no formato: {"items":[{"name":"nome","qty":"quantidade","calories":número,"protein":número,"carbs":número,"fat":número}],"total_calories":número,"summary":"resumo breve"}. Macros em gramas, energia em kcal.' },
             { role: 'user', content: foodText }
           ],
           response_format: { type: 'json_object' },
@@ -1130,7 +1130,7 @@ function DietChat({ openaiKey, diet, today, commit }) {
     try {
       const systemMsg = {
         role: 'system',
-        content: `Você é um nutricionista assistente do usuário Stephano. Seja conciso, direto e amigável. Responda em português. Use markdown simples quando útil.\n\n${buildContext()}`
+        content: `Você é um nutricionista assistente do usuário Stephano. Use a Tabela Brasileira de Composição de Alimentos (TACO) da UNICAMP como referência principal. Seja conciso, direto e amigável. Responda em português. Use markdown simples quando útil.\n\n${buildContext()}`
       };
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -1291,7 +1291,7 @@ function DietHomeBar() {
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [
-              { role: 'system', content: 'Você é um nutricionista. Analise o alimento e retorne APENAS JSON: {"items":[{"name":"","qty":"","calories":N,"protein":N,"carbs":N,"fat":N}],"total_calories":N,"summary":""}. Macros em gramas, energia em kcal.' },
+              { role: 'system', content: 'Você é um nutricionista brasileiro. Use a Tabela Brasileira de Composição de Alimentos (TACO) da UNICAMP como referência principal para calcular macros e calorias. Para alimentos não cobertos pela TACO, use USDA ou IBGE. Analise o alimento e retorne APENAS JSON: {"items":[{"name":"","qty":"","calories":N,"protein":N,"carbs":N,"fat":N}],"total_calories":N,"summary":""}. Macros em gramas, energia em kcal.' },
               { role: 'user', content: input }
             ],
             response_format: { type: 'json_object' },
@@ -1318,7 +1318,7 @@ function DietHomeBar() {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: `Você é o coach nutricional do Stephano. Seja conciso e direto. Responda em português.\n\n${buildContext()}` },
+            { role: 'system', content: `Você é o coach nutricional do Stephano. Use a Tabela Brasileira de Composição de Alimentos (TACO) da UNICAMP como referência principal para qualquer cálculo de calorias, macros ou substituições nutricionais. Para alimentos industrializados ou não cobertos pela TACO, use USDA ou rótulos. Sempre cite a fonte quando for relevante. Seja conciso, direto e em português.\n\n${buildContext()}` },
             ...newMessages.slice(-10),
           ],
           temperature: 0.7,
