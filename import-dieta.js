@@ -102,10 +102,10 @@
   ];
 
   const targets = {
-    dailyCalories: 2000,
-    protein: 130,
-    carbs: 220,
-    fat: 60,
+    dailyCalories: 1500,
+    protein: 115,
+    carbs: 175,
+    fat: 35,
     weightGoal: 75,
   };
 
@@ -144,13 +144,20 @@
   d.lastModified = Date.now();
   localStorage.setItem('meuPainel_v4', JSON.stringify(d));
 
-  alert(
-    `✓ Plano nutricional importado!\n\n` +
-    `• ${meals.length} refeições com todas as opções de substituição\n` +
-    `• Peso inicial: 83.4 kg (10/02)\n` +
-    `• Cintura: 86.5 cm\n` +
-    `• Metas: ${targets.dailyCalories} kcal/dia, meta de peso ${targets.weightGoal} kg\n\n` +
-    `⚠ Configure sua chave OpenAI em Dieta → Config para usar Extra e Chat.\n\n` +
-    `Recarregue a página.`
-  );
+  // Força push para Firestore se logado (evita sobrescrita ao recarregar)
+  const promise = (window.OrbitaFirebase && window.OrbitaFirebase.pushToCloud)
+    ? window.OrbitaFirebase.pushToCloud(d).catch(e => console.warn('Push failed:', e))
+    : Promise.resolve();
+
+  promise.then(() => {
+    alert(
+      `✓ Plano nutricional importado!\n\n` +
+      `• ${meals.length} refeições com todas as opções de substituição\n` +
+      `• Peso inicial: 83.4 kg (10/02)\n` +
+      `• Medidas: cintura 86.5 cm, abdômen 93 cm + dobras\n` +
+      `• Metas: ${targets.dailyCalories} kcal/dia, meta de peso ${targets.weightGoal} kg\n\n` +
+      `⚠ Configure sua chave OpenAI em Dieta → Objetivos\n\n` +
+      `Recarregue a página.`
+    );
+  });
 })();
