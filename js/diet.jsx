@@ -33,6 +33,7 @@ function ScreenDiet() {
               { v: 'medidas', l: 'Medidas' },
               { v: 'fotos', l: 'Fotos' },
               { v: 'extra', l: 'Extra' },
+              { v: 'chat', l: 'Chat' },
               { v: 'config', l: 'Config' },
             ].map(t => (
               <button key={t.v} className={`tab-btn ${tab === t.v ? 'active' : ''}`} onClick={() => setTab(t.v)}>{t.l}</button>
@@ -46,6 +47,7 @@ function ScreenDiet() {
         {tab === 'medidas' && <DietMeasurements log={measurements} commit={commit} />}
         {tab === 'fotos' && <DietPhotos photos={photos} commit={commit} />}
         {tab === 'extra' && <DietExtra extras={extras} today={today} openaiKey={diet.openaiKey} commit={commit} />}
+        {tab === 'chat' && <DietChat openaiKey={diet.openaiKey} diet={diet} today={today} commit={commit} />}
         {tab === 'config' && <DietConfig targets={targets} openaiKey={diet.openaiKey} commit={commit} />}
       </div>
     </>
@@ -118,51 +120,64 @@ function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalorie
 
         {meals.sort((a,b) => (a.time||'').localeCompare(b.time||'')).map(meal => {
           const items = meal.items || [];
-          const doneItems = items.filter(i => (i.doneDates || []).includes(today)).length;
-          const allDone = items.length > 0 && doneItems === items.length;
-          const mealCal = items.reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
-          const doneCal = items.filter(i => (i.doneDates || []).includes(today)).reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
-          const mealProtein = items.reduce((s, i) => s + (parseFloat(i.protein) || 0), 0);
-          const mealCarbs = items.reduce((s, i) => s + (parseFloat(i.carbs) || 0), 0);
-          const mealFat = items.reduce((s, i) => s + (parseFloat(i.fat) || 0), 0);
+          const doneItems = items.filter(i => (i.doneDates || []).includes(today));
+          const hasAnyDone = doneItems.length > 0;
+          const doneCal = doneItems.reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
+          const doneP = doneItems.reduce((s, i) => s + (parseFloat(i.protein) || 0), 0);
+          const doneC = doneItems.reduce((s, i) => s + (parseFloat(i.carbs) || 0), 0);
+          const doneF = doneItems.reduce((s, i) => s + (parseFloat(i.fat) || 0), 0);
+
+          // Agrupa items por "group" — items sem group ficam soltos no topo
+          const noGroup = items.map((it, idx) => ({ it, idx })).filter(({it}) => !it.group);
+          const groupsMap = {};
+          items.forEach((it, idx) => {
+            if (!it.group) return;
+            if (!groupsMap[it.group]) groupsMap[it.group] = [];
+            groupsMap[it.group].push({ it, idx });
+          });
+
           return (
-            <div key={meal.id} className="panel" style={{ padding: 18, borderLeft: `3px solid ${allDone ? '#3ccf91' : '#64d2ff'}`, opacity: allDone ? 0.75 : 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <div className={`check ${allDone ? 'checked' : ''}`} onClick={() => toggleMeal(meal.id)} style={{ width: 22, height: 22, fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>{allDone && '✓'}</div>
-                <span style={{ fontSize: 18 }}>{meal.icon || '🍽'}</span>
+            <div key={meal.id} className="panel" style={{ padding: 18, borderLeft: `3px solid ${hasAnyDone ? '#3ccf91' : '#64d2ff'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                <span style={{ fontSize: 22 }}>{meal.icon || '🍽'}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, textDecoration: allDone ? 'line-through' : 'none' }}>{meal.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{meal.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
                     {meal.time && <span className="mono">⏱ {meal.time}</span>}
-                    <span style={{ marginLeft: meal.time ? 10 : 0 }}>{doneCal}/{Math.round(mealCal)} kcal</span>
-                    {mealProtein > 0 && <span style={{ marginLeft: 10 }}>P {mealProtein}g</span>}
-                    {mealCarbs > 0 && <span style={{ marginLeft: 6 }}>C {mealCarbs}g</span>}
-                    {mealFat > 0 && <span style={{ marginLeft: 6 }}>G {mealFat}g</span>}
+                    <span style={{ marginLeft: meal.time ? 10 : 0, color: doneCal > 0 ? '#3ccf91' : 'var(--ink-3)' }}>{Math.round(doneCal)} kcal</span>
+                    {doneP > 0 && <span style={{ marginLeft: 10 }}>P {Math.round(doneP)}g</span>}
+                    {doneC > 0 && <span style={{ marginLeft: 6 }}>C {Math.round(doneC)}g</span>}
+                    {doneF > 0 && <span style={{ marginLeft: 6 }}>G {Math.round(doneF)}g</span>}
                   </div>
                 </div>
                 <button className="btn-ghost small" onClick={() => setEditMealId(meal.id)} style={{ fontSize: 10 }}>✎</button>
                 <button className="btn-ghost small" onClick={() => deleteMeal(meal.id)} style={{ fontSize: 10, color: 'var(--ink-4)' }}>✕</button>
               </div>
-              {items.length > 0 && (
-                <div style={{ paddingLeft: 36, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {items.map((item, idx) => {
-                    const done = (item.doneDates || []).includes(today);
-                    return (
-                      <div key={idx} onClick={() => toggleItem(meal.id, idx)} style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '5px 8px', borderRadius: 6,
-                        cursor: 'pointer', background: 'rgba(255,255,255,0.02)', transition: 'all 120ms',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
-                        <div className={`check ${done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7 }}>{done && '✓'}</div>
-                        <span style={{ fontSize: 12.5, flex: 1, textDecoration: done ? 'line-through' : 'none', color: done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{item.name}</span>
-                        {item.qty && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{item.qty}</span>}
-                        {item.calories && <span className="mono" style={{ fontSize: 10, color: '#ffa830' }}>{item.calories} kcal</span>}
-                      </div>
-                    );
-                  })}
+
+              {/* Items sem grupo */}
+              {noGroup.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: Object.keys(groupsMap).length > 0 ? 10 : 0 }}>
+                  {noGroup.map(({ it, idx }) => <ItemRow key={idx} item={it} mealId={meal.id} idx={idx} today={today} onToggle={toggleItem} />)}
                 </div>
               )}
+
+              {/* Grupos de substituições */}
+              {Object.entries(groupsMap).map(([groupName, entries]) => {
+                const groupDone = entries.some(({it}) => (it.doneDates||[]).includes(today));
+                return (
+                  <div key={groupName} style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '0 4px' }}>
+                      <span className="mono" style={{ fontSize: 9, color: groupDone ? '#3ccf91' : 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        {groupName} · escolha 1 de {entries.length}
+                      </span>
+                      {groupDone && <span className="mono" style={{ fontSize: 9, color: '#3ccf91' }}>✓</span>}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {entries.map(({ it, idx }) => <ItemRow key={idx} item={it} mealId={meal.id} idx={idx} today={today} onToggle={toggleItem} isOption />)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -215,6 +230,25 @@ function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalorie
 
       {showNewMeal && <MealEditModal meal={null} commit={commit} onClose={() => setShowNewMeal(false)} />}
       {editMealId && <MealEditModal meal={meals.find(m => m.id === editMealId)} commit={commit} onClose={() => setEditMealId(null)} />}
+    </div>
+  );
+}
+
+function ItemRow({ item, mealId, idx, today, onToggle, isOption }) {
+  const done = (item.doneDates || []).includes(today);
+  return (
+    <div onClick={() => onToggle(mealId, idx)} style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '5px 8px', borderRadius: 6,
+      cursor: 'pointer', transition: 'all 120ms',
+      background: done ? 'rgba(60,207,145,0.08)' : 'transparent',
+      border: done ? '1px solid rgba(60,207,145,0.25)' : '1px solid transparent',
+    }}
+    onMouseEnter={e => { if (!done) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+    onMouseLeave={e => { if (!done) e.currentTarget.style.background = 'transparent'; }}>
+      <div className={`check ${done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7, background: done ? '#3ccf91' : undefined, borderColor: done ? 'transparent' : undefined }}>{done && '✓'}</div>
+      <span style={{ fontSize: 12.5, flex: 1, textDecoration: done ? 'line-through' : 'none', color: done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{item.name}</span>
+      {item.qty && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', flexShrink: 0 }}>{item.qty}</span>}
+      {item.calories ? <span className="mono" style={{ fontSize: 10, color: done ? 'var(--ink-4)' : '#ffa830', flexShrink: 0, width: 56, textAlign: 'right' }}>{item.calories} kcal</span> : <span style={{ width: 56 }} />}
     </div>
   );
 }
@@ -988,5 +1022,157 @@ function DietWidget({ diet, today }) {
   );
 }
 
+/* ── Chat with nutrition AI ── */
+function DietChat({ openaiKey, diet, today, commit }) {
+  const [messages, setMessages] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('orbita_diet_chat') || '[]'); }
+    catch { return []; }
+  });
+  const [input, setInput] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const scrollRef = React.useRef();
+
+  React.useEffect(() => {
+    localStorage.setItem('orbita_diet_chat', JSON.stringify(messages.slice(-30)));
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  function buildContext() {
+    const meals = diet.meals || [];
+    const targets = diet.targets || {};
+    const weightLog = diet.weightLog || [];
+    const currentWeight = weightLog.length ? weightLog[weightLog.length - 1].weight : null;
+
+    let ctx = `Contexto nutricional do usuário:\n`;
+    ctx += `- Metas: ${targets.dailyCalories || 2000} kcal/dia, ${targets.protein || 150}g proteína, ${targets.carbs || 200}g carbo, ${targets.fat || 65}g gordura\n`;
+    if (currentWeight) ctx += `- Peso atual: ${currentWeight} kg${targets.weightGoal ? `, meta ${targets.weightGoal} kg` : ''}\n`;
+    ctx += `- Plano alimentar:\n`;
+    meals.forEach(m => {
+      const doneItems = (m.items||[]).filter(i => (i.doneDates||[]).includes(today));
+      const doneCal = doneItems.reduce((s,i) => s + (parseFloat(i.calories)||0), 0);
+      ctx += `  ${m.time || ''} ${m.name}${doneItems.length ? ` (${doneItems.length} itens consumidos = ${Math.round(doneCal)} kcal)` : ' (nada consumido)'}\n`;
+    });
+    return ctx;
+  }
+
+  async function send() {
+    if (!input.trim()) return;
+    if (!openaiKey) { setError('Configure sua chave OpenAI em Config'); return; }
+
+    const userMsg = { role: 'user', content: input.trim() };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInput('');
+    setLoading(true);
+    setError('');
+
+    try {
+      const systemMsg = {
+        role: 'system',
+        content: `Você é um nutricionista assistente do usuário Stephano. Seja conciso, direto e amigável. Responda em português. Use markdown simples quando útil.\n\n${buildContext()}`
+      };
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [systemMsg, ...newMessages.slice(-10)],
+          temperature: 0.7,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      const reply = json.choices[0].message.content;
+      setMessages(m => [...m, { role: 'assistant', content: reply }]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function clearChat() {
+    if (!confirm('Limpar conversa?')) return;
+    setMessages([]);
+    localStorage.removeItem('orbita_diet_chat');
+  }
+
+  const suggestions = [
+    'Posso trocar o pão do café por tapioca?',
+    'Qual refeição está me faltando hoje?',
+    'Sugira um snack pra comer agora',
+    'Analise meu consumo de hoje',
+  ];
+
+  return (
+    <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div className="eyebrow">Chat nutricional · GPT-4o mini</div>
+          <h3 className="panel-title" style={{ marginTop: 4 }}>Converse sobre sua dieta.</h3>
+        </div>
+        {messages.length > 0 && <button className="btn-ghost small" onClick={clearChat}>Limpar</button>}
+      </div>
+
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16, borderRadius: 16, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', marginBottom: 12 }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 20 }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🥗</div>
+            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Pergunte sobre sua dieta</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 16 }}>A IA sabe suas metas, peso e plano alimentar</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 400, margin: '0 auto' }}>
+              {suggestions.map(s => (
+                <button key={s} className="btn-ghost small" onClick={() => setInput(s)} style={{ justifyContent: 'flex-start', textAlign: 'left' }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} style={{
+            display: 'flex', marginBottom: 12,
+            justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
+          }}>
+            <div style={{
+              maxWidth: '80%', padding: '10px 14px', borderRadius: 14,
+              background: m.role === 'user' ? 'var(--gradient-neon-soft)' : 'rgba(255,255,255,0.04)',
+              border: m.role === 'user' ? '1px solid rgba(255,46,136,0.22)' : '1px solid var(--line)',
+              fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+            }}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--ink-3)' }}>
+            <span className="mono">⟳</span> pensando...
+          </div>
+        )}
+        {error && (
+          <div style={{ padding: 10, background: 'rgba(255,85,85,0.1)', border: '1px solid rgba(255,85,85,0.3)', borderRadius: 8, fontSize: 12, color: '#ff5555' }}>
+            {error}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="form-input" placeholder="Pergunte algo sobre sua dieta..."
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !loading) { e.preventDefault(); send(); } }}
+          style={{ flex: 1 }} disabled={loading} />
+        <button className="btn btn-primary" style={{ padding: '10px 20px', fontSize: 13 }} onClick={send} disabled={loading || !input.trim()}>
+          Enviar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 window.ScreenDiet = ScreenDiet;
 window.DietWidget = DietWidget;
+window.DietChat = DietChat;
