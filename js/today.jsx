@@ -260,7 +260,8 @@ function ScreenToday({ onNewTask }) {
             todayHabits={todayHabits} habitsDone={habitsDone} today={today}
             overdueTasks={overdueTasks} catMap={catMap} goals={data.goals || []}
             showHabits={filterTypes.habito} showOverdue={filterTypes.atrasada} showGoals={filterTypes.objetivo}
-            showEvents={filterTypes.evento} calendarEvents={calendarEvents} calendarConnected={calendarConnected} />
+            showEvents={filterTypes.evento} calendarEvents={calendarEvents} calendarConnected={calendarConnected}
+            diet={data._diet} />
         </div>
       )}
 
@@ -283,7 +284,7 @@ function ScreenToday({ onNewTask }) {
 }
 
 /* ── Right panel (XP + stats + habits) ── */
-function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals, showHabits, showOverdue, showGoals, showEvents, calendarEvents, calendarConnected }) {
+function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, habitsDone, today, overdueTasks, catMap, goals, showHabits, showOverdue, showGoals, showEvents, calendarEvents, calendarConnected, diet }) {
   const { toggleHabitDay } = useData();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -374,6 +375,9 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
 
       {/* Objetivos */}
       {showGoals && <GoalsOverview goals={goals || []} />}
+
+      {/* Dieta */}
+      {diet && <DietWidget diet={diet} today={today} />}
     </div>
   );
 }

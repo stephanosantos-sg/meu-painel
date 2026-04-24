@@ -7,6 +7,7 @@ const NAV = [
   { section: 'JORNADA', items: [
     { id: 'habits', icon: '✦', label: 'Hábitos' },
     { id: 'goals', icon: '◎', label: 'Objetivos' },
+    { id: 'diet', icon: '◕', label: 'Dieta' },
     { id: 'ideas', icon: '◆', label: 'Ideias' },
   ]},
   { section: 'BIBLIOTECA', items: [
@@ -290,6 +291,7 @@ function CommandPalette({ setActive, setShowTaskModal, setShowHabitModal }) {
     { icon: '☀︎', label: 'Home', cat: 'Nav', action: () => { setActive('today'); setOpen(false); } },
     { icon: '✦', label: 'Hábitos', cat: 'Nav', action: () => { setActive('habits'); setOpen(false); } },
     { icon: '◎', label: 'Objetivos', cat: 'Nav', action: () => { setActive('goals'); setOpen(false); } },
+    { icon: '◕', label: 'Dieta', cat: 'Nav', action: () => { setActive('diet'); setOpen(false); } },
     { icon: '▢', label: 'Livros', cat: 'Nav', action: () => { setActive('books'); setOpen(false); } },
     { icon: '▷', label: 'Mídia', cat: 'Nav', action: () => { setActive('media'); setOpen(false); } },
     { icon: '⊞', label: 'Listas', cat: 'Nav', action: () => { setActive('shopping'); setOpen(false); } },
