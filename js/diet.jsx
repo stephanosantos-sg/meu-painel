@@ -32,9 +32,7 @@ function ScreenDiet() {
               { v: 'peso', l: 'Peso' },
               { v: 'medidas', l: 'Medidas' },
               { v: 'fotos', l: 'Fotos' },
-              { v: 'extra', l: 'Extra' },
-              { v: 'chat', l: 'Chat' },
-              { v: 'config', l: 'Config' },
+              { v: 'config', l: 'Objetivos' },
             ].map(t => (
               <button key={t.v} className={`tab-btn ${tab === t.v ? 'active' : ''}`} onClick={() => setTab(t.v)}>{t.l}</button>
             ))}
@@ -46,8 +44,6 @@ function ScreenDiet() {
         {tab === 'peso' && <DietWeight log={weightLog} current={currentWeight} first={firstWeight} target={targets.weightGoal} commit={commit} />}
         {tab === 'medidas' && <DietMeasurements log={measurements} commit={commit} />}
         {tab === 'fotos' && <DietPhotos photos={photos} commit={commit} />}
-        {tab === 'extra' && <DietExtra extras={extras} today={today} openaiKey={diet.openaiKey} commit={commit} />}
-        {tab === 'chat' && <DietChat openaiKey={diet.openaiKey} diet={diet} today={today} commit={commit} />}
         {tab === 'config' && <DietConfig targets={targets} openaiKey={diet.openaiKey} commit={commit} />}
       </div>
     </>
@@ -208,28 +204,64 @@ function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalorie
         {/* Macros */}
         <MacrosBreakdown meals={meals} targets={targets} today={today} />
 
-        {/* Quick add water or quick meal? */}
-        <div className="panel" style={{ padding: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Resumo</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: 'var(--ink-2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Refeições</span>
-              <span className="mono">{meals.length}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Extras hoje</span>
-              <span className="mono">{extras.filter(e => e.date === today).length}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Meta diária</span>
-              <span className="mono">{targets.dailyCalories} kcal</span>
-            </div>
-          </div>
-        </div>
+        {/* Consumption history */}
+        <ConsumptionTimeline meals={meals} extras={extras} today={today} commit={commit} />
       </div>
 
       {showNewMeal && <MealEditModal meal={null} commit={commit} onClose={() => setShowNewMeal(false)} />}
       {editMealId && <MealEditModal meal={meals.find(m => m.id === editMealId)} commit={commit} onClose={() => setEditMealId(null)} />}
+    </div>
+  );
+}
+
+function ConsumptionTimeline({ meals, extras, today, commit }) {
+  const consumed = [];
+  meals.forEach(m => {
+    (m.items || []).forEach((it, idx) => {
+      if ((it.doneDates || []).includes(today)) {
+        consumed.push({ time: m.time || '00:00', meal: m.name, mealIcon: m.icon, name: it.name, qty: it.qty, calories: it.calories, type: 'meal' });
+      }
+    });
+  });
+  extras.filter(e => e.date === today).forEach(e => {
+    const t = new Date(e.timestamp);
+    const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    consumed.push({ time, meal: 'Extra', mealIcon: '🍔', name: e.description, calories: e.calories, type: 'extra', timestamp: e.timestamp });
+  });
+  consumed.sort((a, b) => a.time.localeCompare(b.time));
+
+  function deleteExtra(ts) {
+    if (!confirm('Remover este extra?')) return;
+    commit(D => { D._diet.extraCalories = D._diet.extraCalories.filter(e => e.timestamp !== ts); });
+  }
+
+  return (
+    <div className="panel" style={{ padding: 16 }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Consumo do dia · {consumed.length}</div>
+      {consumed.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', padding: '12px 0', textAlign: 'center' }}>
+          Marque os itens que consumiu nas refeições
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 360, overflowY: 'auto' }}>
+          {consumed.map((c, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6,
+              background: c.type === 'extra' ? 'rgba(255,168,48,0.06)' : 'rgba(60,207,145,0.06)',
+              border: c.type === 'extra' ? '1px solid rgba(255,168,48,0.15)' : '1px solid rgba(60,207,145,0.15)',
+            }}>
+              <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)', width: 36, flexShrink: 0 }}>{c.time}</span>
+              <span style={{ fontSize: 12 }}>{c.mealIcon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                {c.qty && <div className="mono" style={{ fontSize: 9, color: 'var(--ink-4)' }}>{c.qty}</div>}
+              </div>
+              <span className="mono" style={{ fontSize: 10, color: c.type === 'extra' ? '#ffa830' : '#3ccf91', flexShrink: 0 }}>{Math.round(c.calories)}kcal</span>
+              {c.type === 'extra' && <button onClick={() => deleteExtra(c.timestamp)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 10 }}>✕</button>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -556,13 +588,18 @@ function DietWeight({ log, current, first, target, commit }) {
 function DietMeasurements({ log, commit }) {
   const [showAdd, setShowAdd] = React.useState(false);
   const FIELDS = [
-    { k: 'peito', l: 'Peito' },
-    { k: 'cintura', l: 'Cintura' },
-    { k: 'quadril', l: 'Quadril' },
-    { k: 'braco', l: 'Braço' },
-    { k: 'coxa', l: 'Coxa' },
-    { k: 'panturrilha', l: 'Panturrilha' },
-    { k: 'pescoco', l: 'Pescoço' },
+    { k: 'cintura', l: 'Cintura', unit: 'cm', section: 'Circunferências' },
+    { k: 'abdomen', l: 'Abdômen', unit: 'cm', section: 'Circunferências' },
+    { k: 'peito', l: 'Peito', unit: 'cm', section: 'Circunferências' },
+    { k: 'quadril', l: 'Quadril', unit: 'cm', section: 'Circunferências' },
+    { k: 'braco', l: 'Braço', unit: 'cm', section: 'Circunferências' },
+    { k: 'coxa', l: 'Coxa', unit: 'cm', section: 'Circunferências' },
+    { k: 'panturrilha', l: 'Panturrilha', unit: 'cm', section: 'Circunferências' },
+    { k: 'pescoco', l: 'Pescoço', unit: 'cm', section: 'Circunferências' },
+    { k: 'dobra_abdominal', l: 'Abdominal', unit: 'mm', section: 'Dobras cutâneas' },
+    { k: 'dobra_suprailiaca', l: 'Suprailíaca', unit: 'mm', section: 'Dobras cutâneas' },
+    { k: 'dobra_triceps', l: 'Tríceps', unit: 'mm', section: 'Dobras cutâneas' },
+    { k: 'dobra_subescapular', l: 'Subescapular', unit: 'mm', section: 'Dobras cutâneas' },
   ];
   const last = log.length ? log[log.length - 1] : {};
   const prev = log.length > 1 ? log[log.length - 2] : {};
@@ -577,33 +614,45 @@ function DietMeasurements({ log, commit }) {
         <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => setShowAdd(true)}>＋ Registrar</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-        {FIELDS.map(f => {
-          const val = last[f.k];
-          const prevVal = prev[f.k];
-          const diff = val && prevVal ? (val - prevVal).toFixed(1) : null;
-          if (!val) return (
-            <div key={f.k} className="panel" style={{ padding: 16, opacity: 0.5, textAlign: 'center' }}>
-              <div className="eyebrow">{f.l}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>—</div>
+      {(() => {
+        const sections = {};
+        FIELDS.forEach(f => {
+          if (!sections[f.section]) sections[f.section] = [];
+          sections[f.section].push(f);
+        });
+        return Object.entries(sections).map(([sectionName, fields]) => (
+          <div key={sectionName} style={{ marginBottom: 20 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>{sectionName}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {fields.map(f => {
+                const val = last[f.k];
+                const prevVal = prev[f.k];
+                const diff = val && prevVal ? (val - prevVal).toFixed(1) : null;
+                if (!val) return (
+                  <div key={f.k} className="panel" style={{ padding: 14, opacity: 0.4, textAlign: 'center' }}>
+                    <div className="eyebrow" style={{ fontSize: 9 }}>{f.l}</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>—</div>
+                  </div>
+                );
+                return (
+                  <div key={f.k} className="panel" style={{ padding: 14 }}>
+                    <div className="eyebrow" style={{ fontSize: 9 }}>{f.l}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                      <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 24, lineHeight: 1 }}>{val}</span>
+                      <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{f.unit}</span>
+                    </div>
+                    {diff !== null && (
+                      <div style={{ fontSize: 10, marginTop: 6, color: diff > 0 ? '#ff5555' : diff < 0 ? '#3ccf91' : 'var(--ink-3)' }} className="mono">
+                        {diff > 0 ? `+${diff}` : diff} {f.unit}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-          return (
-            <div key={f.k} className="panel" style={{ padding: 16 }}>
-              <div className="eyebrow">{f.l}</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, lineHeight: 1 }}>{val}</span>
-                <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>cm</span>
-              </div>
-              {diff !== null && (
-                <div style={{ fontSize: 10, marginTop: 6, color: diff > 0 ? '#ff5555' : diff < 0 ? '#3ccf91' : 'var(--ink-3)' }} className="mono">
-                  {diff > 0 ? `+${diff}` : diff} cm
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+          </div>
+        ));
+      })()}
 
       {log.length > 0 && (
         <div className="panel" style={{ padding: 16, marginTop: 20 }}>
@@ -657,19 +706,30 @@ function MeasurementModal({ fields, commit, last, onClose }) {
     onClose();
   }
 
+  const sections = {};
+  fields.forEach(f => {
+    if (!sections[f.section]) sections[f.section] = [];
+    sections[f.section].push(f);
+  });
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(480px, 92vw)' }}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(520px, 92vw)' }}>
         <div className="modal-header"><h2>Registrar medidas</h2><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {fields.map(f => (
-              <div key={f.k} className="form-group">
-                <label className="form-label">{f.l} (cm)</label>
-                <input className="form-input" type="number" step="0.1" value={values[f.k]} onChange={e => setValues({...values, [f.k]: e.target.value})} />
+          {Object.entries(sections).map(([sectionName, sectionFields]) => (
+            <div key={sectionName} style={{ marginBottom: 16 }}>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>{sectionName}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {sectionFields.map(f => (
+                  <div key={f.k} className="form-group">
+                    <label className="form-label">{f.l} ({f.unit})</label>
+                    <input className="form-input" type="number" step="0.1" value={values[f.k]} onChange={e => setValues({...values, [f.k]: e.target.value})} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
         <div className="modal-footer">
           <button className="btn-ghost" onClick={onClose}>Cancelar</button>
@@ -1173,6 +1233,228 @@ function DietChat({ openaiKey, diet, today, commit }) {
   );
 }
 
+/* ── Unified Home Bar: chat + extra logger ── */
+function DietHomeBar() {
+  const { data, commit } = useData();
+  const diet = data._diet;
+  const [open, setOpen] = React.useState(false);
+  const [mode, setMode] = React.useState('chat'); // 'chat' | 'extra'
+  const [input, setInput] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [extraResult, setExtraResult] = React.useState(null);
+  const [messages, setMessages] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('orbita_diet_chat') || '[]'); }
+    catch { return []; }
+  });
+  const scrollRef = React.useRef();
+
+  React.useEffect(() => {
+    localStorage.setItem('orbita_diet_chat', JSON.stringify(messages.slice(-30)));
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  if (!diet) return null;
+  const today = Orbita.todayStr();
+
+  function buildContext() {
+    const meals = diet.meals || [];
+    const targets = diet.targets || {};
+    const weightLog = diet.weightLog || [];
+    const extras = diet.extraCalories || [];
+    const currentWeight = weightLog.length ? weightLog[weightLog.length - 1].weight : null;
+    const todayMealCal = meals.reduce((s, m) => s + (m.items||[]).filter(i => (i.doneDates||[]).includes(today)).reduce((ss,i) => ss + (parseFloat(i.calories)||0), 0), 0);
+    const todayExtraCal = extras.filter(e => e.date === today).reduce((s,e) => s + (parseFloat(e.calories)||0), 0);
+
+    let ctx = `Contexto do usuário:\n`;
+    ctx += `- Metas: ${targets.dailyCalories || 2000} kcal/dia, ${targets.protein || 150}g P, ${targets.carbs || 200}g C, ${targets.fat || 65}g G\n`;
+    if (currentWeight) ctx += `- Peso atual: ${currentWeight} kg${targets.weightGoal ? `, meta ${targets.weightGoal} kg` : ''}\n`;
+    ctx += `- Consumido hoje: ${Math.round(todayMealCal + todayExtraCal)} kcal (${Math.round(todayMealCal)} dieta + ${Math.round(todayExtraCal)} extras)\n`;
+    ctx += `- Plano:\n`;
+    meals.forEach(m => {
+      const doneItems = (m.items||[]).filter(i => (i.doneDates||[]).includes(today));
+      ctx += `  ${m.time||''} ${m.name}: ${doneItems.length ? doneItems.map(i => i.name).join(', ') : 'nada consumido'}\n`;
+    });
+    return ctx;
+  }
+
+  async function send() {
+    if (!input.trim()) return;
+    if (!diet.openaiKey) { setError('Configure sua chave OpenAI em Dieta → Objetivos'); setOpen(true); return; }
+    setLoading(true); setError(''); setExtraResult(null);
+
+    if (mode === 'extra') {
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${diet.openaiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'Você é um nutricionista. Analise o alimento e retorne APENAS JSON: {"items":[{"name":"","qty":"","calories":N,"protein":N,"carbs":N,"fat":N}],"total_calories":N,"summary":""}. Macros em gramas, energia em kcal.' },
+              { role: 'user', content: input }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.3,
+          }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error?.message || `HTTP ${res.status}`);
+        const json = await res.json();
+        setExtraResult(JSON.parse(json.choices[0].message.content));
+      } catch (e) { setError(e.message); }
+      finally { setLoading(false); }
+      return;
+    }
+
+    // Chat mode
+    const userMsg = { role: 'user', content: input.trim() };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInput('');
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${diet.openaiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: `Você é o coach nutricional do Stephano. Seja conciso e direto. Responda em português.\n\n${buildContext()}` },
+            ...newMessages.slice(-10),
+          ],
+          temperature: 0.7,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error?.message || `HTTP ${res.status}`);
+      const json = await res.json();
+      setMessages(m => [...m, { role: 'assistant', content: json.choices[0].message.content }]);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  function saveExtra() {
+    if (!extraResult) return;
+    commit(D => {
+      if (!D._diet) D._diet = {};
+      if (!D._diet.extraCalories) D._diet.extraCalories = [];
+      D._diet.extraCalories.push({
+        date: today,
+        timestamp: Date.now(),
+        description: input,
+        items: extraResult.items,
+        calories: extraResult.total_calories,
+        protein: (extraResult.items||[]).reduce((s,i) => s + (parseFloat(i.protein)||0), 0),
+        carbs: (extraResult.items||[]).reduce((s,i) => s + (parseFloat(i.carbs)||0), 0),
+        fat: (extraResult.items||[]).reduce((s,i) => s + (parseFloat(i.fat)||0), 0),
+        summary: extraResult.summary,
+      });
+    });
+    setInput(''); setExtraResult(null);
+  }
+
+  // Compact (collapsed) view
+  if (!open) {
+    const todayCal = (diet.meals || []).reduce((s, m) => s + (m.items||[]).filter(i => (i.doneDates||[]).includes(today)).reduce((ss,i) => ss + (parseFloat(i.calories)||0), 0), 0)
+      + (diet.extraCalories || []).filter(e => e.date === today).reduce((s,e) => s + (parseFloat(e.calories)||0), 0);
+    return (
+      <button onClick={() => setOpen(true)} className="diet-bar-collapsed" style={{
+        position: 'fixed', bottom: 16, right: 16, zIndex: 500,
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 18px', borderRadius: 28,
+        background: 'var(--gradient-neon)', border: 'none', color: '#fff',
+        cursor: 'pointer', fontSize: 13, fontWeight: 500,
+        boxShadow: '0 4px 20px rgba(255,46,136,0.4)',
+        fontFamily: 'var(--font-ui)',
+      }}>
+        <span style={{ fontSize: 16 }}>🥗</span>
+        <span>Coach · {Math.round(todayCal)} kcd</span>
+      </button>
+    );
+  }
+
+  // Expanded view
+  return (
+    <div style={{
+      position: 'fixed', bottom: 16, right: 16, zIndex: 500,
+      width: 'min(420px, calc(100vw - 32px))',
+      borderRadius: 18, overflow: 'hidden',
+      background: 'rgba(14,14,20,0.96)', backdropFilter: 'blur(30px)',
+      border: '1px solid var(--glass-border)',
+      boxShadow: 'var(--shadow-float)',
+      display: 'flex', flexDirection: 'column',
+      maxHeight: '70vh',
+    }}>
+      <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--line)' }}>
+        <span style={{ fontSize: 16 }}>🥗</span>
+        <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>Coach Nutricional</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button onClick={() => setMode('chat')} className="btn-ghost small" style={{ fontSize: 10, padding: '3px 8px', background: mode === 'chat' ? 'var(--gradient-neon-soft)' : 'transparent' }}>💬 Chat</button>
+          <button onClick={() => setMode('extra')} className="btn-ghost small" style={{ fontSize: 10, padding: '3px 8px', background: mode === 'extra' ? 'var(--gradient-neon-soft)' : 'transparent' }}>🍔 Extra</button>
+        </div>
+        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+      </div>
+
+      {mode === 'chat' && (
+        <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 12, minHeight: 200 }}>
+          {messages.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Pergunte sobre sua dieta. A IA conhece suas metas, peso e o que comeu hoje.</div>
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
+              <div style={{
+                maxWidth: '85%', padding: '8px 12px', borderRadius: 12,
+                background: m.role === 'user' ? 'var(--gradient-neon-soft)' : 'rgba(255,255,255,0.04)',
+                border: m.role === 'user' ? '1px solid rgba(255,46,136,0.22)' : '1px solid var(--line)',
+                fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+              }}>{m.content}</div>
+            </div>
+          ))}
+          {loading && <div style={{ fontSize: 11, color: 'var(--ink-3)', padding: 8 }}>⟳ pensando...</div>}
+        </div>
+      )}
+
+      {mode === 'extra' && (
+        <div style={{ padding: 12, minHeight: 100 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 8 }}>Descreva o que comeu fora da dieta. A IA calcula calorias e macros.</div>
+          {extraResult && (
+            <div style={{ padding: 12, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', borderRadius: 10, marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22 }}>{Math.round(extraResult.total_calories)} kcal</span>
+                <button className="btn-ghost small" onClick={saveExtra} style={{ fontSize: 10 }}>✓ Adicionar</button>
+              </div>
+              {extraResult.summary && <div style={{ fontSize: 11, color: 'var(--ink-2)', marginBottom: 6 }}>{extraResult.summary}</div>}
+              {(extraResult.items || []).map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 10, borderTop: i > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
+                  <span style={{ color: 'var(--ink-2)' }}>{item.name} {item.qty && `(${item.qty})`}</span>
+                  <span className="mono" style={{ color: '#ffa830' }}>{Math.round(item.calories)} kcal</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ margin: 10, padding: 8, background: 'rgba(255,85,85,0.1)', border: '1px solid rgba(255,85,85,0.3)', borderRadius: 6, fontSize: 11, color: '#ff5555' }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ padding: 10, borderTop: '1px solid var(--line)', display: 'flex', gap: 6 }}>
+        <input className="form-input" placeholder={mode === 'chat' ? 'Pergunte algo...' : 'Ex: 2 brigadeiros'}
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !loading) { e.preventDefault(); send(); } }}
+          style={{ flex: 1, fontSize: 12, padding: '8px 10px' }} disabled={loading} />
+        <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: 12 }} onClick={send} disabled={loading || !input.trim()}>
+          {mode === 'chat' ? 'Enviar' : '⚡ Analisar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 window.ScreenDiet = ScreenDiet;
 window.DietWidget = DietWidget;
-window.DietChat = DietChat;
+window.DietHomeBar = DietHomeBar;

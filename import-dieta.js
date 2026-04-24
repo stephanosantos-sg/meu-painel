@@ -102,10 +102,10 @@
   ];
 
   const targets = {
-    dailyCalories: 1500,
-    protein: 115,
-    carbs: 175,
-    fat: 35,
+    dailyCalories: 2000,
+    protein: 130,
+    carbs: 220,
+    fat: 60,
     weightGoal: 75,
   };
 
@@ -118,6 +118,11 @@
       date: '2026-02-10',
       timestamp: new Date('2026-02-10').getTime(),
       cintura: 86.5,
+      abdomen: 93.0,
+      dobra_abdominal: 28.0,
+      dobra_suprailiaca: 10.0,
+      dobra_triceps: 8.0,
+      dobra_subescapular: 18.0,
     },
   ];
 

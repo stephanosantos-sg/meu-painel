@@ -269,6 +269,7 @@ function App() {
         </div>
 
         <CommandPalette setActive={setActive} setShowTaskModal={setShowTaskModal} setShowHabitModal={setShowHabitModal} />
+        {active === 'today' && window.DietHomeBar && <DietHomeBar />}
         <ToastLayer />
         {showTaskModal && <TaskModal onClose={() => setShowTaskModal(false)} editTask={editTask} />}
         {showHabitModal && <HabitModal onClose={() => setShowHabitModal(false)} editHabit={editHabit} />}
