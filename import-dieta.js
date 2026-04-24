@@ -137,8 +137,15 @@
   d._diet.weightLog.sort((a,b) => a.date.localeCompare(b.date));
 
   if (!d._diet.measurements) d._diet.measurements = [];
-  const existingMeasures = new Set(d._diet.measurements.map(m => m.date));
-  measurements.forEach(m => { if (!existingMeasures.has(m.date)) d._diet.measurements.push(m); });
+  measurements.forEach(m => {
+    const existing = d._diet.measurements.find(x => x.date === m.date);
+    if (existing) {
+      // Merge: keep existing values + add missing ones
+      Object.keys(m).forEach(k => { if (!existing[k] || k === 'timestamp') existing[k] = m[k]; });
+    } else {
+      d._diet.measurements.push(m);
+    }
+  });
   d._diet.measurements.sort((a,b) => a.date.localeCompare(b.date));
 
   d.lastModified = Date.now();
