@@ -106,6 +106,7 @@ function Pomodoro({ onClose }) {
           <button className="btn-ghost small" onClick={() => setRunning(r => !r)} style={{ flex: 1, justifyContent: 'center' }}>
             {running ? '⏸ Pausar' : '▶ Retomar'}
           </button>
+          <button className="btn-ghost small" onClick={() => reset(preset)} title="Resetar">↺</button>
           <button className="btn-ghost small" onClick={() => { reset(preset === 25 ? 5 : 25); setRunning(true); }} style={{ flex: 1, justifyContent: 'center' }}>
             ⏭ Skip
           </button>
