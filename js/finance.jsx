@@ -462,8 +462,12 @@ function FinLancamentos({ month, fin, commit }) {
   const [filterAcc, setFilterAcc] = React.useState(null);
   const [filterStatus, setFilterStatus] = React.useState('all');
   const [search, setSearch] = React.useState('');
+  const [moveMenuFor, setMoveMenuFor] = React.useState(null);
+  const [dragId, setDragId] = React.useState(null);
+  const [dragOverId, setDragOverId] = React.useState(null);
 
   let monthTxs = txs.filter(t => finMonth(t.date) === month);
+  const isFiltered = !!filterCat || !!filterAcc || filterStatus !== 'all' || !!search.trim();
   if (filterCat) monthTxs = monthTxs.filter(t => t.categoryId === filterCat);
   if (filterAcc) monthTxs = monthTxs.filter(t => t.accountId === filterAcc);
   if (filterStatus !== 'all') monthTxs = monthTxs.filter(t => (t.status || 'paid') === filterStatus);
@@ -471,7 +475,14 @@ function FinLancamentos({ month, fin, commit }) {
     const s = search.toLowerCase();
     monthTxs = monthTxs.filter(t => (t.description || '').toLowerCase().includes(s));
   }
-  monthTxs = [...monthTxs].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  // Sort: customOrder first (asc), then date desc
+  monthTxs = [...monthTxs].sort((a, b) => {
+    const ao = a.customOrder, bo = b.customOrder;
+    if (ao !== undefined && bo !== undefined) return ao - bo;
+    if (ao !== undefined) return -1;
+    if (bo !== undefined) return 1;
+    return (b.date || '').localeCompare(a.date || '');
+  });
   const totalFiltered = monthTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
 
   function deleteTx(id) {
@@ -499,6 +510,65 @@ function FinLancamentos({ month, fin, commit }) {
     });
   }
 
+  function moveToMonth(id, deltaMonths) {
+    commit(D => {
+      finEnsure(D);
+      const t = D._finance.transactions.find(x => x.id === id);
+      if (!t || !t.date) return;
+      const [y, m, day] = t.date.split('-').map(Number);
+      const d = new Date(y, m - 1 + deltaMonths, day);
+      const lastDayOfTarget = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      const newDay = Math.min(day, lastDayOfTarget);
+      const target = new Date(d.getFullYear(), d.getMonth(), newDay);
+      t.date = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0') + '-' + String(target.getDate()).padStart(2, '0');
+    });
+    setMoveMenuFor(null);
+  }
+
+  function moveToSpecificMonth(id, ym) {
+    commit(D => {
+      finEnsure(D);
+      const t = D._finance.transactions.find(x => x.id === id);
+      if (!t || !t.date) return;
+      const day = parseInt(t.date.split('-')[2]);
+      const [y, m] = ym.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      t.date = `${ym}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+    });
+    setMoveMenuFor(null);
+  }
+
+  function handleDrop(targetId) {
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
+    const visibleIds = monthTxs.map(t => t.id);
+    const fromIdx = visibleIds.indexOf(dragId);
+    const toIdx = visibleIds.indexOf(targetId);
+    if (fromIdx < 0 || toIdx < 0) { setDragId(null); setDragOverId(null); return; }
+    const newOrder = [...visibleIds];
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, dragId);
+    commit(D => {
+      finEnsure(D);
+      newOrder.forEach((id, idx) => {
+        const t = D._finance.transactions.find(x => x.id === id);
+        if (t) t.customOrder = idx;
+      });
+    });
+    setDragId(null); setDragOverId(null);
+  }
+
+  function clearCustomOrder() {
+    if (!confirm('Voltar à ordenação por data nesse mês?')) return;
+    commit(D => {
+      finEnsure(D);
+      D._finance.transactions.forEach(t => {
+        if (finMonth(t.date) === month) delete t.customOrder;
+      });
+    });
+  }
+
+  const hasCustomOrder = monthTxs.some(t => t.customOrder !== undefined);
+
   return (
     <>
       {/* Filters */}
@@ -521,9 +591,12 @@ function FinLancamentos({ month, fin, commit }) {
           </select>
           <button className="btn btn-primary" style={{ padding: '9px 18px', fontSize: 12 }} onClick={() => { setEditTx(null); setShowAdd(true); }}>＋ Lançamento</button>
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-3)', display: 'flex', justifyContent: 'space-between' }}>
-          <span>{monthTxs.length} lançamentos</span>
-          <span className="mono">total filtrado: <strong style={{ color: '#ff5a3c' }}>{finFmt(totalFiltered)}</strong></span>
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span>{monthTxs.length} lançamentos {!isFiltered && monthTxs.length > 1 && <span style={{ color: 'var(--ink-4)' }}>· arraste ⋮⋮ para reordenar</span>}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {hasCustomOrder && !isFiltered && <button className="btn-ghost small" onClick={clearCustomOrder} style={{ fontSize: 10 }}>↻ ordem por data</button>}
+            <span className="mono">total filtrado: <strong style={{ color: '#ff5a3c' }}>{finFmt(totalFiltered)}</strong></span>
+          </div>
         </div>
       </div>
 
@@ -540,12 +613,35 @@ function FinLancamentos({ month, fin, commit }) {
           const cat = categories.find(c => c.id === t.categoryId);
           const acc = accounts.find(a => a.id === t.accountId);
           const status = t.status || 'paid';
+          const isDragging = dragId === t.id;
+          const isDragOver = dragOverId === t.id && dragId !== t.id;
+          const draggable = !isFiltered;
           return (
-            <div key={t.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '12px 16px', borderBottom: i < monthTxs.length - 1 ? '1px solid var(--line)' : 'none',
-              opacity: status === 'pending' ? 0.65 : 1,
-            }}>
+            <div key={t.id}
+              draggable={draggable}
+              onDragStart={e => { if (!draggable) return; setDragId(t.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.id); }}
+              onDragOver={e => { if (!dragId || dragId === t.id) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverId !== t.id) setDragOverId(t.id); }}
+              onDragLeave={e => { if (dragOverId === t.id) setDragOverId(null); }}
+              onDrop={e => { e.preventDefault(); handleDrop(t.id); }}
+              onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 16px',
+                borderBottom: i < monthTxs.length - 1 ? '1px solid var(--line)' : 'none',
+                borderTop: isDragOver ? '2px solid var(--neon-a)' : 'none',
+                marginTop: isDragOver ? -2 : 0,
+                opacity: status === 'pending' ? 0.65 : (isDragging ? 0.4 : 1),
+                background: isDragging ? 'rgba(255,46,136,0.06)' : 'transparent',
+                transition: 'background 120ms, opacity 120ms',
+                cursor: draggable ? 'default' : 'default',
+              }}>
+              {draggable && (
+                <span title="Arraste para reordenar" style={{
+                  display: 'grid', placeItems: 'center', width: 14, height: 24,
+                  cursor: 'grab', color: 'var(--ink-4)', fontSize: 14, lineHeight: 1, flexShrink: 0,
+                  userSelect: 'none',
+                }}>⋮⋮</span>
+              )}
               <button onClick={() => toggleStatus(t.id)} title={status === 'paid' ? 'Marcado como pago' : 'Pendente'} style={{
                 width: 18, height: 18, borderRadius: 5, flexShrink: 0,
                 background: status === 'paid' ? 'var(--gradient-neon)' : 'transparent',
@@ -569,9 +665,11 @@ function FinLancamentos({ month, fin, commit }) {
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: '#ff5a3c', flexShrink: 0 }}>{finFmt(t.value)}</div>
-              <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 2, flexShrink: 0, position: 'relative' }}>
+                <button onClick={() => setMoveMenuFor(moveMenuFor === t.id ? null : t.id)} title="Mover para outro mês" className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>↦</button>
                 <button onClick={() => { setEditTx(t); setShowAdd(true); }} className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>✎</button>
                 <button onClick={() => deleteTx(t.id)} className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>✕</button>
+                {moveMenuFor === t.id && <FinMoveMonthMenu currentDate={t.date} onPick={(delta, ym) => { if (ym) moveToSpecificMonth(t.id, ym); else moveToMonth(t.id, delta); }} onClose={() => setMoveMenuFor(null)} />}
               </div>
             </div>
           );
@@ -580,6 +678,57 @@ function FinLancamentos({ month, fin, commit }) {
 
       {showAdd && <FinTxModal onClose={() => { setShowAdd(false); setEditTx(null); }} editTx={editTx} fin={fin} commit={commit} defaultMonth={month} />}
     </>
+  );
+}
+
+/* ── Move-to-month popover menu ── */
+function FinMoveMonthMenu({ currentDate, onPick, onClose }) {
+  const ref = React.useRef();
+  React.useEffect(() => {
+    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
+    setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const cur = currentDate ? currentDate.slice(0, 7) : finCurrentMonth();
+  const [y, m] = cur.split('-').map(Number);
+  const options = [];
+  for (let d = -6; d <= 6; d++) {
+    if (d === 0) continue;
+    const dt = new Date(y, m - 1 + d, 1);
+    const ym = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+    options.push({ delta: d, ym, label: dt.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) });
+  }
+
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', right: 0, top: 30, zIndex: 100,
+      background: 'rgba(14,14,20,0.98)', backdropFilter: 'blur(20px)',
+      border: '1px solid var(--glass-border)', borderRadius: 10,
+      boxShadow: 'var(--shadow-float)',
+      width: 220, maxHeight: 320, overflowY: 'auto',
+      padding: 6,
+    }}>
+      <div style={{ padding: '8px 10px 4px', fontSize: 10, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        Mover para o mês
+      </div>
+      {options.map(o => (
+        <button key={o.ym} onClick={() => onPick(o.delta, o.ym)} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+          padding: '8px 10px', background: 'none', border: 'none', borderRadius: 6,
+          color: 'var(--ink-1)', fontSize: 12, cursor: 'pointer', textAlign: 'left',
+          fontFamily: 'var(--font-ui)', textTransform: 'capitalize',
+        }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+          <span>{o.label.replace('.', '')}</span>
+          <span className="mono" style={{ fontSize: 10, color: o.delta > 0 ? 'var(--neon-c)' : 'var(--ink-3)' }}>{o.delta > 0 ? '+' : ''}{o.delta}m</span>
+        </button>
+      ))}
+      <div style={{ borderTop: '1px solid var(--line)', marginTop: 4, paddingTop: 4 }}>
+        <input type="month" defaultValue={cur} onChange={e => { if (e.target.value) onPick(0, e.target.value); }}
+          style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--ink-1)', fontSize: 12, fontFamily: 'var(--font-mono)' }} />
+      </div>
+    </div>
   );
 }
 
