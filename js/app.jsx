@@ -222,6 +222,7 @@ function App() {
     habits: () => <ScreenHabits onNewHabit={openNewHabit} />,
     goals: () => <ScreenGoals />,
     diet: () => <ScreenDiet />,
+    finance: () => <ScreenFinance />,
     profile: () => <ScreenProfile />,
     ideas: () => <ScreenIdeas />,
     books: () => <ScreenBooks />,
@@ -270,6 +271,7 @@ function App() {
 
         <CommandPalette setActive={setActive} setShowTaskModal={setShowTaskModal} setShowHabitModal={setShowHabitModal} />
         {active === 'diet' && window.DietHomeBar && <DietHomeBar />}
+        {active === 'finance' && window.FinanceHomeBar && <FinanceHomeBar />}
         {active === 'today' && window.OrbitaAIBar && <OrbitaAIBar />}
         <ToastLayer />
         {showTaskModal && <TaskModal onClose={() => setShowTaskModal(false)} editTask={editTask} />}
