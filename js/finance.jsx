@@ -74,6 +74,8 @@ function finEnsure(D) {
   if (!F.categories) F.categories = JSON.parse(JSON.stringify(FIN_DEFAULT_CATEGORIES));
   if (!F.transactions) F.transactions = [];
   if (!F.recurring) F.recurring = [];
+  if (!F.investments) F.investments = [];
+  if (!F.contributions) F.contributions = [];
   if (typeof F.monthlyIncome !== 'number') F.monthlyIncome = 0;
   if (!F.budgetAllocation) {
     F.budgetAllocation = {};
@@ -81,6 +83,18 @@ function finEnsure(D) {
   }
   return F;
 }
+
+const FIN_INVESTMENT_TYPES = [
+  { v: 'reserva', l: '🛡️ Reserva de emergência', color: '#ffa830' },
+  { v: 'tesouro', l: '📜 Tesouro Direto', color: '#3ccf91' },
+  { v: 'cdb', l: '🏦 CDB / LCI / LCA', color: '#5b8dff' },
+  { v: 'fundo', l: '📊 Fundo', color: '#b066ff' },
+  { v: 'acoes', l: '📈 Ações / FIIs', color: '#ff2e88' },
+  { v: 'cripto', l: '₿ Cripto', color: '#ffd60a' },
+  { v: 'poupanca', l: '💰 Poupança', color: '#3ccf91' },
+  { v: 'previdencia', l: '👴 Previdência', color: '#9ea5b8' },
+  { v: 'outro', l: '📦 Outro', color: '#64d2ff' },
+];
 window.finEnsure = finEnsure;
 
 /* ────────────────────────────────────────────────────────── */
@@ -88,7 +102,7 @@ window.finEnsure = finEnsure;
 /* ────────────────────────────────────────────────────────── */
 function ScreenFinance() {
   const { data, commit } = useData();
-  const [tab, setTab] = React.useState('resumo');
+  const [tab, setTab] = React.useState(() => localStorage.getItem('orbita_fin_tab') || 'lancamentos');
   const [month, setMonth] = React.useState(finCurrentMonth());
   const fin = data._finance || {};
   const accounts = fin.accounts || FIN_DEFAULT_ACCOUNTS;
@@ -101,6 +115,8 @@ function ScreenFinance() {
   const totalSpent = monthTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
   const balance = income - totalSpent;
 
+  React.useEffect(() => { localStorage.setItem('orbita_fin_tab', tab); }, [tab]);
+
   // Init defaults if first time
   React.useEffect(() => {
     if (!data._finance || !data._finance.accounts) {
@@ -108,14 +124,18 @@ function ScreenFinance() {
     }
   }, []);
 
+  const showMonthSwitcher = ['resumo', 'lancamentos', 'cartoes', 'categorias'].includes(tab);
+
   return (
     <>
       <TopBar title="Financeiro." subtitle={`${finFmt(totalSpent)} gastos · ${finFmt(balance)} ${balance >= 0 ? 'sobra' : 'estouro'}`}
         actions={
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {[
-              { v: 'resumo', l: 'Resumo' },
               { v: 'lancamentos', l: 'Lançamentos' },
+              { v: 'resumo', l: 'Resumo' },
+              { v: 'graficos', l: 'Gráficos' },
+              { v: 'investimentos', l: 'Investimentos' },
               { v: 'cartoes', l: 'Cartões' },
               { v: 'categorias', l: 'Categorias' },
               { v: 'recorrentes', l: 'Recorrentes' },
@@ -127,9 +147,11 @@ function ScreenFinance() {
         }
       />
       <div style={{ padding: '0 28px 100px' }}>
-        <FinMonthSwitcher month={month} setMonth={setMonth} />
-        {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} />}
+        {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} />}
         {tab === 'lancamentos' && <FinLancamentos month={month} fin={fin} commit={commit} />}
+        {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} />}
+        {tab === 'graficos' && <FinGraficos fin={fin} />}
+        {tab === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} />}
         {tab === 'cartoes' && <FinCartoes month={month} fin={fin} commit={commit} />}
         {tab === 'categorias' && <FinCategorias month={month} fin={fin} commit={commit} />}
         {tab === 'recorrentes' && <FinRecorrentes fin={fin} commit={commit} />}
@@ -137,6 +159,12 @@ function ScreenFinance() {
       </div>
     </>
   );
+}
+
+/* ── Blur value helper (privacy mode) ── */
+function BlurValue({ revealed, children, style }) {
+  if (revealed) return <span style={style}>{children}</span>;
+  return <span style={{ ...(style || {}), filter: 'blur(8px)', userSelect: 'none', transition: 'filter 200ms' }}>{children}</span>;
 }
 
 /* ── Month switcher ── */
@@ -165,6 +193,8 @@ function FinResumo({ month, fin, commit }) {
   const txs = fin.transactions || [];
   const income = fin.monthlyIncome || 0;
   const budgetAlloc = fin.budgetAllocation || {};
+  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
+  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
   const monthTxs = txs.filter(t => finMonth(t.date) === month);
   const prevMonthTxs = txs.filter(t => finMonth(t.date) === finPrevMonth(month));
@@ -212,6 +242,21 @@ function FinResumo({ month, fin, commit }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Privacy toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
+        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
+            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
+            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
+            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
+          }}>
+          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
+          {revealed ? 'Ocultar' : 'Revelar'} valores
+        </button>
+      </div>
+
       {/* Hero */}
       <div className="panel" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '40%',
@@ -221,10 +266,10 @@ function FinResumo({ month, fin, commit }) {
           pointerEvents: 'none' }} />
         <div className="eyebrow">Saldo do mês</div>
         <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 56, lineHeight: 1, marginTop: 6, color: balance >= 0 ? '#3ccf91' : '#ff5555' }}>
-          {finFmt(balance)}
+          <BlurValue revealed={revealed}>{finFmt(balance)}</BlurValue>
         </div>
         <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6 }}>
-          {finFmt(income)} renda − {finFmt(totalSpent)} gastos
+          <BlurValue revealed={revealed}>{finFmt(income)}</BlurValue> renda − <BlurValue revealed={revealed}>{finFmt(totalSpent)}</BlurValue> gastos
         </div>
         <div style={{ marginTop: 16, height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{
@@ -248,7 +293,9 @@ function FinResumo({ month, fin, commit }) {
         ].map(s => (
           <div key={s.label} className="panel" style={{ padding: 14 }}>
             <div className="eyebrow">{s.label}</div>
-            <div className="mono" style={{ fontSize: 18, fontWeight: 500, color: s.color, marginTop: 4 }}>{s.value}</div>
+            <div className="mono" style={{ fontSize: 18, fontWeight: 500, color: s.color, marginTop: 4 }}>
+              <BlurValue revealed={revealed}>{s.value}</BlurValue>
+            </div>
           </div>
         ))}
       </div>
@@ -262,7 +309,7 @@ function FinResumo({ month, fin, commit }) {
           {/* Donut chart */}
           {catRows.length > 0 && (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
-              <FinDonut data={catRows.map(r => ({ value: r.value, color: r.cat.color }))} size={120} total={totalSpent} />
+              <FinDonut data={catRows.map(r => ({ value: r.value, color: r.cat.color }))} size={120} total={totalSpent} blurred={!revealed} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {catRows.slice(0, 5).map(r => (
                   <div key={r.cat.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
@@ -282,7 +329,9 @@ function FinResumo({ month, fin, commit }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                     <span style={{ fontSize: 12, fontWeight: 500 }}>{r.cat.name}</span>
-                    <span className="mono" style={{ fontSize: 11, color: r.cat.color, fontWeight: 600 }}>{finFmt(r.value)}</span>
+                    <span className="mono" style={{ fontSize: 11, color: r.cat.color, fontWeight: 600 }}>
+                      <BlurValue revealed={revealed}>{finFmt(r.value)}</BlurValue>
+                    </span>
                   </div>
                   <div style={{ height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: totalSpent ? `${r.value / totalSpent * 100}%` : '0%', background: r.cat.color }} />
@@ -305,7 +354,9 @@ function FinResumo({ month, fin, commit }) {
                   <div style={{ fontSize: 12, fontWeight: 500 }}>{r.account.name}</div>
                   <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{r.count} lançamentos</div>
                 </div>
-                <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{finFmt(r.value)}</div>
+                <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
+                  <BlurValue revealed={revealed}>{finFmt(r.value)}</BlurValue>
+                </div>
               </div>
             ))}
           </div>
@@ -316,7 +367,7 @@ function FinResumo({ month, fin, commit }) {
       <div className="panel" style={{ padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
           <div style={{ fontWeight: 600 }}>Regra do orçamento (55/10/10/10/10/5)</div>
-          <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>real vs ideal · base {finFmt(income)}</div>
+          <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>real vs ideal · base <BlurValue revealed={revealed}>{finFmt(income)}</BlurValue></div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
           {FIN_META_CATS.map(m => {
@@ -334,8 +385,8 @@ function FinResumo({ month, fin, commit }) {
                   <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: over ? '#ff5555' : m.color }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }} className="mono">
-                  <span style={{ color: m.color }}>{finFmt(real)}</span>
-                  <span style={{ color: 'var(--ink-3)' }}>/ {finFmt(target)}</span>
+                  <span style={{ color: m.color }}><BlurValue revealed={revealed}>{finFmt(real)}</BlurValue></span>
+                  <span style={{ color: 'var(--ink-3)' }}>/ <BlurValue revealed={revealed}>{finFmt(target)}</BlurValue></span>
                 </div>
               </div>
             );
@@ -358,7 +409,9 @@ function FinResumo({ month, fin, commit }) {
                   <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
                   <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{Orbita.fmtDate(t.date)} · {acc?.name || '—'}{t.installment ? ` · ${t.installment.current}/${t.installment.total}` : ''}</div>
                 </div>
-                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: '#ff5a3c' }}>{finFmt(t.value)}</div>
+                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: '#ff5a3c' }}>
+                  <BlurValue revealed={revealed}>{finFmt(t.value)}</BlurValue>
+                </div>
               </div>
             );
           })}
@@ -369,7 +422,7 @@ function FinResumo({ month, fin, commit }) {
 }
 
 /* ── Donut chart (SVG) ── */
-function FinDonut({ data, size = 120, total }) {
+function FinDonut({ data, size = 120, total, blurred }) {
   const r = size / 2 - 8;
   const c = 2 * Math.PI * r;
   let offset = 0;
@@ -1701,6 +1754,888 @@ Use a categoria e meio mais apropriados. Se não tiver data, use ${Orbita.todayS
           {mode === 'chat' ? 'Enviar' : '⚡ Analisar'}
         </button>
         {mode === 'chat' && messages.length > 0 && <button className="btn-ghost small" onClick={clearChat} style={{ fontSize: 10 }}>↺</button>}
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── */
+/* Gráficos / Charts & Insights */
+/* ────────────────────────────────────────────────────────── */
+function FinGraficos({ fin }) {
+  const categories = fin.categories || [];
+  const txs = fin.transactions || [];
+  const income = fin.monthlyIncome || 0;
+  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
+  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
+
+  const today = new Date();
+  const curMonth = finCurrentMonth();
+
+  // Build series of last 12 months
+  const last12 = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    last12.push(ym);
+  }
+  const monthly = last12.map(ym => {
+    const ms = txs.filter(t => finMonth(t.date) === ym);
+    return { month: ym, total: ms.reduce((s, t) => s + (parseFloat(t.value) || 0), 0), count: ms.length };
+  });
+
+  // Last 6 months by category (stacked)
+  const last6 = last12.slice(-6);
+  const last6ByCat = last6.map(ym => {
+    const row = { month: ym, total: 0, byCat: {} };
+    txs.filter(t => finMonth(t.date) === ym).forEach(t => {
+      const c = categories.find(x => x.id === t.categoryId) || { id: '_uncat', name: 'Outro', color: '#666' };
+      row.byCat[c.id] = (row.byCat[c.id] || 0) + (parseFloat(t.value) || 0);
+      row.total += parseFloat(t.value) || 0;
+    });
+    return row;
+  });
+  // Determine top 5 categories overall in last 6 months
+  const cumByCat = {};
+  last6ByCat.forEach(r => {
+    Object.entries(r.byCat).forEach(([cid, v]) => { cumByCat[cid] = (cumByCat[cid] || 0) + v; });
+  });
+  const topCatIds = Object.entries(cumByCat).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+  const otherColor = '#555';
+
+  // Yearly aggregation
+  const yearlyMap = {};
+  txs.forEach(t => {
+    const y = (t.date || '').slice(0, 4);
+    if (!y) return;
+    yearlyMap[y] = (yearlyMap[y] || 0) + (parseFloat(t.value) || 0);
+  });
+  const years = Object.keys(yearlyMap).sort().slice(-5);
+
+  // Day-of-week heatmap (last 90 days)
+  const ninetyAgo = new Date(); ninetyAgo.setDate(ninetyAgo.getDate() - 90);
+  const dowSpend = [0, 0, 0, 0, 0, 0, 0]; // Sun=0..Sat=6
+  txs.forEach(t => {
+    if (!t.date) return;
+    const d = new Date(t.date + 'T12:00:00');
+    if (d < ninetyAgo) return;
+    dowSpend[d.getDay()] += parseFloat(t.value) || 0;
+  });
+
+  // Insights: 90d vs prior 90d trends per category
+  const ninetyAgoStr = (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().slice(0, 10); })();
+  const oneEightyAgoStr = (() => { const d = new Date(); d.setDate(d.getDate() - 180); return d.toISOString().slice(0, 10); })();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const trendByCat = categories.map(c => {
+    const cur = txs.filter(t => t.categoryId === c.id && t.date >= ninetyAgoStr && t.date <= todayStr).reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
+    const prev = txs.filter(t => t.categoryId === c.id && t.date >= oneEightyAgoStr && t.date < ninetyAgoStr).reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
+    const delta = prev ? ((cur - prev) / prev * 100) : (cur > 0 ? 100 : 0);
+    return { cat: c, cur, prev, delta };
+  }).filter(t => t.cur > 0 || t.prev > 0);
+
+  const topGrowing = trendByCat.filter(t => t.delta > 10 && t.prev > 0).sort((a, b) => b.delta - a.delta).slice(0, 3);
+  const topShrinking = trendByCat.filter(t => t.delta < -10 && t.prev > 0).sort((a, b) => a.delta - b.delta).slice(0, 3);
+
+  // Stats
+  const totals12 = monthly.map(m => m.total);
+  const avg12 = totals12.length ? totals12.reduce((s, v) => s + v, 0) / totals12.length : 0;
+  const max12 = monthly.reduce((m, x) => x.total > m.total ? x : m, { total: 0, month: null });
+  const min12 = monthly.reduce((m, x) => (m.total === null || x.total < m.total) && x.total > 0 ? x : m, { total: null, month: null });
+  const curTotal = monthly[monthly.length - 1].total;
+  const prevTotal = monthly[monthly.length - 2]?.total || 0;
+  const monthVariation = prevTotal ? ((curTotal - prevTotal) / prevTotal * 100) : 0;
+
+  // YoY comparison: same month last year
+  const sameMonLastYear = monthly.length >= 12 ? monthly[monthly.length - 12]?.total || null : null;
+  const yoyVariation = sameMonLastYear ? ((curTotal - sameMonLastYear) / sameMonLastYear * 100) : null;
+
+  // Projection — average daily spend × days in month
+  const dayOfMonth = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const projection = dayOfMonth ? (curTotal / dayOfMonth) * daysInMonth : 0;
+
+  // Months within budget streak (for current year)
+  const inBudgetStreak = (() => {
+    if (!income) return 0;
+    let s = 0;
+    for (let i = monthly.length - 2; i >= 0; i--) {
+      if (monthly[i].total > 0 && monthly[i].total <= income) s++;
+      else if (monthly[i].total > 0) break;
+    }
+    return s;
+  })();
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Privacy toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
+        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
+            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
+            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
+            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
+          }}>
+          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
+          {revealed ? 'Ocultar' : 'Revelar'} valores
+        </button>
+      </div>
+
+      {/* Insights row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        <FinInsightCard
+          icon={monthVariation >= 0 ? '↑' : '↓'}
+          color={monthVariation > 0 ? '#ff5a3c' : '#3ccf91'}
+          label="Mês atual vs anterior"
+          value={prevTotal > 0 ? `${monthVariation > 0 ? '+' : ''}${monthVariation.toFixed(1)}%` : '—'}
+          sub={prevTotal > 0 ? <span><BlurValue revealed={revealed}>{finFmt(curTotal)}</BlurValue> vs <BlurValue revealed={revealed}>{finFmt(prevTotal)}</BlurValue></span> : 'sem dados anteriores'}
+        />
+        {yoyVariation !== null && (
+          <FinInsightCard
+            icon={yoyVariation >= 0 ? '↑' : '↓'}
+            color={yoyVariation > 0 ? '#ff5a3c' : '#3ccf91'}
+            label="vs mesmo mês ano passado"
+            value={`${yoyVariation > 0 ? '+' : ''}${yoyVariation.toFixed(1)}%`}
+            sub={<span><BlurValue revealed={revealed}>{finFmt(curTotal)}</BlurValue> vs <BlurValue revealed={revealed}>{finFmt(sameMonLastYear)}</BlurValue></span>}
+          />
+        )}
+        <FinInsightCard
+          icon="∼"
+          color="var(--neon-b)"
+          label="Média mensal (12m)"
+          value={<BlurValue revealed={revealed}>{finFmt(avg12)}</BlurValue>}
+          sub={`baseado nos últimos 12 meses`}
+        />
+        {max12.month && (
+          <FinInsightCard
+            icon="▲"
+            color="#ff5a3c"
+            label="Mês mais caro"
+            value={<BlurValue revealed={revealed}>{finFmt(max12.total)}</BlurValue>}
+            sub={<span style={{ textTransform: 'capitalize' }}>{finMonthLabel(max12.month)}</span>}
+          />
+        )}
+        {projection > 0 && (
+          <FinInsightCard
+            icon="◎"
+            color={income && projection > income ? '#ff5555' : 'var(--neon-c)'}
+            label="Projeção fim do mês"
+            value={<BlurValue revealed={revealed}>{finFmt(projection)}</BlurValue>}
+            sub={income ? `${Math.round(projection / income * 100)}% da renda` : `${dayOfMonth}/${daysInMonth} dias do mês`}
+          />
+        )}
+        {inBudgetStreak > 0 && (
+          <FinInsightCard
+            icon="🔥"
+            color="#ffa830"
+            label="Meses dentro do orçamento"
+            value={`${inBudgetStreak}`}
+            sub="seguidos antes deste mês"
+          />
+        )}
+      </div>
+
+      {/* Trends — top growing/shrinking categories */}
+      {(topGrowing.length > 0 || topShrinking.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+          {topGrowing.length > 0 && (
+            <div className="panel" style={{ padding: 18 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>↑ Crescendo nos últimos 90 dias</div>
+              <div style={{ fontSize: 10, color: 'var(--ink-3)', marginBottom: 10 }}>vs 90 dias anteriores</div>
+              {topGrowing.map(t => (
+                <div key={t.cat.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: t.cat.color + '22', border: `1px solid ${t.cat.color}44`, display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{t.cat.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>{t.cat.name}</div>
+                    <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>
+                      <BlurValue revealed={revealed}>{finFmt(t.prev)}</BlurValue> → <BlurValue revealed={revealed}>{finFmt(t.cur)}</BlurValue>
+                    </div>
+                  </div>
+                  <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: '#ff5a3c' }}>+{t.delta.toFixed(0)}%</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {topShrinking.length > 0 && (
+            <div className="panel" style={{ padding: 18 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>↓ Diminuindo nos últimos 90 dias</div>
+              <div style={{ fontSize: 10, color: 'var(--ink-3)', marginBottom: 10 }}>vs 90 dias anteriores</div>
+              {topShrinking.map(t => (
+                <div key={t.cat.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: t.cat.color + '22', border: `1px solid ${t.cat.color}44`, display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{t.cat.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>{t.cat.name}</div>
+                    <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>
+                      <BlurValue revealed={revealed}>{finFmt(t.prev)}</BlurValue> → <BlurValue revealed={revealed}>{finFmt(t.cur)}</BlurValue>
+                    </div>
+                  </div>
+                  <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: '#3ccf91' }}>{t.delta.toFixed(0)}%</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Line chart: 12 months */}
+      <div className="panel" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+          <div style={{ fontWeight: 600 }}>Tendência mensal · 12 meses</div>
+          {income > 0 && <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>linha pontilhada = renda</div>}
+        </div>
+        <FinLineChart data={monthly.map(m => ({ label: m.month.slice(5) + '/' + m.month.slice(2, 4), value: m.total }))}
+          height={200} color="var(--neon-a)" referenceLine={income > 0 ? income : null} revealed={revealed} />
+      </div>
+
+      {/* Stacked bars: 6 months by category */}
+      <div className="panel" style={{ padding: 20 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Por categoria nos últimos 6 meses</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 14 }}>top 5 categorias + outras</div>
+        <FinStackedBars data={last6ByCat} categories={categories} topCatIds={topCatIds} otherColor={otherColor} revealed={revealed} />
+      </div>
+
+      {/* Day of week heatmap */}
+      <div className="panel" style={{ padding: 20 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Gastos por dia da semana · últimos 90 dias</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 14 }}>quando você mais gasta</div>
+        <FinDayOfWeekChart data={dowSpend} revealed={revealed} />
+      </div>
+
+      {/* Yearly comparison */}
+      {years.length > 1 && (
+        <div className="panel" style={{ padding: 20 }}>
+          <div style={{ fontWeight: 600, marginBottom: 14 }}>Total por ano</div>
+          <FinYearlyChart data={years.map(y => ({ year: y, value: yearlyMap[y] }))} revealed={revealed} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Insight card ── */
+function FinInsightCard({ icon, color, label, value, sub }) {
+  return (
+    <div className="panel" style={{ padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 18, color, lineHeight: 1 }}>{icon}</span>
+        <div className="eyebrow" style={{ fontSize: 10 }}>{label}</div>
+      </div>
+      <div className="mono" style={{ fontSize: 22, fontWeight: 600, color, lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ── Line chart with optional reference line ── */
+function FinLineChart({ data, height = 180, color = 'var(--neon-a)', referenceLine, revealed }) {
+  if (!data || data.length === 0) return <div style={{ fontSize: 12, color: 'var(--ink-3)', padding: 20 }}>Sem dados</div>;
+  const maxVal = Math.max(...data.map(d => d.value), referenceLine || 0, 1);
+  const w = 100; const h = 100;
+  const xStep = data.length > 1 ? w / (data.length - 1) : 0;
+  const points = data.map((d, i) => `${i * xStep},${(1 - d.value / maxVal) * h}`).join(' ');
+  const areaPoints = `0,${h} ${points} ${(data.length - 1) * xStep},${h}`;
+  const refY = referenceLine ? (1 - referenceLine / maxVal) * h : null;
+
+  return (
+    <div style={{ position: 'relative', height, filter: revealed ? 'none' : 'blur(8px)', transition: 'filter 200ms' }}>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* grid */}
+        {[0.25, 0.5, 0.75].map(p => (
+          <line key={p} x1="0" y1={h * p} x2={w} y2={h * p} stroke="rgba(255,255,255,0.04)" strokeWidth="0.3" />
+        ))}
+        {/* reference line (income) */}
+        {refY !== null && (
+          <line x1="0" y1={refY} x2={w} y2={refY} stroke="#3ccf91" strokeWidth="0.4" strokeDasharray="1,1" opacity="0.6" />
+        )}
+        {/* area */}
+        <polygon points={areaPoints} fill="url(#lineGrad)" />
+        {/* line */}
+        <polyline points={points} fill="none" stroke={color} strokeWidth="0.6" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        {/* dots */}
+        {data.map((d, i) => (
+          <circle key={i} cx={i * xStep} cy={(1 - d.value / maxVal) * h} r="0.9" fill={color} stroke="var(--bg-1)" strokeWidth="0.3" vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      {/* X labels */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 9, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+        {data.map((d, i) => <span key={i} style={{ flex: 1, textAlign: i === 0 ? 'left' : i === data.length - 1 ? 'right' : 'center' }}>{d.label}</span>)}
+      </div>
+      {/* Y reference labels */}
+      <div style={{ position: 'absolute', top: 0, right: 0, fontSize: 9, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }} className="mono">
+        {finFmtShort(maxVal)}
+      </div>
+      <div style={{ position: 'absolute', bottom: 22, right: 0, fontSize: 9, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }} className="mono">
+        {finFmtShort(0)}
+      </div>
+    </div>
+  );
+}
+
+/* ── Stacked bars chart ── */
+function FinStackedBars({ data, categories, topCatIds, otherColor, revealed }) {
+  if (!data || data.length === 0) return <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Sem dados</div>;
+  const max = Math.max(...data.map(r => r.total), 1);
+
+  const legendCats = topCatIds.map(cid => categories.find(c => c.id === cid)).filter(Boolean);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 12, height: 240, padding: '4px 0' }}>
+        {data.map(r => (
+          <div key={r.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="mono" style={{ fontSize: 9, height: 14, color: revealed ? 'var(--ink-2)' : 'transparent', textShadow: revealed ? 'none' : '0 0 8px rgba(255,255,255,0.4)' }}>{finFmtShort(r.total)}</div>
+            <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 4, marginBottom: 6 }}>
+              <div style={{ width: '100%', height: `${(r.total / max) * 100}%`, minHeight: r.total > 0 ? 2 : 0, display: 'flex', flexDirection: 'column-reverse', borderRadius: '4px 4px 0 0', overflow: 'hidden' }}>
+                {topCatIds.map(cid => {
+                  const v = r.byCat[cid] || 0;
+                  if (v <= 0) return null;
+                  const cat = categories.find(c => c.id === cid);
+                  return <div key={cid} style={{ flex: v, background: cat?.color || '#666' }} title={`${cat?.name}: ${finFmt(v)}`} />;
+                })}
+                {(() => {
+                  const other = Object.entries(r.byCat).reduce((s, [cid, v]) => topCatIds.includes(cid) ? s : s + v, 0);
+                  return other > 0 ? <div style={{ flex: other, background: otherColor }} title={`Outros: ${finFmt(other)}`} /> : null;
+                })()}
+              </div>
+            </div>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{r.month.slice(5)}/{r.month.slice(2, 4)}</div>
+          </div>
+        ))}
+      </div>
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+        {legendCats.map(c => (
+          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: c.color }} />
+            <span>{c.icon} {c.name}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-3)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: otherColor }} />
+          Outros
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Day of week chart ── */
+function FinDayOfWeekChart({ data, revealed }) {
+  const max = Math.max(...data, 1);
+  const labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  return (
+    <div style={{ display: 'flex', gap: 10, height: 180, padding: '4px 0' }}>
+      {data.map((v, i) => {
+        const h = (v / max) * 100;
+        const isWeekend = i === 0 || i === 6;
+        return (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="mono" style={{ fontSize: 9, height: 14, color: revealed ? 'var(--ink-2)' : 'transparent', textShadow: revealed ? 'none' : '0 0 8px rgba(255,255,255,0.4)' }}>{finFmtShort(v)}</div>
+            <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginTop: 4, marginBottom: 6 }}>
+              <div style={{
+                width: '70%', height: `${h}%`, minHeight: v > 0 ? 2 : 0,
+                background: isWeekend ? 'var(--neon-c)' : 'var(--neon-b)',
+                borderRadius: '4px 4px 0 0',
+              }} />
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: isWeekend ? 'var(--neon-c)' : 'var(--ink-3)' }}>{labels[i]}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Yearly chart ── */
+function FinYearlyChart({ data, revealed }) {
+  const max = Math.max(...data.map(d => d.value), 1);
+  return (
+    <div style={{ display: 'flex', gap: 16, height: 220, padding: '4px 0' }}>
+      {data.map((d, i) => {
+        const h = (d.value / max) * 100;
+        const isLast = i === data.length - 1;
+        return (
+          <div key={d.year} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="mono" style={{ fontSize: 11, height: 16, color: revealed ? (isLast ? 'var(--neon-a)' : 'var(--ink-2)') : 'transparent', textShadow: revealed ? 'none' : '0 0 8px rgba(255,255,255,0.4)', fontWeight: 600 }}>
+              {finFmtShort(d.value)}
+            </div>
+            <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginTop: 6, marginBottom: 8 }}>
+              <div style={{
+                width: '60%', height: `${h}%`, minHeight: d.value > 0 ? 4 : 0,
+                background: isLast ? 'var(--gradient-neon)' : 'rgba(91,141,255,0.4)',
+                borderRadius: '6px 6px 0 0',
+                boxShadow: isLast ? '0 0 20px rgba(255,46,136,0.3)' : 'none',
+              }} />
+            </div>
+            <div className="mono" style={{ fontSize: 12, color: isLast ? 'var(--neon-a)' : 'var(--ink-2)', fontWeight: isLast ? 600 : 400 }}>{d.year}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── */
+/* Investimentos & Reservas */
+/* ────────────────────────────────────────────────────────── */
+function FinInvestimentos({ fin, commit }) {
+  const investments = fin.investments || [];
+  const contributions = fin.contributions || [];
+  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
+  const [editInv, setEditInv] = React.useState(null);
+  const [showAddInv, setShowAddInv] = React.useState(false);
+  const [contribFor, setContribFor] = React.useState(null);
+  const [showHistory, setShowHistory] = React.useState(false);
+  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
+
+  const total = investments.reduce((s, i) => s + (parseFloat(i.currentValue) || 0), 0);
+  const goalTotal = investments.filter(i => i.goal).reduce((s, i) => s + (parseFloat(i.goal) || 0), 0);
+  const overallProgress = goalTotal > 0 ? Math.min(100, (total / goalTotal) * 100) : 0;
+
+  // Aportes do mês atual
+  const curMonth = finCurrentMonth();
+  const monthContribs = contributions.filter(c => finMonth(c.date) === curMonth);
+  const monthContribTotal = monthContribs.reduce((s, c) => s + (parseFloat(c.value) || 0), 0);
+
+  // Aportes últimos 12 meses (chart)
+  const last12 = [];
+  const today = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    last12.push(ym);
+  }
+  const monthlyContribs = last12.map(ym => ({
+    label: ym.slice(5) + '/' + ym.slice(2, 4),
+    value: contributions.filter(c => finMonth(c.date) === ym).reduce((s, c) => s + (parseFloat(c.value) || 0), 0),
+  }));
+
+  // Distribution donut
+  const distribData = investments.filter(i => (parseFloat(i.currentValue) || 0) > 0).map(i => ({
+    value: parseFloat(i.currentValue) || 0, color: i.color || (FIN_INVESTMENT_TYPES.find(t => t.v === i.type)?.color || '#5b8dff'),
+  }));
+
+  function deleteInvestment(id) {
+    const inv = investments.find(i => i.id === id);
+    if (!inv) return;
+    if (!confirm(`Deletar "${inv.name}"? Os aportes ficarão órfãos mas não serão deletados.`)) return;
+    commit(D => { finEnsure(D); D._finance.investments = D._finance.investments.filter(i => i.id !== id); });
+  }
+
+  function deleteContrib(id) {
+    if (!confirm('Deletar este aporte?')) return;
+    commit(D => {
+      finEnsure(D);
+      const c = D._finance.contributions.find(x => x.id === id);
+      if (!c) return;
+      // Reverse the value from current value
+      const inv = D._finance.investments.find(i => i.id === c.investmentId);
+      if (inv && c.affectsValue !== false) inv.currentValue = (parseFloat(inv.currentValue) || 0) - (parseFloat(c.value) || 0);
+      D._finance.contributions = D._finance.contributions.filter(x => x.id !== id);
+    });
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Privacy toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
+        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
+            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
+            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
+            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
+          }}>
+          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
+          {revealed ? 'Ocultar' : 'Revelar'} valores
+        </button>
+      </div>
+
+      {/* Hero — Total guardado */}
+      <div className="panel" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '40%',
+          background: 'radial-gradient(ellipse at right, rgba(60,207,145,0.18), transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
+          <div>
+            <div className="eyebrow">Total guardado</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 56, lineHeight: 1, marginTop: 6, color: '#3ccf91' }}>
+              <BlurValue revealed={revealed}>{finFmt(total)}</BlurValue>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6 }}>
+              em {investments.length} {investments.length === 1 ? 'investimento' : 'investimentos'} · {contributions.length} aporte{contributions.length === 1 ? '' : 's'} totais
+            </div>
+            {monthContribTotal > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--neon-c)', marginTop: 6 }} className="mono">
+                + <BlurValue revealed={revealed}>{finFmt(monthContribTotal)}</BlurValue> aportado este mês
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-ghost small" onClick={() => setShowHistory(true)} style={{ fontSize: 12 }}>📜 Histórico</button>
+            <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => { setEditInv(null); setShowAddInv(true); }}>＋ Investimento</button>
+          </div>
+        </div>
+        {goalTotal > 0 && (
+          <>
+            <div style={{ marginTop: 16, height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${overallProgress}%`, background: 'linear-gradient(135deg, #3ccf91, #5b8dff)' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: 'var(--ink-3)' }} className="mono">
+              <span>{overallProgress.toFixed(1)}% das metas</span>
+              <span>meta total: <BlurValue revealed={revealed}>{finFmt(goalTotal)}</BlurValue></span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {investments.length === 0 && (
+        <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>💎</div>
+          <div style={{ fontSize: 15, fontWeight: 500 }}>Nenhum investimento ainda</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4, marginBottom: 16 }}>Adicione Tesouro, CDB, reservas, cripto, fundos…</div>
+          <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => { setEditInv(null); setShowAddInv(true); }}>＋ Criar primeiro</button>
+        </div>
+      )}
+
+      {/* Two columns: distribution + cards */}
+      {investments.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: distribData.length > 0 ? '300px 1fr' : '1fr', gap: 16 }} className="screen-grid">
+          {/* Distribution donut */}
+          {distribData.length > 0 && (
+            <div className="panel" style={{ padding: 20 }}>
+              <div style={{ fontWeight: 600, marginBottom: 14 }}>Distribuição</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+                <FinDonut data={distribData} size={160} total={total} blurred={!revealed} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {investments.filter(i => (parseFloat(i.currentValue) || 0) > 0).sort((a, b) => (b.currentValue || 0) - (a.currentValue || 0)).map(i => {
+                  const color = i.color || (FIN_INVESTMENT_TYPES.find(t => t.v === i.type)?.color || '#5b8dff');
+                  return (
+                    <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.name}</span>
+                      <span className="mono" style={{ color: 'var(--ink-2)' }}>{total ? Math.round((i.currentValue / total) * 100) : 0}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Investments grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+            {investments.map(inv => {
+              const typeInfo = FIN_INVESTMENT_TYPES.find(t => t.v === inv.type);
+              const color = inv.color || typeInfo?.color || '#5b8dff';
+              const cv = parseFloat(inv.currentValue) || 0;
+              const goal = parseFloat(inv.goal) || 0;
+              const progress = goal > 0 ? Math.min(100, (cv / goal) * 100) : 0;
+              const invContribs = contributions.filter(c => c.investmentId === inv.id);
+              const totalContrib = invContribs.reduce((s, c) => s + (parseFloat(c.value) || 0), 0);
+              return (
+                <div key={inv.id} className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 16px', background: `linear-gradient(135deg, ${color}33, ${color}11)`, borderBottom: '1px solid var(--line)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flex: 1, minWidth: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: color + '22', border: `1px solid ${color}44`, display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>{inv.icon || '💎'}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.name}</div>
+                          <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>
+                            {typeInfo?.l.replace(/^[^ ]+ /, '') || inv.type}{inv.institution ? ` · ${inv.institution}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 2 }}>
+                        <button className="icon-btn" onClick={() => { setEditInv(inv); setShowAddInv(true); }} style={{ width: 26, height: 26, fontSize: 11 }}>✎</button>
+                        <button className="icon-btn" onClick={() => deleteInvestment(inv.id)} style={{ width: 26, height: 26, fontSize: 11 }}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                      <span className="eyebrow">Saldo atual</span>
+                      <span className="mono" style={{ fontSize: 18, fontWeight: 600, color }}>
+                        <BlurValue revealed={revealed}>{finFmt(cv)}</BlurValue>
+                      </span>
+                    </div>
+                    {goal > 0 && (
+                      <>
+                        <div style={{ height: 5, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden', marginBottom: 6 }}>
+                          <div style={{ height: '100%', width: `${progress}%`, background: color }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-3)' }} className="mono">
+                          <span>{progress.toFixed(0)}% da meta</span>
+                          <span>meta: <BlurValue revealed={revealed}>{finFmt(goal)}</BlurValue></span>
+                        </div>
+                      </>
+                    )}
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }} className="mono">
+                        {invContribs.length} aporte{invContribs.length === 1 ? '' : 's'} · <BlurValue revealed={revealed}>{finFmt(totalContrib)}</BlurValue>
+                      </div>
+                      <button className="btn-ghost small" onClick={() => setContribFor(inv)} style={{ fontSize: 11, padding: '4px 10px', color }}>＋ Aportar</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Aportes timeline + chart */}
+      {contributions.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="screen-grid">
+          {/* Monthly contributions chart */}
+          <div className="panel" style={{ padding: 20 }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Aportes mensais · 12 meses</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 14 }}>quanto você guardou cada mês</div>
+            <FinLineChart data={monthlyContribs} height={160} color="#3ccf91" revealed={revealed} />
+          </div>
+
+          {/* Recent aportes */}
+          <div className="panel" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+              <div style={{ fontWeight: 600 }}>Aportes recentes</div>
+              <button className="btn-ghost small" onClick={() => setShowHistory(true)} style={{ fontSize: 11 }}>Ver todos</button>
+            </div>
+            {[...contributions].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 6).map((c, i, arr) => {
+              const inv = investments.find(x => x.id === c.investmentId);
+              const color = inv?.color || (FIN_INVESTMENT_TYPES.find(t => t.v === inv?.type)?.color || '#3ccf91');
+              return (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: color + '22', border: `1px solid ${color}44`, display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{inv?.icon || '💎'}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv?.name || 'Investimento removido'}</div>
+                    <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{Orbita.fmtDate(c.date)}{c.description ? ` · ${c.description}` : ''}</div>
+                  </div>
+                  <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: '#3ccf91' }}>
+                    + <BlurValue revealed={revealed}>{finFmt(c.value)}</BlurValue>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {showAddInv && <FinInvestmentModal onClose={() => { setShowAddInv(false); setEditInv(null); }} editInv={editInv} commit={commit} />}
+      {contribFor && <FinContribModal onClose={() => setContribFor(null)} investment={contribFor} commit={commit} />}
+      {showHistory && <FinContribHistoryModal onClose={() => setShowHistory(false)} fin={fin} commit={commit} revealed={revealed} deleteContrib={deleteContrib} />}
+    </div>
+  );
+}
+
+function FinInvestmentModal({ onClose, editInv, commit }) {
+  const [name, setName] = React.useState(editInv?.name || '');
+  const [type, setType] = React.useState(editInv?.type || 'reserva');
+  const [institution, setInstitution] = React.useState(editInv?.institution || '');
+  const [currentValue, setCurrentValue] = React.useState(editInv?.currentValue || '');
+  const [goal, setGoal] = React.useState(editInv?.goal || '');
+  const [icon, setIcon] = React.useState(editInv?.icon || '💎');
+  const [color, setColor] = React.useState(editInv?.color || (FIN_INVESTMENT_TYPES.find(t => t.v === (editInv?.type || 'reserva'))?.color || '#3ccf91'));
+  const colors = ['#3ccf91', '#5b8dff', '#b066ff', '#ff2e88', '#ffd60a', '#ffa830', '#9ea5b8', '#64d2ff', '#ff5a3c', '#ff5555'];
+
+  function save() {
+    if (!name.trim()) return;
+    commit(D => {
+      finEnsure(D);
+      const inv = {
+        id: editInv?.id || Orbita.uid(),
+        name: name.trim(), type, institution: institution.trim() || null,
+        currentValue: parseFloat(String(currentValue).replace(',', '.')) || 0,
+        goal: goal ? parseFloat(String(goal).replace(',', '.')) : null,
+        icon, color,
+      };
+      if (editInv) {
+        const idx = D._finance.investments.findIndex(i => i.id === editInv.id);
+        if (idx >= 0) D._finance.investments[idx] = inv;
+      } else {
+        D._finance.investments.push(inv);
+      }
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(520px, 92vw)' }}>
+        <div className="modal-header"><h2>{editInv ? 'Editar investimento' : 'Novo investimento'}</h2><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <div className="form-group">
+              <label className="form-label">Ícone</label>
+              <EmojiPicker value={icon} onChange={setIcon} />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Nome</label>
+              <input className="form-input" autoFocus placeholder="Ex: Reserva de emergência, Tesouro IPCA+" value={name} onChange={e => setName(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Tipo</label>
+            <div className="form-chips">
+              {FIN_INVESTMENT_TYPES.map(t => (
+                <div key={t.v} className={`form-chip ${type === t.v ? 'active' : ''}`} onClick={() => { setType(t.v); setColor(t.color); }}
+                  style={type === t.v ? { borderColor: t.color, background: t.color + '22' } : {}}>{t.l}</div>
+              ))}
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Instituição</label>
+              <input className="form-input" placeholder="Ex: XP, Itaú, C6, Nubank" value={institution} onChange={e => setInstitution(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Saldo atual (R$)</label>
+              <input className="form-input" type="text" inputMode="decimal" placeholder="0,00" value={currentValue} onChange={e => setCurrentValue(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Meta (R$, opcional)</label>
+            <input className="form-input" type="text" inputMode="decimal" placeholder="Ex: 50000" value={goal} onChange={e => setGoal(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Cor</label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {colors.map(c => (
+                <div key={c} onClick={() => setColor(c)} style={{
+                  width: 26, height: 26, borderRadius: 6, background: c, cursor: 'pointer',
+                  border: color === c ? '2px solid #fff' : '2px solid transparent',
+                }} />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={save}>{editInv ? 'Salvar' : 'Criar'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinContribModal({ onClose, investment, commit }) {
+  const [value, setValue] = React.useState('');
+  const [date, setDate] = React.useState(Orbita.todayStr());
+  const [description, setDescription] = React.useState('');
+  const [updateBalance, setUpdateBalance] = React.useState(true);
+
+  function save() {
+    const v = parseFloat(String(value).replace(',', '.'));
+    if (isNaN(v) || v === 0) return;
+    commit(D => {
+      finEnsure(D);
+      D._finance.contributions.push({
+        id: Orbita.uid(),
+        investmentId: investment.id,
+        value: v, date, description: description.trim() || null,
+        affectsValue: updateBalance,
+      });
+      if (updateBalance) {
+        const inv = D._finance.investments.find(i => i.id === investment.id);
+        if (inv) inv.currentValue = (parseFloat(inv.currentValue) || 0) + v;
+      }
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(440px, 92vw)' }}>
+        <div className="modal-header">
+          <div>
+            <div className="eyebrow">{investment.name}</div>
+            <h2>Novo aporte</h2>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Valor (R$)</label>
+              <input className="form-input" autoFocus type="text" inputMode="decimal" placeholder="0,00" value={value} onChange={e => setValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') save(); }} />
+              <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>use negativo para resgate (ex: -1000)</div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Data</label>
+              <input className="form-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Descrição (opcional)</label>
+            <input className="form-input" placeholder="Ex: Salário, 13º, rendimento" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+              <input type="checkbox" checked={updateBalance} onChange={e => setUpdateBalance(e.target.checked)} style={{ accentColor: 'var(--neon-a)' }} />
+              Atualizar saldo do investimento automaticamente
+            </label>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={save}>Adicionar aporte</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinContribHistoryModal({ onClose, fin, commit, revealed, deleteContrib }) {
+  const investments = fin.investments || [];
+  const contribs = [...(fin.contributions || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const [filterInv, setFilterInv] = React.useState('all');
+  const filtered = filterInv === 'all' ? contribs : contribs.filter(c => c.investmentId === filterInv);
+  const total = filtered.reduce((s, c) => s + (parseFloat(c.value) || 0), 0);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(640px, 95vw)', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-header"><h2>Histórico de aportes</h2><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <select className="form-input" value={filterInv} onChange={e => setFilterInv(e.target.value)} style={{ flex: 1, minWidth: 200, fontSize: 12, padding: '8px 12px' }}>
+            <option value="all">Todos investimentos</option>
+            {investments.map(i => <option key={i.id} value={i.id}>{i.icon} {i.name}</option>)}
+          </select>
+          <div className="mono" style={{ fontSize: 12, color: '#3ccf91', fontWeight: 600 }}>
+            {filtered.length} aportes · <BlurValue revealed={revealed}>{finFmt(total)}</BlurValue>
+          </div>
+        </div>
+        <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: 0 }}>
+          {filtered.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--ink-3)' }}>Nenhum aporte ainda</div>
+          )}
+          {filtered.map((c, i) => {
+            const inv = investments.find(x => x.id === c.investmentId);
+            const color = inv?.color || '#3ccf91';
+            const isWithdraw = (parseFloat(c.value) || 0) < 0;
+            return (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', borderBottom: '1px solid var(--line)' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: color + '22', border: `1px solid ${color}44`, display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{inv?.icon || '💎'}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{inv?.name || 'Investimento removido'}</div>
+                  <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{Orbita.fmtDate(c.date)}{c.description ? ` · ${c.description}` : ''}</div>
+                </div>
+                <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: isWithdraw ? '#ff5a3c' : '#3ccf91' }}>
+                  {isWithdraw ? '' : '+ '}<BlurValue revealed={revealed}>{finFmt(c.value)}</BlurValue>
+                </div>
+                <button onClick={() => deleteContrib(c.id)} className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>✕</button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
