@@ -12,9 +12,11 @@ function ScreenDiet() {
   const targets = diet.targets || { dailyCalories: 2000, protein: 150, carbs: 200, fat: 65, weightGoal: null };
   const today = Orbita.todayStr();
 
-  // Today's totals
+  // Today's totals (items checked + mealExtras registered today)
   const todayMealCalories = meals.reduce((sum, m) => {
-    return sum + (m.items || []).filter(i => (i.doneDates || []).includes(today)).reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
+    const itemsCal = (m.items || []).filter(i => (i.doneDates || []).includes(today)).reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
+    const extrasCal = (m.mealExtras || []).filter(e => e.date === today).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+    return sum + itemsCal + extrasCal;
   }, 0);
   const todayExtraCalories = extras.filter(e => e.date === today).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
   const todayTotalCalories = todayMealCalories + todayExtraCalories;
@@ -40,7 +42,7 @@ function ScreenDiet() {
         }
       />
       <div style={{ padding: '0 28px 40px' }}>
-        {tab === 'hoje' && <DietToday meals={meals} targets={targets} today={today} todayMealCalories={todayMealCalories} todayExtraCalories={todayExtraCalories} commit={commit} extras={extras} />}
+        {tab === 'hoje' && <DietToday meals={meals} targets={targets} today={today} todayMealCalories={todayMealCalories} todayExtraCalories={todayExtraCalories} commit={commit} extras={extras} openaiKey={data._settings?.aiKeys?.openai || diet.openaiKey} />}
         {tab === 'peso' && <DietWeight log={weightLog} current={currentWeight} first={firstWeight} target={targets.weightGoal} commit={commit} />}
         {tab === 'medidas' && <DietMeasurements log={measurements} commit={commit} />}
         {tab === 'fotos' && <DietPhotos photos={photos} commit={commit} />}
@@ -51,7 +53,7 @@ function ScreenDiet() {
 }
 
 /* ── Today: Meals as tasks with items as subtasks ── */
-function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalories, commit, extras }) {
+function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalories, commit, extras, openaiKey }) {
   const [showNewMeal, setShowNewMeal] = React.useState(false);
   const [editMealId, setEditMealId] = React.useState(null);
   const total = todayMealCalories + todayExtraCalories;
@@ -114,69 +116,11 @@ function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalorie
           </div>
         )}
 
-        {meals.sort((a,b) => (a.time||'').localeCompare(b.time||'')).map(meal => {
-          const items = meal.items || [];
-          const doneItems = items.filter(i => (i.doneDates || []).includes(today));
-          const hasAnyDone = doneItems.length > 0;
-          const doneCal = doneItems.reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
-          const doneP = doneItems.reduce((s, i) => s + (parseFloat(i.protein) || 0), 0);
-          const doneC = doneItems.reduce((s, i) => s + (parseFloat(i.carbs) || 0), 0);
-          const doneF = doneItems.reduce((s, i) => s + (parseFloat(i.fat) || 0), 0);
-
-          // Agrupa items por "group" — items sem group ficam soltos no topo
-          const noGroup = items.map((it, idx) => ({ it, idx })).filter(({it}) => !it.group);
-          const groupsMap = {};
-          items.forEach((it, idx) => {
-            if (!it.group) return;
-            if (!groupsMap[it.group]) groupsMap[it.group] = [];
-            groupsMap[it.group].push({ it, idx });
-          });
-
-          return (
-            <div key={meal.id} className="panel" style={{ padding: 18, borderLeft: `3px solid ${hasAnyDone ? '#3ccf91' : '#64d2ff'}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                <span style={{ fontSize: 22 }}>{meal.icon || '🍽'}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600 }}>{meal.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
-                    {meal.time && <span className="mono">⏱ {meal.time}</span>}
-                    <span style={{ marginLeft: meal.time ? 10 : 0, color: doneCal > 0 ? '#3ccf91' : 'var(--ink-3)' }}>{Math.round(doneCal)} kcal</span>
-                    {doneP > 0 && <span style={{ marginLeft: 10 }}>P {Math.round(doneP)}g</span>}
-                    {doneC > 0 && <span style={{ marginLeft: 6 }}>C {Math.round(doneC)}g</span>}
-                    {doneF > 0 && <span style={{ marginLeft: 6 }}>G {Math.round(doneF)}g</span>}
-                  </div>
-                </div>
-                <button className="btn-ghost small" onClick={() => setEditMealId(meal.id)} style={{ fontSize: 10 }}>✎</button>
-                <button className="btn-ghost small" onClick={() => deleteMeal(meal.id)} style={{ fontSize: 10, color: 'var(--ink-4)' }}>✕</button>
-              </div>
-
-              {/* Items sem grupo */}
-              {noGroup.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: Object.keys(groupsMap).length > 0 ? 10 : 0 }}>
-                  {noGroup.map(({ it, idx }) => <ItemRow key={idx} item={it} mealId={meal.id} idx={idx} today={today} onToggle={toggleItem} />)}
-                </div>
-              )}
-
-              {/* Grupos de substituições */}
-              {Object.entries(groupsMap).map(([groupName, entries]) => {
-                const groupDone = entries.some(({it}) => (it.doneDates||[]).includes(today));
-                return (
-                  <div key={groupName} style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '0 4px' }}>
-                      <span className="mono" style={{ fontSize: 9, color: groupDone ? '#3ccf91' : 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        {groupName} · escolha 1 de {entries.length}
-                      </span>
-                      {groupDone && <span className="mono" style={{ fontSize: 9, color: '#3ccf91' }}>✓</span>}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {entries.map(({ it, idx }) => <ItemRow key={idx} item={it} mealId={meal.id} idx={idx} today={today} onToggle={toggleItem} isOption />)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+        {meals.sort((a,b) => (a.time||'').localeCompare(b.time||'')).map(meal => (
+          <MealCard key={meal.id} meal={meal} today={today} commit={commit}
+            openaiKey={openaiKey} onEdit={() => setEditMealId(meal.id)} onDelete={() => deleteMeal(meal.id)}
+            toggleItem={toggleItem} />
+        ))}
       </div>
 
       {/* Right: stats */}
@@ -262,6 +206,218 @@ function ConsumptionTimeline({ meals, extras, today, commit }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Meal card with collapse + Outro field (AI-extracted calories) ── */
+function MealCard({ meal, today, commit, openaiKey, onEdit, onDelete, toggleItem }) {
+  const collapseKey = `orbita_diet_collapse_${meal.id}`;
+  const [collapsed, setCollapsed] = React.useState(() => localStorage.getItem(collapseKey) === '1');
+  const [outroOpen, setOutroOpen] = React.useState(false);
+  const [outroText, setOutroText] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [parsed, setParsed] = React.useState(null);
+
+  React.useEffect(() => { localStorage.setItem(collapseKey, collapsed ? '1' : '0'); }, [collapsed]);
+
+  const items = meal.items || [];
+  const mealExtras = (meal.mealExtras || []).filter(e => e.date === today);
+  const doneItems = items.filter(i => (i.doneDates || []).includes(today));
+  const hasAnyDone = doneItems.length > 0 || mealExtras.length > 0;
+
+  const itemsCal = doneItems.reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
+  const extrasCal = mealExtras.reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+  const doneCal = itemsCal + extrasCal;
+  const doneP = doneItems.reduce((s, i) => s + (parseFloat(i.protein) || 0), 0) + mealExtras.reduce((s, e) => s + (parseFloat(e.protein) || 0), 0);
+  const doneC = doneItems.reduce((s, i) => s + (parseFloat(i.carbs) || 0), 0) + mealExtras.reduce((s, e) => s + (parseFloat(e.carbs) || 0), 0);
+  const doneF = doneItems.reduce((s, i) => s + (parseFloat(i.fat) || 0), 0) + mealExtras.reduce((s, e) => s + (parseFloat(e.fat) || 0), 0);
+
+  // Group items by "group"
+  const noGroup = items.map((it, idx) => ({ it, idx })).filter(({it}) => !it.group);
+  const groupsMap = {};
+  items.forEach((it, idx) => {
+    if (!it.group) return;
+    if (!groupsMap[it.group]) groupsMap[it.group] = [];
+    groupsMap[it.group].push({ it, idx });
+  });
+
+  async function analyzeOutro() {
+    if (!outroText.trim()) return;
+    if (!openaiKey) { setError('Configure sua chave OpenAI em ⚙ Configurações'); return; }
+    setLoading(true); setError(''); setParsed(null);
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: 'Você é nutricionista. Extraia calorias e macros do que o usuário comeu. Use TACO (UNICAMP) como referência principal. Responda SOMENTE JSON: {"items":[{"name":"...","qty":"...","calories":N,"protein":N,"carbs":N,"fat":N}],"total_calories":N,"summary":"..."}' },
+            { role: 'user', content: outroText.trim() },
+          ],
+          temperature: 0.2,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error?.message || `HTTP ${res.status}`);
+      const json = await res.json();
+      setParsed(JSON.parse(json.choices[0].message.content));
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  function saveOutro() {
+    if (!parsed) return;
+    commit(D => {
+      const m = D._diet?.meals?.find(x => x.id === meal.id);
+      if (!m) return;
+      if (!m.mealExtras) m.mealExtras = [];
+      const totalProtein = (parsed.items || []).reduce((s, i) => s + (parseFloat(i.protein) || 0), 0);
+      const totalCarbs = (parsed.items || []).reduce((s, i) => s + (parseFloat(i.carbs) || 0), 0);
+      const totalFat = (parsed.items || []).reduce((s, i) => s + (parseFloat(i.fat) || 0), 0);
+      m.mealExtras.push({
+        id: Orbita.uid(),
+        date: today,
+        timestamp: Date.now(),
+        description: outroText.trim(),
+        items: parsed.items || [],
+        calories: parsed.total_calories || 0,
+        protein: totalProtein,
+        carbs: totalCarbs,
+        fat: totalFat,
+        summary: parsed.summary || '',
+      });
+    });
+    setOutroText(''); setParsed(null); setOutroOpen(false);
+  }
+
+  function deleteExtra(id) {
+    if (!confirm('Remover este extra?')) return;
+    commit(D => {
+      const m = D._diet?.meals?.find(x => x.id === meal.id);
+      if (m && m.mealExtras) m.mealExtras = m.mealExtras.filter(e => e.id !== id);
+    });
+  }
+
+  return (
+    <div className="panel" style={{ padding: 18, borderLeft: `3px solid ${hasAnyDone ? '#3ccf91' : '#64d2ff'}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: collapsed ? 0 : 10 }}>
+        <button onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expandir' : 'Colapsar'}
+          style={{
+            width: 18, height: 18, display: 'grid', placeItems: 'center',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: 'var(--ink-3)', fontSize: 9, flexShrink: 0,
+          }}>
+          <span style={{ display: 'inline-block', transition: 'transform 150ms', transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}>▶</span>
+        </button>
+        <span style={{ fontSize: 22 }}>{meal.icon || '🍽'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>{meal.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
+            {meal.time && <span className="mono">⏱ {meal.time}</span>}
+            <span style={{ marginLeft: meal.time ? 10 : 0, color: doneCal > 0 ? '#3ccf91' : 'var(--ink-3)' }}>{Math.round(doneCal)} kcal</span>
+            {doneP > 0 && <span style={{ marginLeft: 10 }}>P {Math.round(doneP)}g</span>}
+            {doneC > 0 && <span style={{ marginLeft: 6 }}>C {Math.round(doneC)}g</span>}
+            {doneF > 0 && <span style={{ marginLeft: 6 }}>G {Math.round(doneF)}g</span>}
+            {mealExtras.length > 0 && <span style={{ marginLeft: 8, color: '#ffa830' }}>· {mealExtras.length} outro{mealExtras.length === 1 ? '' : 's'}</span>}
+          </div>
+        </div>
+        <button className="btn-ghost small" onClick={onEdit} style={{ fontSize: 10 }}>✎</button>
+        <button className="btn-ghost small" onClick={onDelete} style={{ fontSize: 10, color: 'var(--ink-4)' }}>✕</button>
+      </div>
+
+      {!collapsed && <>
+        {/* Items sem grupo */}
+        {noGroup.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: Object.keys(groupsMap).length > 0 ? 10 : 0 }}>
+            {noGroup.map(({ it, idx }) => <ItemRow key={idx} item={it} mealId={meal.id} idx={idx} today={today} onToggle={toggleItem} />)}
+          </div>
+        )}
+
+        {/* Grupos de substituições */}
+        {Object.entries(groupsMap).map(([groupName, entries]) => {
+          const groupDone = entries.some(({it}) => (it.doneDates||[]).includes(today));
+          return (
+            <div key={groupName} style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '0 4px' }}>
+                <span className="mono" style={{ fontSize: 9, color: groupDone ? '#3ccf91' : 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  {groupName} · escolha 1 de {entries.length}
+                </span>
+                {groupDone && <span className="mono" style={{ fontSize: 9, color: '#3ccf91' }}>✓</span>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {entries.map(({ it, idx }) => <ItemRow key={idx} item={it} mealId={meal.id} idx={idx} today={today} onToggle={toggleItem} isOption />)}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Outros já adicionados hoje */}
+        {mealExtras.length > 0 && (
+          <div style={{ marginTop: 10, padding: 8, borderRadius: 8, background: 'rgba(255,168,48,0.06)', border: '1px solid rgba(255,168,48,0.18)' }}>
+            <div className="mono" style={{ fontSize: 9, color: '#ffa830', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6, padding: '0 4px' }}>
+              Outros · {mealExtras.length}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {mealExtras.map(e => (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px' }}>
+                  <span style={{ fontSize: 12 }}>🍔</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</div>
+                    {e.summary && <div className="mono" style={{ fontSize: 9, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.summary}</div>}
+                  </div>
+                  <span className="mono" style={{ fontSize: 10, color: '#ffa830', flexShrink: 0 }}>{Math.round(e.calories)} kcal</span>
+                  <button onClick={() => deleteExtra(e.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 10 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Outro — input livre com IA */}
+        <div style={{ marginTop: 10 }}>
+          {!outroOpen ? (
+            <button className="btn-ghost small" onClick={() => setOutroOpen(true)} style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+              ＋ Outro (IA calcula calorias)
+            </button>
+          ) : (
+            <div style={{ padding: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line)', borderRadius: 8 }}>
+              <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                Outro · descrição livre
+              </div>
+              <textarea className="form-input" placeholder='Ex: "1 fatia de bolo de chocolate", "duas brigadeiros"' value={outroText} onChange={e => setOutroText(e.target.value)}
+                style={{ minHeight: 50, fontSize: 12, marginBottom: 8 }} disabled={loading} />
+              {parsed && (
+                <div style={{ marginBottom: 8, padding: 10, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', borderRadius: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 18 }}>{Math.round(parsed.total_calories || 0)} kcal</span>
+                    <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>
+                      P {Math.round((parsed.items||[]).reduce((s,i) => s + (parseFloat(i.protein)||0), 0))}g · C {Math.round((parsed.items||[]).reduce((s,i) => s + (parseFloat(i.carbs)||0), 0))}g · G {Math.round((parsed.items||[]).reduce((s,i) => s + (parseFloat(i.fat)||0), 0))}g
+                    </span>
+                  </div>
+                  {parsed.summary && <div style={{ fontSize: 11, color: 'var(--ink-2)', marginBottom: 6 }}>{parsed.summary}</div>}
+                  {(parsed.items || []).map((item, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 10, color: 'var(--ink-2)' }}>
+                      <span>{item.name} {item.qty && `(${item.qty})`}</span>
+                      <span className="mono" style={{ color: '#ffa830' }}>{Math.round(item.calories)} kcal</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {error && <div style={{ marginBottom: 8, padding: 6, fontSize: 10, color: '#ff5555', background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.25)', borderRadius: 6 }}>{error}</div>}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {!parsed && <button className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 11 }} onClick={analyzeOutro} disabled={loading || !outroText.trim()}>
+                  {loading ? '⟳ analisando...' : '⚡ Analisar'}
+                </button>}
+                {parsed && <button className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 11, background: 'linear-gradient(135deg, #3ccf91, #5b8dff)' }} onClick={saveOutro}>✓ Adicionar à refeição</button>}
+                <button className="btn-ghost small" onClick={() => { setOutroOpen(false); setOutroText(''); setParsed(null); setError(''); }} style={{ fontSize: 10 }}>Cancelar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </>}
     </div>
   );
 }
@@ -1306,29 +1462,114 @@ function DietHomeBar() {
       return;
     }
 
-    // Chat mode
+    // Chat mode — with tool calling for auto-registration
     const userMsg = { role: 'user', content: input.trim() };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
     try {
+      const meals = diet.meals || [];
+      const mealNames = meals.map(m => m.name).join(', ');
+      const tools = [{
+        type: 'function',
+        function: {
+          name: 'register_food_intake',
+          description: 'Registrar comida que o usuário acabou de informar que comeu/consumiu. Use SEMPRE que o usuário disser que comeu algo (passado ou agora). Não use para perguntas hipotéticas ou planejamento futuro.',
+          parameters: {
+            type: 'object',
+            properties: {
+              meal_name: {
+                type: 'string',
+                description: `Refeição mais próxima entre as do usuário: ${mealNames}. Pode também ser um nome genérico (Café da Manhã, Almoço, Lanche, Jantar, Ceia) se nada bater.`,
+              },
+              items: {
+                type: 'array',
+                description: 'Lista de alimentos consumidos com calorias e macros',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    qty: { type: 'string', description: 'quantidade aproximada' },
+                    calories: { type: 'number' },
+                    protein: { type: 'number' },
+                    carbs: { type: 'number' },
+                    fat: { type: 'number' },
+                  },
+                  required: ['name', 'calories'],
+                },
+              },
+              summary: { type: 'string', description: 'resumo bem curto, ex: "café com pão e bolo"' },
+            },
+            required: ['items'],
+          },
+        },
+      }];
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${diet.openaiKey}` },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: `Você é o coach nutricional do Stephano. Use a Tabela Brasileira de Composição de Alimentos (TACO) da UNICAMP como referência principal para qualquer cálculo de calorias, macros ou substituições nutricionais. Para alimentos industrializados ou não cobertos pela TACO, use USDA ou rótulos. Sempre cite a fonte quando for relevante. Seja conciso, direto e em português.\n\n${buildContext()}` },
+            { role: 'system', content: `Você é o coach nutricional do Stephano. Use a Tabela Brasileira de Composição de Alimentos (TACO) da UNICAMP como referência principal para calcular calorias e macros. Para industrializados não cobertos pela TACO, use USDA ou rótulos. Quando o usuário disser que COMEU algo (passado ou agora), CHAME register_food_intake além de responder normalmente. Seja conciso, direto e em português. Use markdown quando útil.\n\nRefeições cadastradas: ${mealNames || '(nenhuma)'}\n\n${buildContext()}` },
             ...newMessages.slice(-10),
           ],
+          tools,
+          tool_choice: 'auto',
           temperature: 0.7,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error?.message || `HTTP ${res.status}`);
       const json = await res.json();
-      setMessages(m => [...m, { role: 'assistant', content: json.choices[0].message.content }]);
+      const msg = json.choices[0].message;
+      let foodIntake = null;
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        const toolCall = msg.tool_calls.find(tc => tc.function?.name === 'register_food_intake');
+        if (toolCall) {
+          try { foodIntake = JSON.parse(toolCall.function.arguments); } catch {}
+        }
+      }
+      const replyContent = msg.content || (foodIntake ? 'Registrei o que você comeu — confirme abaixo:' : '');
+      setMessages(m => [...m, { role: 'assistant', content: replyContent, foodIntake }]);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
+  }
+
+  function registerFoodFromChat(msgIdx, foodIntake) {
+    const meals = diet.meals || [];
+    const target = (foodIntake.meal_name || '').toLowerCase();
+    const matched = target ? meals.find(m => {
+      const n = (m.name || '').toLowerCase();
+      return n === target || n.includes(target) || target.includes(n);
+    }) : null;
+
+    commit(D => {
+      if (!D._diet) D._diet = {};
+      const items = foodIntake.items || [];
+      const totalCal = items.reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
+      const totalP = items.reduce((s, i) => s + (parseFloat(i.protein) || 0), 0);
+      const totalC = items.reduce((s, i) => s + (parseFloat(i.carbs) || 0), 0);
+      const totalF = items.reduce((s, i) => s + (parseFloat(i.fat) || 0), 0);
+      const entry = {
+        id: Orbita.uid(),
+        date: today,
+        timestamp: Date.now(),
+        description: foodIntake.summary || items.map(i => i.name).slice(0, 3).join(', '),
+        items,
+        calories: totalCal, protein: totalP, carbs: totalC, fat: totalF,
+        summary: foodIntake.summary || '',
+      };
+      if (matched) {
+        const m = D._diet.meals.find(x => x.id === matched.id);
+        if (m) {
+          if (!m.mealExtras) m.mealExtras = [];
+          m.mealExtras.push(entry);
+        }
+      } else {
+        if (!D._diet.extraCalories) D._diet.extraCalories = [];
+        D._diet.extraCalories.push(entry);
+      }
+    });
+    setMessages(m => m.map((mm, i) => i === msgIdx ? { ...mm, foodIntake: { ...mm.foodIntake, registered: true, registeredTo: matched?.name || 'Extras do dia' } } : mm));
   }
 
   function saveExtra() {
@@ -1402,13 +1643,50 @@ function DietHomeBar() {
             </div>
           )}
           {messages.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
-              <div style={{
-                maxWidth: '85%', padding: '8px 12px', borderRadius: 12,
-                background: m.role === 'user' ? 'var(--gradient-neon-soft)' : 'rgba(255,255,255,0.04)',
-                border: m.role === 'user' ? '1px solid rgba(255,46,136,0.22)' : '1px solid var(--line)',
-                fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
-              }}>{m.content}</div>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 8, gap: 6 }}>
+              {m.content && (
+                <div style={{
+                  maxWidth: '85%', padding: '8px 12px', borderRadius: 12,
+                  background: m.role === 'user' ? 'var(--gradient-neon-soft)' : 'rgba(255,255,255,0.04)',
+                  border: m.role === 'user' ? '1px solid rgba(255,46,136,0.22)' : '1px solid var(--line)',
+                  fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+                }}>{m.content}</div>
+              )}
+              {m.foodIntake && (
+                <div style={{
+                  maxWidth: '90%', padding: 10, borderRadius: 12,
+                  background: m.foodIntake.registered ? 'rgba(60,207,145,0.08)' : 'linear-gradient(135deg, rgba(255,168,48,0.12), rgba(255,46,136,0.06))',
+                  border: m.foodIntake.registered ? '1px solid rgba(60,207,145,0.3)' : '1px solid rgba(255,168,48,0.3)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 18 }}>
+                      {Math.round((m.foodIntake.items || []).reduce((s, it) => s + (parseFloat(it.calories) || 0), 0))} kcal
+                    </span>
+                    {m.foodIntake.meal_name && <span className="chip" style={{ fontSize: 9 }}>🍽 {m.foodIntake.meal_name}</span>}
+                  </div>
+                  {m.foodIntake.summary && <div style={{ fontSize: 11, color: 'var(--ink-2)', marginBottom: 6 }}>{m.foodIntake.summary}</div>}
+                  {(m.foodIntake.items || []).map((item, j) => (
+                    <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 10, borderTop: j > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <span style={{ color: 'var(--ink-2)' }}>{item.name}{item.qty ? ` (${item.qty})` : ''}</span>
+                      <span className="mono" style={{ color: '#ffa830' }}>{Math.round(item.calories || 0)} kcal</span>
+                    </div>
+                  ))}
+                  {m.foodIntake.registered ? (
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#3ccf91', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      ✓ Registrado em <strong>{m.foodIntake.registeredTo}</strong>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                      <button className="btn btn-primary" onClick={() => registerFoodFromChat(i, m.foodIntake)}
+                        style={{ padding: '6px 12px', fontSize: 11, background: 'linear-gradient(135deg, #3ccf91, #5b8dff)' }}>
+                        ✓ Registrar
+                      </button>
+                      <button className="btn-ghost small" onClick={() => setMessages(prev => prev.map((mm, k) => k === i ? { ...mm, foodIntake: null } : mm))}
+                        style={{ fontSize: 10 }}>Ignorar</button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {loading && <div style={{ fontSize: 11, color: 'var(--ink-3)', padding: 8 }}>⟳ pensando...</div>}
