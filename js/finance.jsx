@@ -78,6 +78,7 @@ function finEnsure(D) {
   if (!F.contributions) F.contributions = [];
   if (!F.debts) F.debts = [];
   if (typeof F.monthlyIncome !== 'number') F.monthlyIncome = 0;
+  if (!F.incomeByMonth) F.incomeByMonth = {};
   if (!F.budgetAllocation) {
     F.budgetAllocation = {};
     FIN_META_CATS.forEach(m => F.budgetAllocation[m.id] = m.pct);
@@ -98,6 +99,15 @@ const FIN_INVESTMENT_TYPES = [
 ];
 window.finEnsure = finEnsure;
 
+/* Get income for a specific month (override → fallback to default) */
+function finGetIncome(fin, ym) {
+  if (fin && fin.incomeByMonth && fin.incomeByMonth[ym] !== undefined && fin.incomeByMonth[ym] !== null && fin.incomeByMonth[ym] !== '') {
+    return parseFloat(fin.incomeByMonth[ym]) || 0;
+  }
+  return parseFloat(fin && fin.monthlyIncome) || 0;
+}
+window.finGetIncome = finGetIncome;
+
 /* ────────────────────────────────────────────────────────── */
 /* Main screen */
 /* ────────────────────────────────────────────────────────── */
@@ -110,7 +120,7 @@ function ScreenFinance() {
   const categories = fin.categories || FIN_DEFAULT_CATEGORIES;
   const txs = fin.transactions || [];
   const recurring = fin.recurring || [];
-  const income = fin.monthlyIncome || 0;
+  const income = finGetIncome(fin, month);
 
   const monthTxs = txs.filter(t => finMonth(t.date) === month);
   const totalSpent = monthTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
@@ -120,7 +130,7 @@ function ScreenFinance() {
 
   // Init defaults if first time
   React.useEffect(() => {
-    if (!data._finance || !data._finance.accounts) {
+    if (!data._finance || !data._finance.accounts || !data._finance.incomeByMonth) {
       commit(D => { finEnsure(D); });
     }
   }, []);
@@ -194,8 +204,25 @@ function FinResumo({ month, fin, commit }) {
   const accounts = fin.accounts || [];
   const categories = fin.categories || [];
   const txs = fin.transactions || [];
-  const income = fin.monthlyIncome || 0;
+  const income = finGetIncome(fin, month);
+  const incomeOverride = fin.incomeByMonth && fin.incomeByMonth[month] !== undefined && fin.incomeByMonth[month] !== null && fin.incomeByMonth[month] !== '';
   const budgetAlloc = fin.budgetAllocation || {};
+  const [editingIncome, setEditingIncome] = React.useState(false);
+  const [incomeDraft, setIncomeDraft] = React.useState('');
+
+  function saveIncome() {
+    const v = parseFloat(String(incomeDraft).replace(',', '.'));
+    if (isNaN(v)) { setEditingIncome(false); return; }
+    commit(D => {
+      finEnsure(D);
+      D._finance.incomeByMonth[month] = v;
+    });
+    setEditingIncome(false);
+  }
+  function clearOverride() {
+    commit(D => { finEnsure(D); delete D._finance.incomeByMonth[month]; });
+    setEditingIncome(false);
+  }
   const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
   React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
@@ -271,8 +298,29 @@ function FinResumo({ month, fin, commit }) {
         <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 56, lineHeight: 1, marginTop: 6, color: balance >= 0 ? '#3ccf91' : '#ff5555' }}>
           <BlurValue revealed={revealed}>{finFmt(balance)}</BlurValue>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6 }}>
-          <BlurValue revealed={revealed}>{finFmt(income)}</BlurValue> renda − <BlurValue revealed={revealed}>{finFmt(totalSpent)}</BlurValue> gastos
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span>renda</span>
+          {editingIncome ? (
+            <>
+              <input className="form-input" type="text" inputMode="decimal" autoFocus value={incomeDraft}
+                onChange={e => setIncomeDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveIncome(); if (e.key === 'Escape') setEditingIncome(false); }}
+                style={{ width: 120, padding: '4px 8px', fontSize: 12 }} />
+              <button className="btn-ghost small" onClick={saveIncome} style={{ fontSize: 10, color: '#3ccf91' }}>✓</button>
+              {incomeOverride && <button className="btn-ghost small" onClick={clearOverride} style={{ fontSize: 10 }}>↺ usar padrão</button>}
+              <button className="btn-ghost small" onClick={() => setEditingIncome(false)} style={{ fontSize: 10 }}>✕</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { setIncomeDraft(income); setEditingIncome(true); }} title="Editar renda deste mês"
+                style={{ background: 'none', border: 'none', padding: '2px 6px', borderRadius: 6, color: 'var(--ink-1)', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'inherit', borderBottom: '1px dashed var(--line-2)' }}>
+                <BlurValue revealed={revealed}>{finFmt(income)}</BlurValue>
+              </button>
+              {incomeOverride && <span className="chip" style={{ fontSize: 9, padding: '1px 6px', background: 'rgba(176,102,255,0.1)', color: 'var(--neon-c)', border: '1px solid rgba(176,102,255,0.25)' }}>específica</span>}
+              <span>−</span>
+              <span><BlurValue revealed={revealed}>{finFmt(totalSpent)}</BlurValue> gastos</span>
+            </>
+          )}
         </div>
         <div style={{ marginTop: 16, height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{
@@ -1584,14 +1632,19 @@ function FinOrcamento({ fin, commit }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
       <div className="panel" style={{ padding: 20 }}>
-        <div style={{ fontWeight: 600, marginBottom: 14 }}>Renda mensal</div>
+        <div style={{ fontWeight: 600, marginBottom: 14 }}>Renda mensal padrão</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <span style={{ fontSize: 18, color: 'var(--ink-3)' }}>R$</span>
           <input className="form-input" type="number" placeholder="0" value={income} onChange={e => setIncome(e.target.value)}
             style={{ flex: 1, fontSize: 22, fontFamily: 'var(--font-mono)', padding: '12px 16px' }} />
         </div>
-        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 6 }}>Use para calcular metas de orçamento por categoria</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 6 }}>
+          Padrão usado em meses sem renda específica. Como sua renda é variável, edite cada mês no <strong>Resumo</strong> (clique no valor de renda) ou abaixo.
+        </div>
       </div>
+
+      <FinIncomeOverrides fin={fin} commit={commit} />
+
 
       <div className="panel" style={{ padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
@@ -1638,6 +1691,102 @@ function FinOrcamento({ fin, commit }) {
   );
 }
 
+/* ── Renda variável por mês (overrides) ── */
+function FinIncomeOverrides({ fin, commit }) {
+  const overrides = fin.incomeByMonth || {};
+  const defaultIncome = parseFloat(fin.monthlyIncome) || 0;
+  const months = Object.keys(overrides).sort();
+  const [showAll, setShowAll] = React.useState(false);
+  const [newMonth, setNewMonth] = React.useState(finCurrentMonth());
+  const [newValue, setNewValue] = React.useState('');
+
+  function addOverride() {
+    const v = parseFloat(String(newValue).replace(',', '.'));
+    if (!newMonth || isNaN(v)) return;
+    commit(D => { finEnsure(D); D._finance.incomeByMonth[newMonth] = v; });
+    setNewValue('');
+  }
+  function updateOverride(ym, value) {
+    const v = parseFloat(String(value).replace(',', '.'));
+    if (isNaN(v)) return;
+    commit(D => { finEnsure(D); D._finance.incomeByMonth[ym] = v; });
+  }
+  function deleteOverride(ym) {
+    commit(D => { finEnsure(D); delete D._finance.incomeByMonth[ym]; });
+  }
+
+  const visible = showAll ? months : months.slice(-6);
+  const total = Object.values(overrides).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const avg = months.length ? total / months.length : 0;
+
+  return (
+    <div className="panel" style={{ padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontWeight: 600 }}>Renda variável por mês</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{months.length} meses específicos · média {finFmt(avg)}</div>
+        </div>
+        {months.length > 6 && (
+          <button className="btn-ghost small" onClick={() => setShowAll(s => !s)} style={{ fontSize: 10 }}>
+            {showAll ? `mostrar últimos 6` : `ver todos (${months.length})`}
+          </button>
+        )}
+      </div>
+
+      {/* Existing overrides */}
+      {months.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          {visible.map(ym => (
+            <FinIncomeRow key={ym} ym={ym} value={overrides[ym]} defaultIncome={defaultIncome}
+              onSave={v => updateOverride(ym, v)} onDelete={() => deleteOverride(ym)} />
+          ))}
+        </div>
+      )}
+
+      {/* Add new */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingTop: months.length > 0 ? 12 : 0, borderTop: months.length > 0 ? '1px solid var(--line)' : 'none' }}>
+        <input className="form-input" type="month" value={newMonth} onChange={e => setNewMonth(e.target.value)}
+          style={{ fontSize: 12, padding: '8px 10px', flex: '0 0 150px' }} />
+        <input className="form-input" type="text" inputMode="decimal" placeholder="renda do mês (R$)" value={newValue} onChange={e => setNewValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') addOverride(); }}
+          style={{ flex: 1, fontSize: 12, padding: '8px 10px' }} />
+        <button className="btn-ghost small" onClick={addOverride} disabled={!newValue.trim()} style={{ fontSize: 12 }}>＋ Adicionar</button>
+      </div>
+    </div>
+  );
+}
+
+function FinIncomeRow({ ym, value, defaultIncome, onSave, onDelete }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(String(value));
+  const diff = parseFloat(value) - defaultIncome;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: 6 }}>
+      <span style={{ flex: '0 0 130px', fontSize: 12, textTransform: 'capitalize' }}>{finMonthLabel(ym)}</span>
+      {editing ? (
+        <>
+          <input className="form-input" type="text" inputMode="decimal" autoFocus value={draft} onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { onSave(draft); setEditing(false); } if (e.key === 'Escape') setEditing(false); }}
+            style={{ flex: 1, padding: '4px 8px', fontSize: 12 }} />
+          <button className="btn-ghost small" onClick={() => { onSave(draft); setEditing(false); }} style={{ fontSize: 10, color: '#3ccf91' }}>✓</button>
+          <button className="btn-ghost small" onClick={() => setEditing(false)} style={{ fontSize: 10 }}>✕</button>
+        </>
+      ) : (
+        <>
+          <span className="mono" style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{finFmt(value)}</span>
+          {defaultIncome > 0 && Math.abs(diff) > 0.5 && (
+            <span className="mono" style={{ fontSize: 9, color: diff > 0 ? '#3ccf91' : '#ff5a3c' }}>
+              {diff > 0 ? '+' : ''}{(diff / defaultIncome * 100).toFixed(0)}%
+            </span>
+          )}
+          <button className="icon-btn" onClick={() => { setDraft(String(value)); setEditing(true); }} style={{ width: 24, height: 24, fontSize: 10 }}>✎</button>
+          <button className="icon-btn" onClick={onDelete} style={{ width: 24, height: 24, fontSize: 10 }}>✕</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ── Import planilha histórica ── */
 function FinImportPlanilha({ fin, commit }) {
   const [status, setStatus] = React.useState('');
@@ -1674,8 +1823,11 @@ function FinImportPlanilha({ fin, commit }) {
       } else {
         D._finance.transactions = [...(D._finance.transactions || []), ...newTxs];
       }
-      // Set income to most recent month if not set
+      // Populate per-month income map (incomeByMonth) and update default to most recent
       const incomeMap = preview.raw.income_by_month || {};
+      if (mode === 'replace') D._finance.incomeByMonth = {};
+      if (!D._finance.incomeByMonth) D._finance.incomeByMonth = {};
+      Object.entries(incomeMap).forEach(([ym, v]) => { D._finance.incomeByMonth[ym] = v; });
       const lastMonth = Object.keys(incomeMap).sort().pop();
       if (lastMonth && (!D._finance.monthlyIncome || mode === 'replace')) {
         D._finance.monthlyIncome = incomeMap[lastMonth];
@@ -1762,7 +1914,7 @@ function FinanceHomeBar() {
   function buildContext() {
     const monthTxs = txs.filter(t => finMonth(t.date) === month);
     const total = monthTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
-    const income = fin.monthlyIncome || 0;
+    const income = finGetIncome(fin, month);
     const balance = income - total;
 
     const byCat = {};
@@ -2010,7 +2162,9 @@ Use a categoria e meio mais apropriados. Se não tiver data, use ${Orbita.todayS
 function FinGraficos({ fin }) {
   const categories = fin.categories || [];
   const txs = fin.transactions || [];
-  const income = fin.monthlyIncome || 0;
+  // Use current month income for projections; fallback to default
+  const curMonthForChart = finCurrentMonth();
+  const income = finGetIncome(fin, curMonthForChart);
   const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
   React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
