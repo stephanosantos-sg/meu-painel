@@ -419,7 +419,20 @@ function FinLancamentos({ month, fin, commit }) {
   const totalFiltered = monthTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
 
   function deleteTx(id) {
-    if (!confirm('Deletar este lançamento?')) return;
+    const tx = txs.find(t => t.id === id);
+    if (!tx) return;
+    const groupId = tx.parentId || tx.id;
+    const siblings = txs.filter(t => (t.parentId === groupId || t.id === groupId) && (t.installment));
+    if (siblings.length > 1) {
+      const choice = confirm(`Esta compra tem ${siblings.length} parcelas. Deletar TODAS as parcelas?\n\nOK = todas · Cancelar = só esta`);
+      if (choice) {
+        commit(D => { finEnsure(D); D._finance.transactions = D._finance.transactions.filter(t => !(t.parentId === groupId || t.id === groupId)); });
+        return;
+      }
+      if (!confirm('Deletar somente esta parcela?')) return;
+    } else {
+      if (!confirm('Deletar este lançamento?')) return;
+    }
     commit(D => { finEnsure(D); D._finance.transactions = D._finance.transactions.filter(t => t.id !== id); });
   }
   function toggleStatus(id) {
@@ -529,7 +542,10 @@ function FinTxModal({ onClose, editTx, fin, commit, defaultMonth }) {
   const [installments, setInstallments] = React.useState(editTx?.installment?.total || 1);
   const [currentInst, setCurrentInst] = React.useState(editTx?.installment?.current || 1);
   const [isInstallment, setIsInstallment] = React.useState(!!editTx?.installment);
-  const [generateAll, setGenerateAll] = React.useState(false);
+
+  const totalInst = Math.max(1, parseInt(installments) || 1);
+  const startCur = Math.max(1, parseInt(currentInst) || 1);
+  const futureCount = isInstallment && !editTx ? Math.max(0, totalInst - startCur) : 0;
 
   function save() {
     const v = parseFloat(String(value).replace(',', '.'));
@@ -542,30 +558,29 @@ function FinTxModal({ onClose, editTx, fin, commit, defaultMonth }) {
           D._finance.transactions[idx] = {
             ...D._finance.transactions[idx],
             description: description.trim(), value: v, date, accountId, categoryId, status,
-            installment: isInstallment ? { current: parseInt(currentInst) || 1, total: parseInt(installments) || 1 } : null,
+            installment: isInstallment ? { current: startCur, total: totalInst } : null,
           };
         }
       } else {
+        const groupId = Orbita.uid();
         const baseTx = {
-          id: Orbita.uid(),
+          id: groupId,
           description: description.trim(), value: v, date, accountId, categoryId, status,
-          installment: isInstallment ? { current: parseInt(currentInst) || 1, total: parseInt(installments) || 1 } : null,
+          installment: isInstallment ? { current: startCur, total: totalInst } : null,
+          parentId: isInstallment && totalInst > 1 ? groupId : null,
         };
         D._finance.transactions.push(baseTx);
 
-        // Generate remaining installments
-        if (isInstallment && generateAll && installments > 1) {
-          const groupId = baseTx.id;
-          baseTx.parentId = groupId;
-          const startCur = parseInt(currentInst) || 1;
-          for (let i = startCur + 1; i <= installments; i++) {
+        // Auto-generate remaining installments for future months
+        if (isInstallment && totalInst > 1) {
+          for (let i = startCur + 1; i <= totalInst; i++) {
             const [y, m, d] = date.split('-').map(Number);
             const next = new Date(y, m - 1 + (i - startCur), d);
             const nextDate = next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0') + '-' + String(next.getDate()).padStart(2, '0');
             D._finance.transactions.push({
               id: Orbita.uid(),
               description: description.trim(), value: v, date: nextDate, accountId, categoryId, status: 'pending',
-              installment: { current: i, total: parseInt(installments) },
+              installment: { current: i, total: totalInst },
               parentId: groupId,
             });
           }
@@ -626,17 +641,19 @@ function FinTxModal({ onClose, editTx, fin, commit, defaultMonth }) {
               Parcelado
             </label>
             {isInstallment && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-                <input className="form-input" type="number" min="1" value={currentInst} onChange={e => setCurrentInst(e.target.value)} style={{ width: 70 }} />
-                <span style={{ color: 'var(--ink-3)' }}>de</span>
-                <input className="form-input" type="number" min="1" value={installments} onChange={e => setInstallments(e.target.value)} style={{ width: 70 }} />
-                {!editTx && (
-                  <label style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-2)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={generateAll} onChange={e => setGenerateAll(e.target.checked)} style={{ accentColor: 'var(--neon-a)' }} />
-                    Gerar parcelas futuras
-                  </label>
+              <>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>parcela</span>
+                  <input className="form-input" type="number" min="1" value={currentInst} onChange={e => setCurrentInst(e.target.value)} style={{ width: 70 }} />
+                  <span style={{ color: 'var(--ink-3)' }}>de</span>
+                  <input className="form-input" type="number" min="1" value={installments} onChange={e => setInstallments(e.target.value)} style={{ width: 70 }} />
+                </div>
+                {!editTx && futureCount > 0 && (
+                  <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(176,102,255,0.08)', border: '1px solid rgba(176,102,255,0.2)', borderRadius: 6, fontSize: 11, color: 'var(--ink-2)' }}>
+                    ⚡ <strong>{futureCount}</strong> parcela{futureCount > 1 ? 's' : ''} futura{futureCount > 1 ? 's' : ''} de {finFmt(parseFloat(String(value).replace(',', '.')) || 0)} ser{futureCount > 1 ? 'ão' : 'á'} criada{futureCount > 1 ? 's' : ''} automaticamente nos próximos meses.
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -658,11 +675,12 @@ function FinCartoes({ month, fin, commit }) {
   const txs = fin.transactions || [];
   const [editAcc, setEditAcc] = React.useState(null);
   const [showAdd, setShowAdd] = React.useState(false);
+  const [detailAcc, setDetailAcc] = React.useState(null);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{accounts.length} meios cadastrados</div>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{accounts.length} meios cadastrados · clique no card para detalhar</div>
         <button className="btn-ghost small" onClick={() => { setEditAcc(null); setShowAdd(true); }} style={{ fontSize: 12 }}>＋ Novo meio</button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
@@ -672,7 +690,9 @@ function FinCartoes({ month, fin, commit }) {
           const pending = accTxs.filter(t => t.status === 'pending').reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
           const isCard = a.type === 'credit';
           return (
-            <div key={a.id} className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+            <div key={a.id} className="panel" onClick={() => setDetailAcc(a)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', transition: 'all 120ms' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = a.color + '88'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = ''; }}>
               <div style={{ padding: '16px 18px', background: `linear-gradient(135deg, ${a.color}33, ${a.color}11)`, borderBottom: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
@@ -680,7 +700,7 @@ function FinCartoes({ month, fin, commit }) {
                     <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{a.name}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="icon-btn" onClick={() => { setEditAcc(a); setShowAdd(true); }} style={{ width: 28, height: 28, fontSize: 11 }}>✎</button>
+                    <button className="icon-btn" onClick={e => { e.stopPropagation(); setEditAcc(a); setShowAdd(true); }} style={{ width: 28, height: 28, fontSize: 11 }}>✎</button>
                   </div>
                 </div>
                 {isCard && (
@@ -701,7 +721,6 @@ function FinCartoes({ month, fin, commit }) {
                   </div>
                 )}
                 <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>{accTxs.length} lançamentos</div>
-                {/* Top 3 expenses */}
                 {accTxs.length > 0 && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                     {accTxs.sort((x,y)=>y.value-x.value).slice(0, 3).map(t => {
@@ -711,11 +730,17 @@ function FinCartoes({ month, fin, commit }) {
                           <span style={{ display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
                             <span>{cat?.icon || '•'}</span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</span>
+                            {t.installment && <span className="mono" style={{ fontSize: 9, color: 'var(--neon-c)' }}>{t.installment.current}/{t.installment.total}</span>}
                           </span>
                           <span className="mono" style={{ color: 'var(--ink-2)', flexShrink: 0, marginLeft: 8 }}>{finFmtShort(t.value)}</span>
                         </div>
                       );
                     })}
+                    {accTxs.length > 3 && (
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)', textAlign: 'center', marginTop: 6, fontStyle: 'italic' }}>
+                        + {accTxs.length - 3} outros · clique para ver todos
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -724,6 +749,191 @@ function FinCartoes({ month, fin, commit }) {
         })}
       </div>
       {showAdd && <FinAccountModal onClose={() => { setShowAdd(false); setEditAcc(null); }} editAcc={editAcc} commit={commit} />}
+      {detailAcc && <FinAccountDetailModal onClose={() => setDetailAcc(null)} account={detailAcc} month={month} fin={fin} commit={commit} />}
+    </div>
+  );
+}
+
+/* ── Account/Card detail modal ── */
+function FinAccountDetailModal({ onClose, account, month, fin, commit }) {
+  const categories = fin.categories || [];
+  const txs = fin.transactions || [];
+  const accTxs = txs.filter(t => t.accountId === account.id && finMonth(t.date) === month)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const total = accTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
+  const totalPaid = accTxs.filter(t => (t.status || 'paid') === 'paid').reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
+  const totalPending = accTxs.filter(t => t.status === 'pending').reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
+
+  // Forward look: pending installments in future months
+  const futureInstallments = txs.filter(t => t.accountId === account.id && t.installment && finMonth(t.date) > month)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const futureByMonth = {};
+  futureInstallments.forEach(t => {
+    const m = finMonth(t.date);
+    if (!futureByMonth[m]) futureByMonth[m] = { total: 0, txs: [] };
+    futureByMonth[m].total += parseFloat(t.value) || 0;
+    futureByMonth[m].txs.push(t);
+  });
+
+  // By category breakdown
+  const byCat = {};
+  accTxs.forEach(t => {
+    const c = categories.find(x => x.id === t.categoryId) || { id: '_uncat', name: 'Sem categoria', color: '#666', icon: '•' };
+    if (!byCat[c.id]) byCat[c.id] = { cat: c, value: 0, count: 0 };
+    byCat[c.id].value += parseFloat(t.value) || 0;
+    byCat[c.id].count += 1;
+  });
+  const catRows = Object.values(byCat).sort((a, b) => b.value - a.value);
+
+  function deleteTx(id) {
+    const tx = txs.find(t => t.id === id);
+    if (!tx) return;
+    const groupId = tx.parentId || tx.id;
+    const siblings = txs.filter(t => (t.parentId === groupId || t.id === groupId) && t.installment);
+    if (siblings.length > 1) {
+      const choice = confirm(`Esta compra tem ${siblings.length} parcelas. Deletar TODAS as parcelas?\n\nOK = todas · Cancelar = só esta`);
+      if (choice) {
+        commit(D => { finEnsure(D); D._finance.transactions = D._finance.transactions.filter(t => !(t.parentId === groupId || t.id === groupId)); });
+        return;
+      }
+      if (!confirm('Deletar somente esta parcela?')) return;
+    } else {
+      if (!confirm('Deletar este lançamento?')) return;
+    }
+    commit(D => { finEnsure(D); D._finance.transactions = D._finance.transactions.filter(t => t.id !== id); });
+  }
+  function toggleStatus(id) {
+    commit(D => {
+      finEnsure(D);
+      const t = D._finance.transactions.find(x => x.id === id);
+      if (t) t.status = (t.status === 'paid' || !t.status) ? 'pending' : 'paid';
+    });
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(640px, 95vw)', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-header" style={{ background: `linear-gradient(135deg, ${account.color}33, ${account.color}11)`, borderBottom: '1px solid var(--line)' }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              {account.type === 'credit' ? 'Fatura ' : ''}{finMonthLabel(month)}
+            </div>
+            <h2 style={{ marginTop: 2 }}>{account.name}</h2>
+            {account.type === 'credit' && (
+              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>
+                fecha dia {account.closingDay || '—'} · vence dia {account.dueDay || '—'}
+              </div>
+            )}
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
+          {/* Summary cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <div style={{ padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 9 }}>Total</div>
+              <div className="mono" style={{ fontSize: 16, fontWeight: 600, color: account.color, marginTop: 2 }}>{finFmt(total)}</div>
+            </div>
+            <div style={{ padding: 12, background: 'rgba(60,207,145,0.06)', borderRadius: 10, border: '1px solid rgba(60,207,145,0.18)' }}>
+              <div className="eyebrow" style={{ fontSize: 9 }}>Pago</div>
+              <div className="mono" style={{ fontSize: 16, fontWeight: 600, color: '#3ccf91', marginTop: 2 }}>{finFmt(totalPaid)}</div>
+            </div>
+            <div style={{ padding: 12, background: 'rgba(255,168,48,0.06)', borderRadius: 10, border: '1px solid rgba(255,168,48,0.18)' }}>
+              <div className="eyebrow" style={{ fontSize: 9 }}>Pendente</div>
+              <div className="mono" style={{ fontSize: 16, fontWeight: 600, color: '#ffa830', marginTop: 2 }}>{finFmt(totalPending)}</div>
+            </div>
+          </div>
+
+          {/* By category */}
+          {catRows.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>Por categoria</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {catRows.map(r => (
+                  <div key={r.cat.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14 }}>{r.cat.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, fontWeight: 500 }}>{r.cat.name}</span>
+                        <span className="mono" style={{ fontSize: 11, color: r.cat.color, fontWeight: 600 }}>{finFmt(r.value)}</span>
+                      </div>
+                      <div style={{ height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: total ? `${r.value / total * 100}%` : '0%', background: r.cat.color }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Transactions list */}
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Lançamentos · {accTxs.length}</div>
+          {accTxs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--ink-3)', fontSize: 12 }}>
+              Nenhum lançamento neste mês
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
+            {accTxs.map((t, i) => {
+              const cat = categories.find(c => c.id === t.categoryId);
+              const status = t.status || 'paid';
+              return (
+                <div key={t.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+                  borderBottom: i < accTxs.length - 1 ? '1px solid var(--line)' : 'none',
+                  background: status === 'pending' ? 'rgba(255,168,48,0.04)' : 'transparent',
+                  opacity: status === 'pending' ? 0.85 : 1,
+                }}>
+                  <button onClick={() => toggleStatus(t.id)} title={status === 'paid' ? 'Pago' : 'Pendente'} style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                    background: status === 'paid' ? 'var(--gradient-neon)' : 'transparent',
+                    border: status === 'paid' ? '1px solid rgba(255,46,136,0.4)' : '1px solid var(--line-2)',
+                    color: '#fff', fontSize: 9, cursor: 'pointer', display: 'grid', placeItems: 'center',
+                  }}>{status === 'paid' && '✓'}</button>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{cat?.icon || '•'}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+                      <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{Orbita.fmtDate(t.date)}</span>
+                      {cat && <span style={{ fontSize: 9, color: cat.color }}>· {cat.name}</span>}
+                      {t.installment && <span className="mono" style={{ fontSize: 9, color: 'var(--neon-c)' }}>· {t.installment.current}/{t.installment.total}</span>}
+                    </div>
+                  </div>
+                  <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: '#ff5a3c', flexShrink: 0 }}>{finFmt(t.value)}</div>
+                  <button onClick={() => deleteTx(t.id)} className="icon-btn" style={{ width: 22, height: 22, fontSize: 10 }}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Future installments preview */}
+          {Object.keys(futureByMonth).length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>Parcelas futuras</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(futureByMonth).map(([m, info]) => (
+                  <div key={m} style={{ padding: '10px 12px', background: 'rgba(176,102,255,0.06)', border: '1px solid rgba(176,102,255,0.18)', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{finMonthLabel(m)}</span>
+                      <span className="mono" style={{ fontSize: 12, color: 'var(--neon-c)', fontWeight: 600 }}>{finFmt(info.total)}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {info.txs.slice(0, 4).map(t => (
+                        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-2)' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description} <span className="mono" style={{ color: 'var(--ink-4)' }}>{t.installment.current}/{t.installment.total}</span></span>
+                          <span className="mono" style={{ flexShrink: 0, marginLeft: 6 }}>{finFmtShort(t.value)}</span>
+                        </div>
+                      ))}
+                      {info.txs.length > 4 && <div style={{ fontSize: 10, color: 'var(--ink-3)', fontStyle: 'italic' }}>+ {info.txs.length - 4} outros</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
