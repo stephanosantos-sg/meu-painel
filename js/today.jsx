@@ -201,6 +201,15 @@ function ScreenToday({ onNewTask }) {
       {view === 'list' && (
         <div className="screen-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Atrasadas — primeiro na coluna esquerda */}
+            {filterTypes.atrasada && overdueTasks.length > 0 && (
+              <div className="panel" style={{ borderLeft: '3px solid var(--neon-a)' }}>
+                <div className="eyebrow" style={{ color: 'var(--neon-a)', marginBottom: 12 }}>⚠ Atrasadas · {overdueTasks.length}</div>
+                <div className="task-list">
+                  {overdueTasks.map(t => <TaskItem key={t.id} task={t} dateCtx={t.date} catMap={catMap} />)}
+                </div>
+              </div>
+            )}
             {(() => {
               const showDone = filterTypes.feitas;
               const pending = todayTasks.filter(t => !Orbita.isTaskDone(t, today));
@@ -360,16 +369,6 @@ function RightPanel({ xp, pct, lvlEnd, doneTodayCount, todayTasks, todayHabits, 
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Atrasadas */}
-      {showOverdue && overdueTasks && overdueTasks.length > 0 && (
-        <div className="panel" style={{ borderLeft: '3px solid var(--neon-a)' }}>
-          <div className="eyebrow" style={{ color: 'var(--neon-a)', marginBottom: 12 }}>⚠ Atrasadas · {overdueTasks.length}</div>
-          <div className="task-list">
-            {overdueTasks.map(t => <TaskItem key={t.id} task={t} dateCtx={t.date} catMap={catMap} />)}
-          </div>
         </div>
       )}
 
