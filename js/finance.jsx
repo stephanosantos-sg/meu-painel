@@ -76,6 +76,7 @@ function finEnsure(D) {
   if (!F.recurring) F.recurring = [];
   if (!F.investments) F.investments = [];
   if (!F.contributions) F.contributions = [];
+  if (!F.debts) F.debts = [];
   if (typeof F.monthlyIncome !== 'number') F.monthlyIncome = 0;
   if (!F.budgetAllocation) {
     F.budgetAllocation = {};
@@ -136,6 +137,7 @@ function ScreenFinance() {
               { v: 'resumo', l: 'Resumo' },
               { v: 'graficos', l: 'Gráficos' },
               { v: 'investimentos', l: 'Investimentos' },
+              { v: 'dividas', l: 'Dívidas' },
               { v: 'cartoes', l: 'Cartões' },
               { v: 'categorias', l: 'Categorias' },
               { v: 'recorrentes', l: 'Recorrentes' },
@@ -152,6 +154,7 @@ function ScreenFinance() {
         {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} />}
         {tab === 'graficos' && <FinGraficos fin={fin} />}
         {tab === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} />}
+        {tab === 'dividas' && <FinDividas fin={fin} commit={commit} />}
         {tab === 'cartoes' && <FinCartoes month={month} fin={fin} commit={commit} />}
         {tab === 'categorias' && <FinCategorias month={month} fin={fin} commit={commit} />}
         {tab === 'recorrentes' && <FinRecorrentes fin={fin} commit={commit} />}
@@ -1480,6 +1483,99 @@ function FinOrcamento({ fin, commit }) {
       </div>
 
       <button className="btn btn-primary" style={{ padding: '12px 24px', fontSize: 13, alignSelf: 'flex-start' }} onClick={save}>Salvar orçamento</button>
+
+      <FinImportPlanilha fin={fin} commit={commit} />
+    </div>
+  );
+}
+
+/* ── Import planilha histórica ── */
+function FinImportPlanilha({ fin, commit }) {
+  const [status, setStatus] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [preview, setPreview] = React.useState(null);
+
+  async function loadPreview() {
+    setLoading(true); setStatus('⟳ baixando...');
+    try {
+      const res = await fetch('financas-import.json?t=' + Date.now());
+      if (!res.ok) throw new Error('Não foi possível baixar (HTTP ' + res.status + ')');
+      const json = await res.json();
+      const txs = json.transactions || [];
+      const incomeMap = json.income_by_month || {};
+      const byYear = {};
+      txs.forEach(t => { const y = (t.date || '').slice(0, 4); byYear[y] = (byYear[y] || 0) + 1; });
+      const totalValue = txs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
+      setPreview({ count: txs.length, byYear, totalValue, incomeMonths: Object.keys(incomeMap).length, raw: json });
+      setStatus(`✓ ${txs.length} lançamentos prontos para importar`);
+    } catch (e) { setStatus('✕ ' + e.message); setPreview(null); }
+    finally { setLoading(false); }
+  }
+
+  function doImport(mode) {
+    if (!preview) return;
+    if (mode === 'replace' && !confirm(`Isso vai SUBSTITUIR todos os ${(fin.transactions || []).length} lançamentos existentes por ${preview.count} da planilha. Continuar?`)) return;
+    if (mode === 'merge' && !confirm(`Adicionar ${preview.count} lançamentos da planilha aos existentes? Não detecta duplicatas.`)) return;
+
+    commit(D => {
+      finEnsure(D);
+      const newTxs = preview.raw.transactions || [];
+      if (mode === 'replace') {
+        D._finance.transactions = newTxs;
+      } else {
+        D._finance.transactions = [...(D._finance.transactions || []), ...newTxs];
+      }
+      // Set income to most recent month if not set
+      const incomeMap = preview.raw.income_by_month || {};
+      const lastMonth = Object.keys(incomeMap).sort().pop();
+      if (lastMonth && (!D._finance.monthlyIncome || mode === 'replace')) {
+        D._finance.monthlyIncome = incomeMap[lastMonth];
+      }
+    });
+    setStatus('✓ Importação concluída');
+    setPreview(null);
+  }
+
+  return (
+    <div className="panel" style={{ padding: 20, borderColor: 'rgba(176,102,255,0.25)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <span style={{ fontSize: 22 }}>📊</span>
+        <div>
+          <div style={{ fontWeight: 600 }}>Importar planilha histórica</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>809 lançamentos de 2023 a 2027 da sua "Controle Financeiro - Stephano.xlsx"</div>
+        </div>
+      </div>
+      {!preview && (
+        <button className="btn-ghost small" onClick={loadPreview} disabled={loading} style={{ marginTop: 8 }}>
+          {loading ? '⟳ carregando...' : '📥 Carregar prévia'}
+        </button>
+      )}
+      {preview && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ padding: 12, background: 'rgba(176,102,255,0.06)', border: '1px solid rgba(176,102,255,0.18)', borderRadius: 8, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Prévia:</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.7 }}>
+              <div><strong>{preview.count}</strong> lançamentos · total {finFmt(preview.totalValue)}</div>
+              <div>renda registrada em <strong>{preview.incomeMonths}</strong> meses</div>
+              <div style={{ marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {Object.entries(preview.byYear).sort().map(([y, n]) => <span key={y} className="chip" style={{ fontSize: 10 }}>{y}: {n}</span>)}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg, #b066ff, #5b8dff)' }} onClick={() => doImport('merge')}>
+              ＋ Adicionar aos existentes
+            </button>
+            <button className="btn-ghost small" onClick={() => doImport('replace')} style={{ color: '#ff5a3c' }}>
+              Substituir tudo
+            </button>
+            <button className="btn-ghost small" onClick={() => { setPreview(null); setStatus(''); }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+      {status && (
+        <div style={{ marginTop: 10, fontSize: 11, color: status.startsWith('✕') ? '#ff5555' : status.startsWith('✓') ? '#3ccf91' : 'var(--ink-3)' }}>{status}</div>
+      )}
     </div>
   );
 }
@@ -2635,6 +2731,353 @@ function FinContribHistoryModal({ onClose, fin, commit, revealed, deleteContrib 
               </div>
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── */
+/* Dívidas Ativas */
+/* ────────────────────────────────────────────────────────── */
+function FinDividas({ fin, commit }) {
+  const debts = fin.debts || [];
+  const txs = fin.transactions || [];
+  const accounts = fin.accounts || [];
+  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
+  const [editDebt, setEditDebt] = React.useState(null);
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [showAuto, setShowAuto] = React.useState(false);
+  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
+
+  // Auto-detect dividas pendentes from installment transactions (parcelas futuras pendentes)
+  const today = Orbita.todayStr();
+  const detectedGroups = {};
+  txs.forEach(t => {
+    if (!t.installment) return;
+    // Group by parentId if available, else by (description + accountId + total)
+    const groupId = t.parentId || t.id;
+    const fallbackKey = `${(t.description || '').toLowerCase().trim()}|${t.accountId}|${t.installment.total}`;
+    const key = t.parentId ? groupId : fallbackKey;
+    if (!detectedGroups[key]) {
+      detectedGroups[key] = { description: t.description, total: t.installment.total, paid: 0, remaining: 0, totalValue: 0, accountId: t.accountId, txs: [], lastDate: '' };
+    }
+    const g = detectedGroups[key];
+    g.txs.push(t);
+    g.totalValue += parseFloat(t.value) || 0;
+    if (t.date > g.lastDate) g.lastDate = t.date;
+    const isPaid = (t.status || 'paid') === 'paid' || t.date < today;
+    if (isPaid) g.paid += 1;
+    else g.remaining += parseFloat(t.value) || 0;
+  });
+  const detectedActive = Object.values(detectedGroups)
+    .filter(g => g.txs.length > 1 && g.paid < g.txs.length && g.remaining > 0)
+    .sort((a, b) => b.remaining - a.remaining);
+
+  const totalActive = debts.filter(d => d.status !== 'paid').reduce((s, d) => s + Math.max(0, (parseFloat(d.totalValue) || 0) - (parseFloat(d.paidValue) || 0)), 0);
+  const totalMonthly = debts.filter(d => d.status !== 'paid').reduce((s, d) => s + (parseFloat(d.monthlyPayment) || 0), 0);
+  const totalDetected = detectedActive.reduce((s, g) => s + g.remaining, 0);
+
+  function deleteDebt(id) {
+    if (!confirm('Deletar essa dívida?')) return;
+    commit(D => { finEnsure(D); D._finance.debts = D._finance.debts.filter(d => d.id !== id); });
+  }
+
+  function importDetected(g) {
+    commit(D => {
+      finEnsure(D);
+      D._finance.debts.push({
+        id: Orbita.uid(),
+        name: g.description,
+        creditor: '',
+        totalValue: g.totalValue,
+        paidValue: g.totalValue - g.remaining,
+        monthlyPayment: g.txs[0]?.value || 0,
+        installmentsTotal: g.total,
+        installmentsPaid: g.paid,
+        accountId: g.accountId,
+        status: 'active',
+        notes: 'Detectado a partir de parcelas',
+      });
+    });
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
+        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
+            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
+            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
+            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
+          }}>
+          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
+          {revealed ? 'Ocultar' : 'Revelar'} valores
+        </button>
+      </div>
+
+      {/* Hero summary */}
+      <div className="panel" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '40%',
+          background: 'radial-gradient(ellipse at right, rgba(255,85,85,0.18), transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
+          <div>
+            <div className="eyebrow">Total devedor</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 56, lineHeight: 1, marginTop: 6, color: '#ff5555' }}>
+              <BlurValue revealed={revealed}>{finFmt(totalActive)}</BlurValue>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6 }}>
+              em {debts.filter(d => d.status !== 'paid').length} {debts.filter(d => d.status !== 'paid').length === 1 ? 'dívida ativa' : 'dívidas ativas'}
+              {totalMonthly > 0 && (
+                <> · <span style={{ color: '#ffa830' }}><BlurValue revealed={revealed}>{finFmt(totalMonthly)}</BlurValue>/mês</span></>
+              )}
+            </div>
+            {totalDetected > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--neon-c)', marginTop: 6 }}>
+                + <BlurValue revealed={revealed}>{finFmt(totalDetected)}</BlurValue> em {detectedActive.length} parcelamento{detectedActive.length === 1 ? '' : 's'} detectado{detectedActive.length === 1 ? '' : 's'} <button onClick={() => setShowAuto(s => !s)} className="btn-ghost small" style={{ fontSize: 10, padding: '2px 8px', marginLeft: 4 }}>{showAuto ? 'ocultar' : 'mostrar'}</button>
+              </div>
+            )}
+          </div>
+          <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => { setEditDebt(null); setShowAdd(true); }}>＋ Dívida</button>
+        </div>
+      </div>
+
+      {/* Auto-detected installments */}
+      {showAuto && detectedActive.length > 0 && (
+        <div className="panel" style={{ padding: 18 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Parcelamentos detectados automaticamente</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 12 }}>compras parceladas com parcelas futuras pendentes · clique em "Anotar" para adicionar como dívida</div>
+          {detectedActive.map((g, i) => {
+            const acc = accounts.find(a => a.id === g.accountId);
+            const progress = g.txs.length ? (g.paid / g.txs.length) * 100 : 0;
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < detectedActive.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,85,85,0.1)', border: '1px solid rgba(255,85,85,0.3)', display: 'grid', placeItems: 'center', fontSize: 14 }}>💸</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{g.description}</div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 9, color: 'var(--ink-3)' }} className="mono">
+                    <span>{g.paid}/{g.total} pagas</span>
+                    <span>·</span>
+                    <span>{acc?.name || '—'}</span>
+                    <span>·</span>
+                    <span><BlurValue revealed={revealed}>{finFmt(g.txs[0]?.value || 0)}</BlurValue>/parcela</span>
+                  </div>
+                  <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden', marginTop: 4 }}>
+                    <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(135deg, #ff5555, #ffa830)' }} />
+                  </div>
+                </div>
+                <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: '#ff5555' }}>
+                  <BlurValue revealed={revealed}>{finFmt(g.remaining)}</BlurValue>
+                </div>
+                <button className="btn-ghost small" onClick={() => importDetected(g)} style={{ fontSize: 10 }}>＋ Anotar</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Debts list */}
+      {debts.length === 0 && !showAuto && (
+        <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>💸</div>
+          <div style={{ fontSize: 15, fontWeight: 500 }}>Nenhuma dívida anotada</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4, marginBottom: 16 }}>Empréstimos, financiamentos, parcelamentos longos…</div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => { setEditDebt(null); setShowAdd(true); }}>＋ Adicionar dívida</button>
+            {detectedActive.length > 0 && <button className="btn-ghost small" onClick={() => setShowAuto(true)}>Ver detectadas</button>}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+        {debts.map(d => {
+          const total = parseFloat(d.totalValue) || 0;
+          const paid = parseFloat(d.paidValue) || 0;
+          const remaining = Math.max(0, total - paid);
+          const progress = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+          const isPaid = d.status === 'paid' || progress >= 100;
+          const acc = accounts.find(a => a.id === d.accountId);
+          return (
+            <div key={d.id} className="panel" style={{ padding: 0, overflow: 'hidden', opacity: isPaid ? 0.6 : 1 }}>
+              <div style={{ padding: '14px 16px', background: isPaid ? 'linear-gradient(135deg, rgba(60,207,145,0.18), rgba(60,207,145,0.04))' : 'linear-gradient(135deg, rgba(255,85,85,0.14), rgba(255,85,85,0.04))', borderBottom: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 18 }}>{isPaid ? '✓' : '💸'}</span>
+                      <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
+                    </div>
+                    {d.creditor && <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>credor: {d.creditor}</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    <button className="icon-btn" onClick={() => { setEditDebt(d); setShowAdd(true); }} style={{ width: 26, height: 26, fontSize: 11 }}>✎</button>
+                    <button className="icon-btn" onClick={() => deleteDebt(d.id)} style={{ width: 26, height: 26, fontSize: 11 }}>✕</button>
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <span className="eyebrow">{isPaid ? 'Quitada' : 'Faltam'}</span>
+                  <span className="mono" style={{ fontSize: 18, fontWeight: 600, color: isPaid ? '#3ccf91' : '#ff5555' }}>
+                    <BlurValue revealed={revealed}>{finFmt(remaining)}</BlurValue>
+                  </span>
+                </div>
+                <div style={{ height: 5, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden', marginBottom: 6 }}>
+                  <div style={{ height: '100%', width: `${progress}%`, background: isPaid ? '#3ccf91' : 'linear-gradient(135deg, #ff5555, #ffa830)' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-3)' }} className="mono">
+                  <span><BlurValue revealed={revealed}>{finFmt(paid)}</BlurValue> pago</span>
+                  <span>{progress.toFixed(0)}% de <BlurValue revealed={revealed}>{finFmt(total)}</BlurValue></span>
+                </div>
+                {/* Stats row */}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11 }}>
+                  {d.monthlyPayment > 0 && (
+                    <div>
+                      <div className="eyebrow" style={{ fontSize: 9 }}>Parcela</div>
+                      <div className="mono" style={{ color: '#ffa830', fontWeight: 600 }}><BlurValue revealed={revealed}>{finFmt(d.monthlyPayment)}</BlurValue>/mês</div>
+                    </div>
+                  )}
+                  {d.installmentsTotal && (
+                    <div>
+                      <div className="eyebrow" style={{ fontSize: 9 }}>Parcelas</div>
+                      <div className="mono">{d.installmentsPaid || 0}/{d.installmentsTotal}</div>
+                    </div>
+                  )}
+                  {d.interestRate && (
+                    <div>
+                      <div className="eyebrow" style={{ fontSize: 9 }}>Juros</div>
+                      <div className="mono" style={{ color: '#ff5555' }}>{d.interestRate}%/mês</div>
+                    </div>
+                  )}
+                  {acc && (
+                    <div>
+                      <div className="eyebrow" style={{ fontSize: 9 }}>Meio</div>
+                      <div className="mono" style={{ color: acc.color }}>{acc.name}</div>
+                    </div>
+                  )}
+                </div>
+                {d.notes && <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.4 }}>{d.notes}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showAdd && <FinDebtModal onClose={() => { setShowAdd(false); setEditDebt(null); }} editDebt={editDebt} fin={fin} commit={commit} />}
+    </div>
+  );
+}
+
+function FinDebtModal({ onClose, editDebt, fin, commit }) {
+  const accounts = fin.accounts || [];
+  const [name, setName] = React.useState(editDebt?.name || '');
+  const [creditor, setCreditor] = React.useState(editDebt?.creditor || '');
+  const [totalValue, setTotalValue] = React.useState(editDebt?.totalValue || '');
+  const [paidValue, setPaidValue] = React.useState(editDebt?.paidValue || '');
+  const [monthlyPayment, setMonthlyPayment] = React.useState(editDebt?.monthlyPayment || '');
+  const [installmentsTotal, setInstallmentsTotal] = React.useState(editDebt?.installmentsTotal || '');
+  const [installmentsPaid, setInstallmentsPaid] = React.useState(editDebt?.installmentsPaid || '');
+  const [interestRate, setInterestRate] = React.useState(editDebt?.interestRate || '');
+  const [accountId, setAccountId] = React.useState(editDebt?.accountId || '');
+  const [status, setStatus] = React.useState(editDebt?.status || 'active');
+  const [notes, setNotes] = React.useState(editDebt?.notes || '');
+
+  function save() {
+    if (!name.trim()) return;
+    commit(D => {
+      finEnsure(D);
+      const debt = {
+        id: editDebt?.id || Orbita.uid(),
+        name: name.trim(),
+        creditor: creditor.trim() || null,
+        totalValue: parseFloat(String(totalValue).replace(',', '.')) || 0,
+        paidValue: parseFloat(String(paidValue).replace(',', '.')) || 0,
+        monthlyPayment: parseFloat(String(monthlyPayment).replace(',', '.')) || 0,
+        installmentsTotal: installmentsTotal ? parseInt(installmentsTotal) : null,
+        installmentsPaid: installmentsPaid ? parseInt(installmentsPaid) : 0,
+        interestRate: interestRate ? parseFloat(String(interestRate).replace(',', '.')) : null,
+        accountId: accountId || null,
+        status, notes: notes.trim() || null,
+      };
+      if (editDebt) {
+        const idx = D._finance.debts.findIndex(x => x.id === editDebt.id);
+        if (idx >= 0) D._finance.debts[idx] = debt;
+      } else {
+        D._finance.debts.push(debt);
+      }
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ width: 'min(560px, 95vw)' }}>
+        <div className="modal-header"><h2>{editDebt ? 'Editar dívida' : 'Nova dívida'}</h2><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 2 }}>
+              <label className="form-label">Nome</label>
+              <input className="form-input" autoFocus placeholder="Ex: Empréstimo Lila, Financiamento carro..." value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Credor</label>
+              <input className="form-input" placeholder="Banco, pessoa..." value={creditor} onChange={e => setCreditor(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Valor total (R$)</label>
+              <input className="form-input" type="text" inputMode="decimal" placeholder="0,00" value={totalValue} onChange={e => setTotalValue(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Já pago (R$)</label>
+              <input className="form-input" type="text" inputMode="decimal" placeholder="0,00" value={paidValue} onChange={e => setPaidValue(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Parcela mensal (R$)</label>
+              <input className="form-input" type="text" inputMode="decimal" placeholder="0,00" value={monthlyPayment} onChange={e => setMonthlyPayment(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Juros (% ao mês)</label>
+              <input className="form-input" type="text" inputMode="decimal" placeholder="0" value={interestRate} onChange={e => setInterestRate(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Parcela atual</label>
+              <input className="form-input" type="number" min="0" placeholder="0" value={installmentsPaid} onChange={e => setInstallmentsPaid(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Total parcelas</label>
+              <input className="form-input" type="number" min="0" placeholder="0" value={installmentsTotal} onChange={e => setInstallmentsTotal(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Meio</label>
+              <select className="form-input" value={accountId} onChange={e => setAccountId(e.target.value)}>
+                <option value="">—</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Status</label>
+            <div className="form-chips">
+              {[{v:'active',l:'💸 Ativa'},{v:'paid',l:'✓ Quitada'}].map(s => (
+                <div key={s.v} className={`form-chip ${status === s.v ? 'active' : ''}`} onClick={() => setStatus(s.v)}>{s.l}</div>
+              ))}
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Notas</label>
+            <textarea className="form-input" placeholder="Detalhes, plano de pagamento..." value={notes} onChange={e => setNotes(e.target.value)} style={{ minHeight: 60 }} />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 13 }} onClick={save}>{editDebt ? 'Salvar' : 'Criar'}</button>
         </div>
       </div>
     </div>
