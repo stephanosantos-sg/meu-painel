@@ -1459,7 +1459,7 @@ function FinanceHomeBar() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const openaiKey = data._diet?.openaiKey;
+  const openaiKey = data._settings?.aiKeys?.openai || data._diet?.openaiKey;
 
   function buildContext() {
     const monthTxs = txs.filter(t => finMonth(t.date) === month);
@@ -1497,7 +1497,7 @@ function FinanceHomeBar() {
 
   async function send() {
     if (!input.trim()) return;
-    if (!openaiKey) { setError('Configure sua chave OpenAI em Financeiro → Orçamento'); return; }
+    if (!openaiKey) { setError('Configure sua chave OpenAI em ⚙ Configurações'); return; }
     setLoading(true); setError('');
 
     if (mode === 'lancamento') {

@@ -211,8 +211,8 @@ function SyncStatus() {
   );
 }
 
-function TopBarCalendarBtn() {
-  const { calendarConnected } = useData();
+function TopBarSettingsBtn() {
+  const { data, calendarConnected } = useData();
   const [connected, setConnected] = React.useState(calendarConnected);
   React.useEffect(() => {
     const onC = () => setConnected(true);
@@ -221,26 +221,21 @@ function TopBarCalendarBtn() {
     window.addEventListener('orbita:calendarDisconnected', onD);
     return () => { window.removeEventListener('orbita:calendarConnected', onC); window.removeEventListener('orbita:calendarDisconnected', onD); };
   }, []);
-  function handleClick() {
-    if (connected) {
-      if (confirm('Desconectar Google Calendar?')) window.OrbitaFirebase.disconnectGoogleCalendar();
-    } else {
-      if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
-        window.OrbitaFirebase.connectGoogleCalendar();
-      } else {
-        window.OrbitaFirebase.signInWithGoogle(true);
-      }
-    }
-  }
+  const aiKeys = data._settings?.aiKeys || {};
+  const hasOpenAI = !!(aiKeys.openai || data._diet?.openaiKey);
+  const hasAnthropic = !!aiKeys.anthropic;
+  const hasAsana = !!data._settings?.asana?.pat;
+  const anyConnected = connected || hasOpenAI || hasAnthropic || hasAsana;
+
   return (
-    <button onClick={handleClick} title={connected ? 'Google Calendar conectado' : 'Conectar Google Calendar'}
+    <button onClick={() => window._openSettings && window._openSettings()} title="Configurações e integrações"
       style={{
         width: 36, height: 36, display: 'grid', placeItems: 'center', position: 'relative',
         background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10,
-        color: connected ? '#30d158' : 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms',
+        color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms',
       }}>
-      ⏻
-      {connected && <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#30d158' }} />}
+      ⚙
+      {anyConnected && <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#30d158' }} />}
     </button>
   );
 }
@@ -260,7 +255,7 @@ function TopBar({ title, subtitle, actions }) {
         <div className="mono" style={{ fontSize: 12, color: 'var(--ink-2)', padding: '8px 12px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10 }}>{time}</div>
         <button onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }} title="Buscar">⌕</button>
         <button onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }} title="Temas">◐</button>
-        <TopBarCalendarBtn />
+        <TopBarSettingsBtn />
         {actions}
       </div>
     </div>

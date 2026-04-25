@@ -18,7 +18,7 @@ function OrbitaAIBar() {
   }, [messages]);
 
   // Use openai key from diet (shared)
-  const openaiKey = data._diet?.openaiKey;
+  const openaiKey = data._settings?.aiKeys?.openai || data._diet?.openaiKey;
   const today = Orbita.todayStr();
 
   function buildContext() {
@@ -53,7 +53,7 @@ function OrbitaAIBar() {
 
   async function send() {
     if (!input.trim()) return;
-    if (!openaiKey) { setError('Configure sua chave OpenAI em Dieta → Objetivos'); return; }
+    if (!openaiKey) { setError('Configure sua chave OpenAI em ⚙ Configurações'); return; }
     setLoading(true); setError('');
 
     const userMsg = { role: 'user', content: input.trim() };

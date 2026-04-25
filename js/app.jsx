@@ -185,6 +185,7 @@ function App() {
   const [showThemes, setShowThemes] = React.useState(false);
   const [showCategories, setShowCategories] = React.useState(false);
   const [showImport, setShowImport] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
   const [editTask, setEditTask] = React.useState(null);
   const [editHabit, setEditHabit] = React.useState(null);
 
@@ -199,6 +200,7 @@ function App() {
         if (showThemes) { setShowThemes(false); return; }
         if (showCategories) { setShowCategories(false); return; }
         if (showImport) { setShowImport(false); return; }
+        if (showSettings) { setShowSettings(false); return; }
         return;
       }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
@@ -214,6 +216,7 @@ function App() {
   window._openThemes = () => setShowThemes(true);
   window._openCategories = () => setShowCategories(true);
   window._openImport = () => setShowImport(true);
+  window._openSettings = () => setShowSettings(true);
   window._startPomo = () => setShowPomo(true);
   window._editTask = (task) => { setEditTask(task); setShowTaskModal(true); };
 
@@ -280,6 +283,7 @@ function App() {
         {showThemes && <ThemePicker onClose={() => setShowThemes(false)} />}
         {showCategories && <ScreenCategories onClose={() => setShowCategories(false)} />}
         {showImport && <ImportExportModal onClose={() => setShowImport(false)} />}
+        {showSettings && window.SettingsModal && <SettingsModal onClose={() => setShowSettings(false)} />}
       </div>
     </DataProvider>
   );
