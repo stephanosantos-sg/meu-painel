@@ -160,7 +160,7 @@ function ScreenFinance() {
       />
       <div className="fin-screen-pad">
         {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} totalSpent={totalSpent} balance={balance} />}
-        {tab === 'lancamentos' && <FinLancamentos month={month} fin={fin} commit={commit} />}
+        {tab === 'lancamentos' && <FinLancamentos month={month} setMonth={setMonth} fin={fin} commit={commit} />}
         {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} />}
         {tab === 'graficos' && <FinGraficos fin={fin} />}
         {tab === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} />}
@@ -513,7 +513,7 @@ function FinDonut({ data, size = 120, total, blurred }) {
 /* ────────────────────────────────────────────────────────── */
 /* Lançamentos */
 /* ────────────────────────────────────────────────────────── */
-function FinLancamentos({ month, fin, commit }) {
+function FinLancamentos({ month, setMonth, fin, commit }) {
   const accounts = fin.accounts || [];
   const categories = fin.categories || [];
   const txs = fin.transactions || [];
@@ -715,15 +715,21 @@ function FinLancamentos({ month, fin, commit }) {
                   userSelect: 'none',
                 }}>⋮⋮</span>
               )}
-              <button onClick={() => toggleStatus(t.id)} title={status === 'paid' ? 'Marcado como pago' : 'Pendente'} style={{
-                width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                background: status === 'paid' ? 'var(--gradient-neon)' : 'transparent',
-                border: status === 'paid' ? '1px solid rgba(255,46,136,0.4)' : '1px solid var(--line-2)',
-                color: '#fff', fontSize: 10, cursor: 'pointer', display: 'grid', placeItems: 'center',
-              }}>{status === 'paid' && '✓'}</button>
+              <button onClick={() => toggleStatus(t.id)} title={status === 'paid' ? 'Pago · clique para marcar como pendente' : 'Pendente · clique para marcar como pago'} style={{
+                width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                background: status === 'paid' ? '#3ccf91' : 'transparent',
+                border: status === 'paid' ? '1px solid #3ccf91' : '1.5px dashed #ffa830',
+                color: '#fff', fontSize: 12, cursor: 'pointer', display: 'grid', placeItems: 'center',
+                fontWeight: 700,
+              }}>{status === 'paid' ? '✓' : <span style={{ color: '#ffa830', fontSize: 12, fontWeight: 700 }}>!</span>}</button>
               <div style={{ width: 28, height: 28, borderRadius: 8, background: (cat?.color || '#666') + '22', border: `1px solid ${(cat?.color || '#666')}44`, display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{cat?.icon || '•'}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</span>
+                  {status !== 'paid' && (
+                    <span className="chip" style={{ padding: '1px 7px', fontSize: 9, background: 'rgba(255,168,48,0.14)', color: '#ffa830', border: '1px solid rgba(255,168,48,0.35)', flexShrink: 0, fontWeight: 600, letterSpacing: '0.05em' }}>PENDENTE</span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
                   <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{Orbita.fmtDate(t.date)}</span>
                   <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>·</span>
@@ -749,7 +755,7 @@ function FinLancamentos({ month, fin, commit }) {
         })}
       </div>
 
-      {showAdd && <FinTxModal onClose={() => { setShowAdd(false); setEditTx(null); }} editTx={editTx} fin={fin} commit={commit} defaultMonth={month} />}
+      {showAdd && <FinTxModal onClose={() => { setShowAdd(false); setEditTx(null); }} editTx={editTx} fin={fin} commit={commit} defaultMonth={month} onSaved={(savedDate) => { const ym = (savedDate || '').slice(0, 7); if (setMonth && ym && ym !== month) setMonth(ym); }} />}
     </>
   );
 }
@@ -806,7 +812,7 @@ function FinMoveMonthMenu({ currentDate, onPick, onClose }) {
 }
 
 /* ── Transaction modal ── */
-function FinTxModal({ onClose, editTx, fin, commit, defaultMonth }) {
+function FinTxModal({ onClose, editTx, fin, commit, defaultMonth, onSaved }) {
   const accounts = fin.accounts || FIN_DEFAULT_ACCOUNTS;
   const categories = fin.categories || FIN_DEFAULT_CATEGORIES;
 
@@ -865,6 +871,7 @@ function FinTxModal({ onClose, editTx, fin, commit, defaultMonth }) {
         }
       }
     });
+    if (onSaved) onSaved(date);
     onClose();
   }
 
@@ -1319,15 +1326,18 @@ function FinAccountDetailModal({ onClose, account, month, fin, commit, onAddBulk
                   background: status === 'pending' ? 'rgba(255,168,48,0.04)' : 'transparent',
                   opacity: status === 'pending' ? 0.85 : 1,
                 }}>
-                  <button onClick={() => toggleStatus(t.id)} title={status === 'paid' ? 'Pago' : 'Pendente'} style={{
-                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                    background: status === 'paid' ? 'var(--gradient-neon)' : 'transparent',
-                    border: status === 'paid' ? '1px solid rgba(255,46,136,0.4)' : '1px solid var(--line-2)',
-                    color: '#fff', fontSize: 9, cursor: 'pointer', display: 'grid', placeItems: 'center',
-                  }}>{status === 'paid' && '✓'}</button>
+                  <button onClick={() => toggleStatus(t.id)} title={status === 'paid' ? 'Pago · clique para marcar como pendente' : 'Pendente · clique para marcar como pago'} style={{
+                    width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                    background: status === 'paid' ? '#3ccf91' : 'transparent',
+                    border: status === 'paid' ? '1px solid #3ccf91' : '1.5px dashed #ffa830',
+                    color: '#fff', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center', fontWeight: 700,
+                  }}>{status === 'paid' ? '✓' : <span style={{ color: '#ffa830' }}>!</span>}</button>
                   <span style={{ fontSize: 13, flexShrink: 0 }}>{cat?.icon || '•'}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</span>
+                      {status !== 'paid' && <span className="chip" style={{ padding: '1px 6px', fontSize: 9, background: 'rgba(255,168,48,0.14)', color: '#ffa830', border: '1px solid rgba(255,168,48,0.35)', flexShrink: 0, fontWeight: 600, letterSpacing: '0.05em' }}>PENDENTE</span>}
+                    </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
                       <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>{Orbita.fmtDate(t.date)}</span>
                       {cat && <span style={{ fontSize: 9, color: cat.color }}>· {cat.name}</span>}
