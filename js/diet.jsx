@@ -3,6 +3,7 @@
 function ScreenDiet() {
   const { data, commit } = useData();
   const [tab, setTab] = React.useState('hoje');
+  const [selDate, setSelDate] = React.useState(() => Orbita.todayStr());
   const diet = data._diet || {};
   const meals = diet.meals || [];
   const weightLog = diet.weightLog || [];
@@ -10,7 +11,8 @@ function ScreenDiet() {
   const photos = diet.photos || [];
   const extras = diet.extraCalories || [];
   const targets = diet.targets || { dailyCalories: 2000, protein: 150, carbs: 200, fat: 65, weightGoal: null };
-  const today = Orbita.todayStr();
+  const today = selDate;
+  const isToday = selDate === Orbita.todayStr();
 
   // Today's totals (items checked + mealExtras registered today)
   const todayMealCalories = meals.reduce((sum, m) => {
@@ -24,9 +26,21 @@ function ScreenDiet() {
   const currentWeight = weightLog.length > 0 ? weightLog[weightLog.length - 1].weight : null;
   const firstWeight = weightLog.length > 0 ? weightLog[0].weight : null;
 
+  const dateLabel = (() => {
+    const t = Orbita.todayStr();
+    if (selDate === t) return 'hoje';
+    const [y, m, d] = selDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const tDt = new Date(); tDt.setHours(0,0,0,0);
+    const diff = Math.round((dt - tDt) / 86400000);
+    if (diff === -1) return 'ontem';
+    if (diff < -1 && diff > -7) return `há ${-diff} dias`;
+    return dt.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+  })();
+
   return (
     <>
-      <TopBar title="Dieta." subtitle={`${Math.round(todayTotalCalories)} / ${targets.dailyCalories} kcal hoje`}
+      <TopBar title="Dieta." subtitle={`${Math.round(todayTotalCalories)} / ${targets.dailyCalories} kcal · ${dateLabel}`}
         actions={
           <div style={{ display: 'flex', gap: 6 }}>
             {[
@@ -41,8 +55,9 @@ function ScreenDiet() {
           </div>
         }
       />
-      <div style={{ padding: '0 28px 40px' }}>
-        {tab === 'hoje' && <DietToday meals={meals} targets={targets} today={today} todayMealCalories={todayMealCalories} todayExtraCalories={todayExtraCalories} commit={commit} extras={extras} openaiKey={data._settings?.aiKeys?.openai || diet.openaiKey} />}
+      <div className="diet-screen-pad">
+        {tab === 'hoje' && <DietDateSwitcher selDate={selDate} setSelDate={setSelDate} isToday={isToday} />}
+        {tab === 'hoje' && <DietToday meals={meals} targets={targets} today={today} todayMealCalories={todayMealCalories} todayExtraCalories={todayExtraCalories} commit={commit} extras={extras} openaiKey={data._settings?.aiKeys?.openai || diet.openaiKey} isToday={isToday} />}
         {tab === 'peso' && <DietWeight log={weightLog} current={currentWeight} first={firstWeight} target={targets.weightGoal} commit={commit} />}
         {tab === 'medidas' && <DietMeasurements log={measurements} commit={commit} />}
         {tab === 'fotos' && <DietPhotos photos={photos} commit={commit} />}
@@ -52,11 +67,44 @@ function ScreenDiet() {
   );
 }
 
+function DietDateSwitcher({ selDate, setSelDate, isToday }) {
+  function shift(delta) {
+    const [y, m, d] = selDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + delta);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (dt > today) return; // not allow future
+    setSelDate(dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'));
+  }
+  const [y, m, d] = selDate.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const longLabel = dt.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return (
+    <div className="diet-date-switcher" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <button className="icon-btn" onClick={() => shift(-1)} style={{ width: 32, height: 32, fontSize: 14 }} title="Dia anterior">‹</button>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <input type="date" className="form-input" value={selDate} max={Orbita.todayStr()}
+          onChange={e => e.target.value && setSelDate(e.target.value)}
+          style={{ padding: '6px 10px', fontSize: 12, width: 'auto' }} />
+        <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 18, lineHeight: 1, textTransform: 'capitalize', color: 'var(--ink-2)' }}>{longLabel}</span>
+        {isToday && <span className="chip" style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(60,207,145,0.12)', color: '#3ccf91', border: '1px solid rgba(60,207,145,0.25)' }}>Hoje</span>}
+      </div>
+      <button className="icon-btn" onClick={() => shift(1)} disabled={isToday} style={{ width: 32, height: 32, fontSize: 14, opacity: isToday ? 0.4 : 1, cursor: isToday ? 'not-allowed' : 'pointer' }} title="Próximo dia">›</button>
+      {!isToday && <button className="btn-ghost small" onClick={() => setSelDate(Orbita.todayStr())} style={{ fontSize: 11 }}>Hoje</button>}
+    </div>
+  );
+}
+
 /* ── Today: Meals as tasks with items as subtasks ── */
-function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalories, commit, extras, openaiKey }) {
+function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalories, commit, extras, openaiKey, isToday }) {
   const [showNewMeal, setShowNewMeal] = React.useState(false);
   const [editMealId, setEditMealId] = React.useState(null);
   const total = todayMealCalories + todayExtraCalories;
+  const heading = isToday ? 'Hoje.' : (() => {
+    const [y, m, d] = today.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const s = dt.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+    return s.replace(/\.$/, '') + '.';
+  })();
   const pctCal = targets.dailyCalories ? Math.min(100, Math.round(total / targets.dailyCalories * 100)) : 0;
   const remaining = Math.max(0, (targets.dailyCalories || 0) - total);
 
@@ -99,10 +147,10 @@ function DietToday({ meals, targets, today, todayMealCalories, todayExtraCalorie
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Meals list */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <div className="eyebrow">Refeições do dia</div>
-            <h3 className="panel-title" style={{ marginTop: 4 }}>Hoje.</h3>
+            <div className="eyebrow">Refeições {isToday ? 'do dia' : 'consumidas'}</div>
+            <h3 className="panel-title" style={{ marginTop: 4 }}>{heading}</h3>
           </div>
           <button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => setShowNewMeal(true)}>＋ Refeição</button>
         </div>
@@ -302,8 +350,8 @@ function MealCard({ meal, today, commit, openaiKey, onEdit, onDelete, toggleItem
   }
 
   return (
-    <div className="panel" style={{ padding: 18, borderLeft: `3px solid ${hasAnyDone ? '#3ccf91' : '#64d2ff'}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: collapsed ? 0 : 10 }}>
+    <div className="panel meal-card" style={{ padding: 14, borderLeft: `3px solid ${hasAnyDone ? '#3ccf91' : '#64d2ff'}` }}>
+      <div className="meal-card-head" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed ? 0 : 10 }}>
         <button onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expandir' : 'Colapsar'}
           style={{
             width: 18, height: 18, display: 'grid', placeItems: 'center',
@@ -312,20 +360,20 @@ function MealCard({ meal, today, commit, openaiKey, onEdit, onDelete, toggleItem
           }}>
           <span style={{ display: 'inline-block', transition: 'transform 150ms', transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}>▶</span>
         </button>
-        <span style={{ fontSize: 22 }}>{meal.icon || '🍽'}</span>
+        <span style={{ fontSize: 20, flexShrink: 0 }}>{meal.icon || '🍽'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{meal.name}</div>
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meal.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {meal.time && <span className="mono">⏱ {meal.time}</span>}
-            <span style={{ marginLeft: meal.time ? 10 : 0, color: doneCal > 0 ? '#3ccf91' : 'var(--ink-3)' }}>{Math.round(doneCal)} kcal</span>
-            {doneP > 0 && <span style={{ marginLeft: 10 }}>P {Math.round(doneP)}g</span>}
-            {doneC > 0 && <span style={{ marginLeft: 6 }}>C {Math.round(doneC)}g</span>}
-            {doneF > 0 && <span style={{ marginLeft: 6 }}>G {Math.round(doneF)}g</span>}
-            {mealExtras.length > 0 && <span style={{ marginLeft: 8, color: '#ffa830' }}>· {mealExtras.length} outro{mealExtras.length === 1 ? '' : 's'}</span>}
+            <span style={{ color: doneCal > 0 ? '#3ccf91' : 'var(--ink-3)' }}>{Math.round(doneCal)} kcal</span>
+            {doneP > 0 && <span className="meal-macro">P {Math.round(doneP)}g</span>}
+            {doneC > 0 && <span className="meal-macro">C {Math.round(doneC)}g</span>}
+            {doneF > 0 && <span className="meal-macro">G {Math.round(doneF)}g</span>}
+            {mealExtras.length > 0 && <span style={{ color: '#ffa830' }}>· {mealExtras.length} outro{mealExtras.length === 1 ? '' : 's'}</span>}
           </div>
         </div>
-        <button className="btn-ghost small" onClick={onEdit} style={{ fontSize: 10 }}>✎</button>
-        <button className="btn-ghost small" onClick={onDelete} style={{ fontSize: 10, color: 'var(--ink-4)' }}>✕</button>
+        <button className="btn-ghost small meal-card-action" onClick={onEdit} style={{ fontSize: 10, padding: '5px 8px' }}>✎</button>
+        <button className="btn-ghost small meal-card-action" onClick={onDelete} style={{ fontSize: 10, color: 'var(--ink-4)', padding: '5px 8px' }}>✕</button>
       </div>
 
       {!collapsed && <>

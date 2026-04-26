@@ -139,7 +139,7 @@ function ScreenFinance() {
 
   return (
     <>
-      <TopBar title="Financeiro." subtitle={`${finFmt(totalSpent)} gastos · ${finFmt(balance)} ${balance >= 0 ? 'sobra' : 'estouro'}`}
+      <TopBar title="Financeiro."
         actions={
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {[
@@ -158,8 +158,8 @@ function ScreenFinance() {
           </div>
         }
       />
-      <div style={{ padding: '0 28px 100px' }}>
-        {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} />}
+      <div className="fin-screen-pad">
+        {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} totalSpent={totalSpent} balance={balance} />}
         {tab === 'lancamentos' && <FinLancamentos month={month} fin={fin} commit={commit} />}
         {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} />}
         {tab === 'graficos' && <FinGraficos fin={fin} />}
@@ -181,18 +181,28 @@ function BlurValue({ revealed, children, style }) {
 }
 
 /* ── Month switcher ── */
-function FinMonthSwitcher({ month, setMonth }) {
+function FinMonthSwitcher({ month, setMonth, totalSpent, balance }) {
   function shift(delta) {
     const [y, m] = month.split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     setMonth(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
   }
+  const showStats = typeof totalSpent === 'number' || typeof balance === 'number';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-      <button className="icon-btn" onClick={() => shift(-1)} style={{ width: 32, height: 32, fontSize: 14 }}>‹</button>
-      <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, lineHeight: 1, textTransform: 'capitalize', minWidth: 180 }}>{finMonthLabel(month)}</div>
-      <button className="icon-btn" onClick={() => shift(1)} style={{ width: 32, height: 32, fontSize: 14 }}>›</button>
-      <button className="btn-ghost small" onClick={() => setMonth(finCurrentMonth())} style={{ fontSize: 11 }}>Hoje</button>
+    <div className="fin-month-switcher" style={{ marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button className="icon-btn" onClick={() => shift(-1)} style={{ width: 32, height: 32, fontSize: 14, flexShrink: 0 }}>‹</button>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, lineHeight: 1, textTransform: 'capitalize' }}>{finMonthLabel(month)}</div>
+        <button className="icon-btn" onClick={() => shift(1)} style={{ width: 32, height: 32, fontSize: 14, flexShrink: 0 }}>›</button>
+        <button className="btn-ghost small" onClick={() => setMonth(finCurrentMonth())} style={{ fontSize: 11, flexShrink: 0 }}>Hoje</button>
+      </div>
+      {showStats && (
+        <div className="fin-month-stats" style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, fontSize: 12, color: 'var(--ink-3)', flexWrap: 'wrap' }}>
+          <span><span className="mono" style={{ color: '#ff5a3c', fontWeight: 600 }}>{finFmt(totalSpent)}</span> gastos</span>
+          <span style={{ color: 'var(--ink-4)' }}>·</span>
+          <span><span className="mono" style={{ color: balance >= 0 ? '#3ccf91' : '#ff5555', fontWeight: 600 }}>{finFmt(balance)}</span> {balance >= 0 ? 'sobra' : 'estouro'}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -313,8 +323,11 @@ function FinResumo({ month, fin, commit }) {
           ) : (
             <>
               <button onClick={() => { setIncomeDraft(income); setEditingIncome(true); }} title="Editar renda deste mês"
-                style={{ background: 'none', border: 'none', padding: '2px 6px', borderRadius: 6, color: 'var(--ink-1)', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'inherit', borderBottom: '1px dashed var(--line-2)' }}>
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--glass-border)', padding: '4px 10px', borderRadius: 8, color: 'var(--ink-1)', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'all 120ms' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--neon-a)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; }}>
                 <BlurValue revealed={revealed}>{finFmt(income)}</BlurValue>
+                <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>✎</span>
               </button>
               {incomeOverride && <span className="chip" style={{ fontSize: 9, padding: '1px 6px', background: 'rgba(176,102,255,0.1)', color: 'var(--neon-c)', border: '1px solid rgba(176,102,255,0.25)' }}>específica</span>}
               <span>−</span>
@@ -335,7 +348,7 @@ function FinResumo({ month, fin, commit }) {
       </div>
 
       {/* Stats cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+      <div className="fin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
         {[
           { label: 'Renda', value: finFmt(income), color: '#3ccf91' },
           { label: 'Gastos', value: finFmt(totalSpent), color: '#ff5a3c' },
@@ -420,7 +433,7 @@ function FinResumo({ month, fin, commit }) {
           <div style={{ fontWeight: 600 }}>Regra do orçamento (55/10/10/10/10/5)</div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>real vs ideal · base <BlurValue revealed={revealed}>{finFmt(income)}</BlurValue></div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+        <div className="fin-meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
           {FIN_META_CATS.map(m => {
             const real = byMeta[m.id] || 0;
             const target = income * (budgetAlloc[m.id] || m.pct);
@@ -513,6 +526,7 @@ function FinLancamentos({ month, fin, commit }) {
   const [moveMenuFor, setMoveMenuFor] = React.useState(null);
   const [dragId, setDragId] = React.useState(null);
   const [dragOverId, setDragOverId] = React.useState(null);
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
 
   let monthTxs = txs.filter(t => finMonth(t.date) === month);
   const isFiltered = !!filterCat || !!filterAcc || filterStatus !== 'all' || !!search.trim();
@@ -620,8 +634,17 @@ function FinLancamentos({ month, fin, commit }) {
   return (
     <>
       {/* Filters */}
-      <div className="panel" style={{ padding: 14, marginBottom: 14 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="panel fin-filters" style={{ padding: 14, marginBottom: 14 }}>
+        {/* Mobile-only compact bar: search-only or expand toggle + add button */}
+        <div className="fin-filters-mobile-bar mobile-only" style={{ display: 'none', alignItems: 'center', gap: 8, marginBottom: filtersOpen ? 10 : 0 }}>
+          <button className={`btn-ghost small ${(filtersOpen || isFiltered) ? 'active' : ''}`} onClick={() => setFiltersOpen(v => !v)}
+            style={{ fontSize: 12, padding: '8px 12px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6,
+              borderColor: isFiltered ? 'var(--neon-a)' : undefined, color: isFiltered ? 'var(--neon-a)' : undefined }}>
+            <span>⚙</span><span>Filtros</span>{isFiltered && <span style={{ width: 6, height: 6, borderRadius: 3, background: 'var(--neon-a)' }} />}
+          </button>
+          <button className="btn btn-primary" style={{ padding: '9px 14px', fontSize: 12, marginLeft: 'auto' }} onClick={() => { setEditTx(null); setShowAdd(true); }}>＋</button>
+        </div>
+        <div className={`fin-filters-row ${filtersOpen ? 'open' : ''}`} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input className="form-input" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
             style={{ flex: '1 1 200px', minWidth: 160, fontSize: 12, padding: '8px 12px' }} />
           <select className="form-input" value={filterCat || ''} onChange={e => setFilterCat(e.target.value || null)} style={{ fontSize: 12, padding: '8px 12px', minWidth: 140 }}>
@@ -637,10 +660,11 @@ function FinLancamentos({ month, fin, commit }) {
             <option value="paid">Pagos</option>
             <option value="pending">Pendentes</option>
           </select>
-          <button className="btn btn-primary" style={{ padding: '9px 18px', fontSize: 12 }} onClick={() => { setEditTx(null); setShowAdd(true); }}>＋ Lançamento</button>
+          <button className="btn btn-primary fin-add-tx-desktop" style={{ padding: '9px 18px', fontSize: 12 }} onClick={() => { setEditTx(null); setShowAdd(true); }}>＋ Lançamento</button>
+          {isFiltered && <button className="btn-ghost small fin-clear-filters mobile-only" onClick={() => { setSearch(''); setFilterCat(null); setFilterAcc(null); setFilterStatus('all'); }} style={{ fontSize: 11 }}>Limpar filtros</button>}
         </div>
         <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span>{monthTxs.length} lançamentos {!isFiltered && monthTxs.length > 1 && <span style={{ color: 'var(--ink-4)' }}>· arraste ⋮⋮ para reordenar</span>}</span>
+          <span>{monthTxs.length} lançamentos {!isFiltered && monthTxs.length > 1 && <span className="desktop-only" style={{ color: 'var(--ink-4)' }}>· arraste ⋮⋮ para reordenar</span>}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {hasCustomOrder && !isFiltered && <button className="btn-ghost small" onClick={clearCustomOrder} style={{ fontSize: 10 }}>↻ ordem por data</button>}
             <span className="mono">total filtrado: <strong style={{ color: '#ff5a3c' }}>{finFmt(totalFiltered)}</strong></span>
@@ -666,6 +690,7 @@ function FinLancamentos({ month, fin, commit }) {
           const draggable = !isFiltered;
           return (
             <div key={t.id}
+              className="fin-tx-row"
               draggable={draggable}
               onDragStart={e => { if (!draggable) return; setDragId(t.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.id); }}
               onDragOver={e => { if (!dragId || dragId === t.id) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverId !== t.id) setDragOverId(t.id); }}
@@ -713,7 +738,7 @@ function FinLancamentos({ month, fin, commit }) {
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: '#ff5a3c', flexShrink: 0 }}>{finFmt(t.value)}</div>
-              <div style={{ display: 'flex', gap: 2, flexShrink: 0, position: 'relative' }}>
+              <div className="fin-tx-actions" style={{ display: 'flex', gap: 2, flexShrink: 0, position: 'relative' }}>
                 <button onClick={() => setMoveMenuFor(moveMenuFor === t.id ? null : t.id)} title="Mover para outro mês" className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>↦</button>
                 <button onClick={() => { setEditTx(t); setShowAdd(true); }} className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>✎</button>
                 <button onClick={() => deleteTx(t.id)} className="icon-btn" style={{ width: 26, height: 26, fontSize: 11 }}>✕</button>
@@ -936,7 +961,7 @@ function FinCartoes({ month, fin, commit }) {
         <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{accounts.length} meios cadastrados · clique no card para detalhar</div>
         <button className="btn-ghost small" onClick={() => { setEditAcc(null); setShowAdd(true); }} style={{ fontSize: 12 }}>＋ Novo meio</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+      <div className="fin-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
         {accounts.map(a => {
           const accTxs = txs.filter(t => t.accountId === a.id && finMonth(t.date) === month);
           const total = accTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);
@@ -1305,7 +1330,7 @@ function FinCategorias({ month, fin, commit }) {
         <button className="btn-ghost small" onClick={() => { setEditCat(null); setShowAdd(true); }} style={{ fontSize: 12 }}>＋ Categoria</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 12 }}>
+      <div className="fin-cats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 12 }}>
         {categories.map(c => {
           const monthTxs = txs.filter(t => t.categoryId === c.id && finMonth(t.date) === month);
           const total = monthTxs.reduce((s, t) => s + (parseFloat(t.value) || 0), 0);

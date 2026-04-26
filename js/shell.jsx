@@ -247,15 +247,25 @@ function TopBar({ title, subtitle, actions }) {
   const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(now);
   return (
     <div className="topbar">
-      <div>
-        <div className="eyebrow" style={{ marginBottom: 4 }}>{subtitle || fmt}</div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 42, lineHeight: 1, letterSpacing: '-0.03em' }}>{title}</h1>
+      {/* Mobile-only top row: burger + home + search */}
+      <div className="topbar-mobile-bar mobile-only">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="topbar-mobile-btn" onClick={() => window._toggleMobileMenu && window._toggleMobileMenu()} title="Menu" aria-label="Menu">☰</button>
+          <button className="topbar-mobile-btn" onClick={() => window._goHome && window._goHome()} title="Home" aria-label="Home">☀︎</button>
+        </div>
+        <button className="topbar-mobile-btn" onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} title="Buscar" aria-label="Buscar">⌕</button>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="mono" style={{ fontSize: 12, color: 'var(--ink-2)', padding: '8px 12px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10 }}>{time}</div>
-        <button onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }} title="Buscar">⌕</button>
-        <button onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms' }} title="Temas">◐</button>
-        <TopBarSettingsBtn />
+      <div className="topbar-title-row">
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="eyebrow" style={{ marginBottom: 4 }}>{subtitle || fmt}</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 42, lineHeight: 1, letterSpacing: '-0.03em' }}>{title}</h1>
+        </div>
+      </div>
+      <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="mono desktop-only" style={{ fontSize: 12, color: 'var(--ink-2)', padding: '8px 12px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10 }}>{time}</div>
+        <button className="desktop-only" onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms', flexShrink: 0 }} title="Buscar">⌕</button>
+        <button className="desktop-only" onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms', flexShrink: 0 }} title="Temas">◐</button>
+        <span className="desktop-only"><TopBarSettingsBtn /></span>
         {actions}
       </div>
     </div>

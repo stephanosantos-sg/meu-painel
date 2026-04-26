@@ -99,11 +99,20 @@ function ScreenToday({ onNewTask }) {
 
       {/* Mobile date nav */}
       <div className="mobile-only" style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button onClick={() => shiftDay(-1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>←</button>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          {!isToday && <button onClick={() => setSelectedDate(new Date())} style={{ padding: '4px 12px', borderRadius: 6, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>Hoje</button>}
+        <button onClick={() => shiftDay(-1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>←</button>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          {!isToday ? (
+            <button onClick={() => setSelectedDate(new Date())} style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>↺ Voltar para hoje</button>
+          ) : (
+            <>
+              <button onClick={() => window._startPomo && window._startPomo()} title="Pomodoro" style={{ height: 32, padding: '0 12px', borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-ui)' }}>
+                <span style={{ fontSize: 13 }}>◉</span><span>Pomodoro</span>
+              </button>
+              <button onClick={() => window._openThemes && window._openThemes()} title="Temas" style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>◐</button>
+            </>
+          )}
         </div>
-        <button onClick={() => shiftDay(1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>→</button>
+        <button onClick={() => shiftDay(1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>→</button>
       </div>
 
       {/* Mobile FAB */}

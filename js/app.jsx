@@ -219,6 +219,8 @@ function App() {
   window._openSettings = () => setShowSettings(true);
   window._startPomo = () => setShowPomo(true);
   window._editTask = (task) => { setEditTask(task); setShowTaskModal(true); };
+  window._toggleMobileMenu = () => setMobileMenu(m => !m);
+  window._goHome = () => setActive('today');
 
   const screens = {
     today: () => <ScreenToday onNewTask={openNewTask} />,
@@ -260,12 +262,12 @@ function App() {
           {[
             { id: 'today', icon: '☀︎', label: 'Home' },
             { id: 'habits', icon: '✦', label: 'Hábitos' },
-            { id: 'goals', icon: '◎', label: 'Objetivos' },
-            { id: 'charts', icon: '◉', label: 'Gráficos' },
-            { id: '_menu', icon: '☰', label: 'Menu' },
+            { id: 'diet', icon: '◕', label: 'Dieta' },
+            { id: 'finance', icon: '$', label: 'Finanças' },
+            { id: 'goals', icon: '◎', label: 'Metas' },
           ].map(it => (
             <button key={it.id} className={`mobile-nav-item ${active === it.id ? 'active' : ''}`}
-              onClick={() => it.id === '_menu' ? setMobileMenu(m => !m) : mobileNav(it.id)}>
+              onClick={() => mobileNav(it.id)}>
               <span className="mn-icon">{it.icon}</span>
               <span>{it.label}</span>
             </button>
