@@ -404,6 +404,14 @@ body.theme-light ::selection { background: var(--neon-a); color: #fff; }
   /* Hide drag on mobile */
   .fin-tx-row > span[title="Arraste para reordenar"] { display: none !important; }
 
+  /* Bulk add modal on mobile: stack each row's fields vertically */
+  .fin-bulk-modal .fin-bulk-row:not(.fin-bulk-header) { display: flex !important; flex-direction: column !important; gap: 6px !important; padding: 10px !important; background: rgba(255,255,255,0.02); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; position: relative; }
+  .fin-bulk-modal .fin-bulk-row:not(.fin-bulk-header) > * { width: 100% !important; }
+  .fin-bulk-modal .fin-bulk-row:not(.fin-bulk-header) > div { display: flex !important; gap: 4px; align-items: center; }
+  .fin-bulk-modal .fin-bulk-row:not(.fin-bulk-header) > div > input { width: 50% !important; }
+  .fin-bulk-modal .fin-bulk-row:not(.fin-bulk-header) > button { position: absolute; top: 6px; right: 6px; width: 26px !important; height: 26px !important; }
+  .fin-bulk-modal .fin-bulk-header { display: none !important; }
+
   /* Collapsible filters on mobile */
   .fin-filters-mobile-bar { display: flex !important; }
   .fin-filters .fin-filters-row { display: none !important; }

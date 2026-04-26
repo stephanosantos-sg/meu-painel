@@ -954,11 +954,12 @@ function FinCartoes({ month, fin, commit }) {
   const [editAcc, setEditAcc] = React.useState(null);
   const [showAdd, setShowAdd] = React.useState(false);
   const [detailAcc, setDetailAcc] = React.useState(null);
+  const [bulkAddAcc, setBulkAddAcc] = React.useState(null);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{accounts.length} meios cadastrados · clique no card para detalhar</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{accounts.length} meios · clique para detalhar · use ＋ para lançar a fatura do mês</div>
         <button className="btn-ghost small" onClick={() => { setEditAcc(null); setShowAdd(true); }} style={{ fontSize: 12 }}>＋ Novo meio</button>
       </div>
       <div className="fin-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
@@ -978,7 +979,8 @@ function FinCartoes({ month, fin, commit }) {
                     <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{a.name}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="icon-btn" onClick={e => { e.stopPropagation(); setEditAcc(a); setShowAdd(true); }} style={{ width: 28, height: 28, fontSize: 11 }}>✎</button>
+                    <button className="icon-btn" title="Lançar gastos do mês" onClick={e => { e.stopPropagation(); setBulkAddAcc(a); }} style={{ width: 28, height: 28, fontSize: 14, background: 'var(--gradient-neon-soft)', borderColor: 'rgba(255,46,136,0.3)', color: '#fff' }}>＋</button>
+                    <button className="icon-btn" title="Editar meio" onClick={e => { e.stopPropagation(); setEditAcc(a); setShowAdd(true); }} style={{ width: 28, height: 28, fontSize: 11 }}>✎</button>
                   </div>
                 </div>
                 {isCard && (
@@ -1027,13 +1029,162 @@ function FinCartoes({ month, fin, commit }) {
         })}
       </div>
       {showAdd && <FinAccountModal onClose={() => { setShowAdd(false); setEditAcc(null); }} editAcc={editAcc} commit={commit} />}
-      {detailAcc && <FinAccountDetailModal onClose={() => setDetailAcc(null)} account={detailAcc} month={month} fin={fin} commit={commit} />}
+      {detailAcc && <FinAccountDetailModal onClose={() => setDetailAcc(null)} account={detailAcc} month={month} fin={fin} commit={commit} onAddBulk={() => { setBulkAddAcc(detailAcc); setDetailAcc(null); }} />}
+      {bulkAddAcc && <FinBulkAddModal onClose={() => setBulkAddAcc(null)} account={bulkAddAcc} month={month} categories={categories} commit={commit} />}
+    </div>
+  );
+}
+
+/* ── Bulk add: enter multiple line items for a card/account in one go ── */
+function FinBulkAddModal({ onClose, account, month, categories, commit }) {
+  const monthLabel = finMonthLabel(month);
+  const defaultDay = (account && account.type === 'credit' && account.dueDay) ? Math.min(28, account.dueDay) : 5;
+  const [rows, setRows] = React.useState(() => [makeRow(categories, defaultDay), makeRow(categories, defaultDay), makeRow(categories, defaultDay)]);
+
+  function makeRow(cats, day) {
+    return { id: Math.random().toString(36).slice(2), description: '', value: '', categoryId: cats[0]?.id || '', day: String(day), installmentTotal: '', installmentCurrent: '1' };
+  }
+
+  function updateRow(idx, patch) {
+    setRows(r => r.map((row, i) => i === idx ? { ...row, ...patch } : row));
+    // Auto-add empty row if last row gets data
+    if (idx === rows.length - 1 && (patch.description || patch.value)) {
+      setTimeout(() => setRows(r => r[r.length - 1].description || r[r.length - 1].value ? [...r, makeRow(categories, defaultDay)] : r), 0);
+    }
+  }
+
+  function removeRow(idx) {
+    setRows(r => r.length > 1 ? r.filter((_, i) => i !== idx) : [makeRow(categories, defaultDay)]);
+  }
+
+  function addRow() {
+    setRows(r => [...r, makeRow(categories, defaultDay)]);
+  }
+
+  const validRows = rows.filter(r => r.description.trim() && parseFloat(String(r.value).replace(',', '.')) > 0);
+  const totalPreview = validRows.reduce((s, r) => s + parseFloat(String(r.value).replace(',', '.')), 0);
+
+  function save() {
+    if (validRows.length === 0) return;
+    commit(D => {
+      finEnsure(D);
+      validRows.forEach(r => {
+        const v = parseFloat(String(r.value).replace(',', '.'));
+        const day = Math.min(28, Math.max(1, parseInt(r.day) || defaultDay));
+        const date = `${month}-${String(day).padStart(2, '0')}`;
+        const totalInst = parseInt(r.installmentTotal) || 1;
+        const curInst = Math.max(1, Math.min(totalInst, parseInt(r.installmentCurrent) || 1));
+        const groupId = Orbita.uid();
+        const baseTx = {
+          id: groupId,
+          description: r.description.trim(),
+          value: v,
+          date,
+          accountId: account.id,
+          categoryId: r.categoryId,
+          status: 'paid',
+          installment: totalInst > 1 ? { current: curInst, total: totalInst } : null,
+          parentId: totalInst > 1 ? groupId : null,
+        };
+        D._finance.transactions.push(baseTx);
+        // Generate future installments
+        if (totalInst > 1) {
+          for (let i = curInst + 1; i <= totalInst; i++) {
+            const [y, m, d] = date.split('-').map(Number);
+            const next = new Date(y, m - 1 + (i - curInst), d);
+            const nextDate = next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0') + '-' + String(next.getDate()).padStart(2, '0');
+            D._finance.transactions.push({
+              id: Orbita.uid(),
+              description: r.description.trim(),
+              value: v,
+              date: nextDate,
+              accountId: account.id,
+              categoryId: r.categoryId,
+              status: 'pending',
+              installment: { current: i, total: totalInst },
+              parentId: groupId,
+            });
+          }
+        }
+      });
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel fin-bulk-modal" onClick={e => e.stopPropagation()} style={{ width: 'min(820px, 96vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-header" style={{ background: `linear-gradient(135deg, ${account.color}33, ${account.color}11)`, borderBottom: '1px solid var(--line)' }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              {account.type === 'credit' ? 'Lançar fatura · ' : 'Lançar gastos · '}{monthLabel}
+            </div>
+            <h2 style={{ marginTop: 2 }}>{account.name}</h2>
+            {account.type === 'credit' && (
+              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 4 }}>
+                fecha dia {account.closingDay || '—'} · vence dia {account.dueDay || '—'}
+              </div>
+            )}
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>
+            Itemize os gastos da fatura/extrato. Linhas vazias são ignoradas. Use parcela {`>`} 1 para parcelar automaticamente nos próximos meses.
+          </div>
+          <div className="fin-bulk-rows">
+            <div className="fin-bulk-row fin-bulk-header" style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 60px 80px 28px', gap: 6, fontSize: 10, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 4px 6px', borderBottom: '1px solid var(--line)' }}>
+              <div>Descrição</div>
+              <div>Categoria</div>
+              <div>Valor</div>
+              <div>Dia</div>
+              <div>Parcela</div>
+              <div></div>
+            </div>
+            {rows.map((row, idx) => (
+              <div key={row.id} className="fin-bulk-row" style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 60px 80px 28px', gap: 6, padding: '6px 4px', borderBottom: '1px solid var(--line)', alignItems: 'center' }}>
+                <input className="form-input" placeholder="Ex: Mercado, Uber, Spotify..." value={row.description} onChange={e => updateRow(idx, { description: e.target.value })}
+                  style={{ padding: '8px 10px', fontSize: 12 }} />
+                <select className="form-input" value={row.categoryId} onChange={e => updateRow(idx, { categoryId: e.target.value })}
+                  style={{ padding: '8px 6px', fontSize: 11 }}>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+                <input className="form-input" type="text" inputMode="decimal" placeholder="0,00" value={row.value} onChange={e => updateRow(idx, { value: e.target.value })}
+                  style={{ padding: '8px 10px', fontSize: 12, textAlign: 'right' }} />
+                <input className="form-input" type="number" min="1" max="28" value={row.day} onChange={e => updateRow(idx, { day: e.target.value })}
+                  style={{ padding: '8px 6px', fontSize: 12, textAlign: 'center' }} />
+                <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <input className="form-input" type="number" min="1" placeholder="1" title="Atual" value={row.installmentCurrent} onChange={e => updateRow(idx, { installmentCurrent: e.target.value })}
+                    style={{ padding: '6px 4px', fontSize: 10, textAlign: 'center', width: 32 }} />
+                  <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>/</span>
+                  <input className="form-input" type="number" min="1" placeholder="x" title="Total parcelas" value={row.installmentTotal} onChange={e => updateRow(idx, { installmentTotal: e.target.value })}
+                    style={{ padding: '6px 4px', fontSize: 10, textAlign: 'center', width: 32 }} />
+                </div>
+                <button onClick={() => removeRow(idx)} title="Remover" style={{ width: 24, height: 24, padding: 0, background: 'transparent', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--ink-4)', cursor: 'pointer', fontSize: 11 }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <button className="btn-ghost small" onClick={addRow} style={{ marginTop: 10, fontSize: 11 }}>＋ Adicionar linha</button>
+        </div>
+        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+            <strong>{validRows.length}</strong> lançamento{validRows.length === 1 ? '' : 's'} · total <span className="mono" style={{ color: '#ff5a3c', fontWeight: 600 }}>{finFmt(totalPreview)}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button className="btn btn-primary" disabled={validRows.length === 0} onClick={save}
+              style={{ padding: '10px 20px', fontSize: 13, opacity: validRows.length === 0 ? 0.5 : 1 }}>
+              Salvar {validRows.length || ''}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ── Account/Card detail modal ── */
-function FinAccountDetailModal({ onClose, account, month, fin, commit }) {
+function FinAccountDetailModal({ onClose, account, month, fin, commit, onAddBulk }) {
   const categories = fin.categories || [];
   const txs = fin.transactions || [];
   const accTxs = txs.filter(t => t.accountId === account.id && finMonth(t.date) === month)
@@ -1146,7 +1297,12 @@ function FinAccountDetailModal({ onClose, account, month, fin, commit }) {
           )}
 
           {/* Transactions list */}
-          <div className="eyebrow" style={{ marginBottom: 8 }}>Lançamentos · {accTxs.length}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div className="eyebrow">Lançamentos · {accTxs.length}</div>
+            {onAddBulk && (
+              <button className="btn-ghost small" onClick={onAddBulk} style={{ fontSize: 11, background: 'var(--gradient-neon-soft)', borderColor: 'rgba(255,46,136,0.3)', color: '#fff' }}>＋ Adicionar gastos</button>
+            )}
+          </div>
           {accTxs.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--ink-3)', fontSize: 12 }}>
               Nenhum lançamento neste mês
