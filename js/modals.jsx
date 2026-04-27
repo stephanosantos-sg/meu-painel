@@ -292,6 +292,10 @@ function HabitModal({ onClose, editHabit }) {
   const [color, setColor] = React.useState(editHabit?.color || 'green');
   const [days, setDays] = React.useState(editHabit?.days || [0,1,2,3,4,5,6]);
   const [yearGoal, setYearGoal] = React.useState(editHabit?.yearGoal || 200);
+  const [type, setType] = React.useState(editHabit?.type || 'binary');
+  const [unit, setUnit] = React.useState(editHabit?.unit || 'min');
+  const [target, setTarget] = React.useState(editHabit?.target || 90);
+  const [targetPeriod, setTargetPeriod] = React.useState(editHabit?.targetPeriod || 'week');
 
   const dayLabels = ['D','S','T','Q','Q','S','S'];
   const colors = [
@@ -299,12 +303,36 @@ function HabitModal({ onClose, editHabit }) {
     { v: 'orange', c: '#ffa830' }, { v: 'red', c: '#ff5a3c' }, { v: 'pink', c: '#ff2e88' },
     { v: 'cyan', c: '#64d2ff' }, { v: 'yellow', c: '#ffd60a' },
   ];
+  const unitOptions = [
+    { v: 'min', l: 'minutos' },
+    { v: 'h', l: 'horas' },
+    { v: 'reps', l: 'repetições' },
+    { v: 'km', l: 'km' },
+    { v: 'pages', l: 'páginas' },
+    { v: 'ml', l: 'ml' },
+    { v: 'sessoes', l: 'sessões' },
+    { v: 'custom', l: 'outra' },
+  ];
 
   function toggleDay(d) { setDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort()); }
 
   function handleSave() {
     if (!name.trim()) return;
-    saveHabit({ name: name.trim(), icon, color, days, goal: days.length, yearGoal: parseInt(yearGoal) || 200 }, editHabit?.id);
+    const payload = {
+      name: name.trim(), icon, color, days,
+      goal: days.length, yearGoal: parseInt(yearGoal) || 200,
+      type,
+    };
+    if (type === 'quantity') {
+      payload.unit = unit;
+      payload.target = parseFloat(target) || 1;
+      payload.targetPeriod = targetPeriod;
+    } else {
+      payload.unit = null;
+      payload.target = null;
+      payload.targetPeriod = null;
+    }
+    saveHabit(payload, editHabit?.id);
     onClose();
   }
 
@@ -321,15 +349,65 @@ function HabitModal({ onClose, editHabit }) {
             <input className="form-input" autoFocus placeholder="Ex: Meditar, Ler, Treinar..." value={name} onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleSave(); }} />
           </div>
+          <div className="form-group">
+            <label className="form-label">Tipo de hábito</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div onClick={() => setType('binary')} style={{
+                padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                background: type === 'binary' ? 'var(--gradient-neon-soft)' : 'rgba(255,255,255,0.04)',
+                border: type === 'binary' ? '1px solid rgba(255,46,136,0.3)' : '1px solid var(--line)',
+                color: type === 'binary' ? '#fff' : 'var(--ink-2)', transition: 'all 120ms',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>✓ Sim/Não</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>marcar feito por dia</div>
+              </div>
+              <div onClick={() => setType('quantity')} style={{
+                padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                background: type === 'quantity' ? 'var(--gradient-neon-soft)' : 'rgba(255,255,255,0.04)',
+                border: type === 'quantity' ? '1px solid rgba(255,46,136,0.3)' : '1px solid var(--line)',
+                color: type === 'quantity' ? '#fff' : 'var(--ink-2)', transition: 'all 120ms',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>📊 Quantidade</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>min/reps/km com meta</div>
+              </div>
+            </div>
+          </div>
+          {type === 'quantity' && (
+            <>
+              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div className="form-group">
+                  <label className="form-label">Meta</label>
+                  <input className="form-input" type="number" min="1" value={target} onChange={e => setTarget(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Unidade</label>
+                  <select className="form-input" value={unit} onChange={e => setUnit(e.target.value)}>
+                    {unitOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Por</label>
+                  <select className="form-input" value={targetPeriod} onChange={e => setTargetPeriod(e.target.value)}>
+                    <option value="day">dia</option>
+                    <option value="week">semana</option>
+                    <option value="month">mês</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: -8, padding: '8px 10px', background: 'rgba(176,102,255,0.06)', border: '1px solid rgba(176,102,255,0.18)', borderRadius: 8 }}>
+                Ex: <strong>{target || '?'} {unitOptions.find(o => o.v === unit)?.l || unit} por {targetPeriod === 'day' ? 'dia' : targetPeriod === 'week' ? 'semana' : 'mês'}</strong>. Você registra quanto fez em cada sessão e o app soma no período.
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
             <EmojiPicker label="Ícone" value={icon} onChange={setIcon} />
             <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Meta anual</label>
+              <label className="form-label">Meta anual {type === 'quantity' ? '(dias com qualquer registro)' : ''}</label>
               <input className="form-input" type="number" min="1" value={yearGoal} onChange={e => setYearGoal(e.target.value)} />
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Dias da semana</label>
+            <label className="form-label">{type === 'quantity' ? 'Dias da semana (sugeridos)' : 'Dias da semana'}</label>
             <div style={{ display: 'flex', gap: 6 }}>
               {dayLabels.map((d, i) => (
                 <div key={i} className={`form-chip-day ${days.includes(i) ? 'active' : ''}`} onClick={() => toggleDay(i)}>{d}</div>

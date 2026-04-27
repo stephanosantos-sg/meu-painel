@@ -201,6 +201,32 @@ function DataProvider({ children }) {
     if (xpMsg) toast(xpMsg);
   }, []);
 
+  const addHabitQuantity = useCallback((habitId, dateStr, deltaValue) => {
+    let xpMsg = '';
+    commit(D => {
+      const h = D.habits.find(x => x.id === habitId);
+      if (!h) return;
+      if (!h.log) h.log = {};
+      const cur = typeof h.log[dateStr] === 'number' ? h.log[dateStr] : 0;
+      const next = Math.max(0, cur + deltaValue);
+      if (next === 0) delete h.log[dateStr];
+      else h.log[dateStr] = next;
+      if (deltaValue > 0) { addXP(5, D); xpMsg = '+5 xp'; }
+    });
+    if (xpMsg) toast(xpMsg);
+  }, []);
+
+  const setHabitQuantity = useCallback((habitId, dateStr, value) => {
+    commit(D => {
+      const h = D.habits.find(x => x.id === habitId);
+      if (!h) return;
+      if (!h.log) h.log = {};
+      const v = parseFloat(value);
+      if (isNaN(v) || v <= 0) delete h.log[dateStr];
+      else h.log[dateStr] = v;
+    });
+  }, []);
+
   const saveTask = useCallback((taskData, editId) => {
     commit(D => {
       if (editId) {
@@ -294,7 +320,7 @@ function DataProvider({ children }) {
 
   const value = {
     data, toasts, calendarEvents, calendarConnected, fetchCalendarEvents, fetchCalendarRange,
-    toggleTask, toggleSlot, toggleHabitDay, toggleSubtask,
+    toggleTask, toggleSlot, toggleHabitDay, addHabitQuantity, setHabitQuantity, toggleSubtask,
     saveTask, deleteTask,
     saveHabit, deleteHabit,
     saveGoal, deleteGoal, toggleMilestone,

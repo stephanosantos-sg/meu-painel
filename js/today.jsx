@@ -97,23 +97,8 @@ function ScreenToday({ onNewTask }) {
         </>}
       />
 
-      {/* Mobile date nav */}
-      <div className="mobile-only" style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button onClick={() => shiftDay(-1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>←</button>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          {!isToday ? (
-            <button onClick={() => setSelectedDate(new Date())} style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>↺ Voltar para hoje</button>
-          ) : (
-            <>
-              <button onClick={() => window._startPomo && window._startPomo()} title="Pomodoro" style={{ height: 32, padding: '0 12px', borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-ui)' }}>
-                <span style={{ fontSize: 13 }}>◉</span><span>Pomodoro</span>
-              </button>
-              <button onClick={() => window._openThemes && window._openThemes()} title="Temas" style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>◐</button>
-            </>
-          )}
-        </div>
-        <button onClick={() => shiftDay(1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>→</button>
-      </div>
+      {/* Mobile date nav with daily quote in the center */}
+      <MobileDateNavWithQuote isToday={isToday} shiftDay={shiftDay} setSelectedDate={setSelectedDate} />
 
       {/* Mobile FAB */}
       <button className="mobile-only" onClick={onNewTask} style={{
@@ -743,7 +728,7 @@ function MonthViewInline({ baseDate, tasks, catMap, fetchCalendarRange, calendar
 
 /* ── TaskItem — with working subtask toggles and bigger click targets ── */
 function TaskItem({ task, dateCtx, catMap }) {
-  const { toggleTask, toggleSlot, toggleSubtask, deleteTask } = useData();
+  const { toggleTask, toggleSlot, toggleSubtask, deleteTask, data } = useData();
   const t = task;
   const collapseKey = `orbita_collapse_${t.id}`;
   const saved = React.useMemo(() => { try { return JSON.parse(localStorage.getItem(collapseKey) || '{}'); } catch { return {}; } }, [t.id]);
@@ -754,6 +739,8 @@ function TaskItem({ task, dateCtx, catMap }) {
   function toggleSubs() { const v = !subsOpen; setSubsOpen(v); persistCollapse(slotsOpen, v); }
   const done = Orbita.isTaskDone(t, dateCtx);
   const cat = catMap[t.cat];
+  const depTask = t.dependsOn ? (data.tasks || []).find(x => x.id === t.dependsOn) : null;
+  const depDone = depTask ? Orbita.isTaskDone(depTask, dateCtx) : false;
   const color = cat ? Orbita.resolveColor(cat.color) : null;
   const prioClass = t.prio === 1 ? 'p1' : t.prio === 2 ? 'p2' : t.prio === 3 ? 'p3' : 'p4';
   const prioLabel = t.prio === 1 ? 'urgente' : t.prio === 2 ? 'alta' : t.prio === 3 ? 'média' : 'baixa';
@@ -793,6 +780,20 @@ function TaskItem({ task, dateCtx, catMap }) {
           {prioLabel && <span className={`priority ${prioClass}`}>{prioLabel}</span>}
           {t.time && !hasSlots && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>⏱ {t.time}</span>}
           {cat && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: color + '22', color: color }}>{cat.icon} {cat.name}</span>}
+          {depTask && (
+            <span title={depDone ? `Depende de: ${depTask.text} (concluída)` : `Bloqueada por: ${depTask.text}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 9, padding: '2px 7px', borderRadius: 4,
+                background: depDone ? 'rgba(60,207,145,0.12)' : 'rgba(255,168,48,0.14)',
+                color: depDone ? '#3ccf91' : '#ffa830',
+                border: depDone ? '1px solid rgba(60,207,145,0.25)' : '1px solid rgba(255,168,48,0.3)',
+                fontWeight: 500,
+              }}>
+              <span style={{ fontSize: 10 }}>{depDone ? '✓' : '⛓'}</span>
+              <span>depende: {depTask.text.length > 22 ? depTask.text.slice(0, 22) + '…' : depTask.text}</span>
+            </span>
+          )}
           {t.freq !== 'pontual' && <span className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{t.freq}</span>}
           {t.dateEnd && <span className="mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>até {Orbita.fmtDate(t.dateEnd)}</span>}
           {t.dateEnd && t.date && (() => {
@@ -910,8 +911,33 @@ function BirthdayBanner({ profile }) {
 }
 
 /* ── Daily Stoic Quote ── */
-function DailyQuote() {
-  const quotes = [
+function getDailyQuote() {
+  const quotes = QUOTES_LIST;
+  const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  return quotes[dayOfYear % quotes.length];
+}
+
+function MobileDateNavWithQuote({ isToday, shiftDay, setSelectedDate }) {
+  const q = getDailyQuote();
+  return (
+    <div className="mobile-only mobile-date-nav" style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <button onClick={() => shiftDay(-1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>←</button>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 2 }}>
+        {!isToday ? (
+          <button onClick={() => setSelectedDate(new Date())} style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--gradient-neon-soft)', border: '1px solid rgba(255,46,136,0.22)', color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>↺ Voltar para hoje</button>
+        ) : (
+          <>
+            <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 13, lineHeight: 1.3, color: 'var(--ink-2)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textOverflow: 'ellipsis' }}>"{q.text}"</div>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-4)', letterSpacing: '0.04em' }}>— {q.author}</div>
+          </>
+        )}
+      </div>
+      <button onClick={() => shiftDay(1)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--ink-2)', fontSize: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>→</button>
+    </div>
+  );
+}
+
+const QUOTES_LIST = [
     { text: 'Não é porque as coisas são difíceis que não ousamos; é porque não ousamos que elas são difíceis.', author: 'Sêneca' },
     { text: 'A felicidade da sua vida depende da qualidade dos seus pensamentos.', author: 'Marco Aurélio' },
     { text: 'Temos duas orelhas e uma boca para que possamos ouvir o dobro do que falamos.', author: 'Epicteto' },
@@ -943,13 +969,12 @@ function DailyQuote() {
     { text: 'Cuide do seu corpo. É o único lugar que você tem para viver.', author: 'Jim Rohn' },
     { text: 'Se queres prever o futuro, estuda o passado.', author: 'Confúcio' },
     { text: 'A persistência é o caminho do êxito.', author: 'Charles Chaplin' },
-  ];
-  // One quote per day based on day-of-year
-  const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  const q = quotes[dayOfYear % quotes.length];
+];
 
+function DailyQuote() {
+  const q = getDailyQuote();
   return (
-    <div style={{ padding: '0 28px 10px' }}>
+    <div className="desktop-only" style={{ padding: '0 28px 10px' }}>
       <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 18, color: 'var(--ink-2)', lineHeight: 1.5 }}>
         "{q.text}"
       </div>

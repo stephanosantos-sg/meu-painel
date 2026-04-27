@@ -145,9 +145,10 @@ function ContribGrid({ habitLog, color, year, onToggle, height, allLogs, maxHabi
 }
 
 function HabitCard({ habit, today, dow, onEdit }) {
-  const { toggleHabitDay, deleteHabit } = useData();
+  const { toggleHabitDay, addHabitQuantity, setHabitQuantity, deleteHabit } = useData();
   const h = habit;
   const hColor = Orbita.resolveColor(h.color);
+  const isQuantity = h.type === 'quantity';
   const streak = Orbita.getStreak(h);
   const yg = h.yearGoal || 200;
   const totalDone = h.log ? Object.keys(h.log).length : 0;
@@ -156,6 +157,11 @@ function HabitCard({ habit, today, dow, onEdit }) {
   const freq = activeDays.length;
   const dayLabelsShort = ['D','S','T','Q','Q','S','S'];
   const dayLabelsFull = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+  const unitLabel = h.unit === 'min' ? 'min' : h.unit === 'h' ? 'h' : h.unit === 'reps' ? 'reps' : h.unit === 'km' ? 'km' : h.unit === 'pages' ? 'pág' : h.unit === 'ml' ? 'ml' : h.unit === 'sessoes' ? 'sessões' : (h.unit || '');
+  const target = h.target || 1;
+  const targetPeriod = h.targetPeriod || 'week';
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [logVal, setLogVal] = React.useState('');
 
   // Current week (Mon→Sun)
   const weekStart = new Date();
@@ -168,13 +174,41 @@ function HabitCard({ habit, today, dow, onEdit }) {
     const ds = Orbita.dateToStr(d);
     const dayDow = d.getDay();
     const scheduled = activeDays.includes(dayDow);
-    const done = h.log && h.log[ds];
+    const logVal = h.log && h.log[ds];
+    const done = isQuantity ? (typeof logVal === 'number' && logVal > 0) : !!logVal;
+    const value = isQuantity ? (typeof logVal === 'number' ? logVal : 0) : 0;
     const isToday = ds === today;
-    week.push({ ds, day: d.getDate(), dayDow, scheduled, done, isToday, label: dayLabelsFull[(dayDow + 7) % 7] });
+    week.push({ ds, day: d.getDate(), dayDow, scheduled, done, value, isToday, label: dayLabelsFull[(dayDow + 7) % 7] });
   }
   const weekDone = week.filter(d => d.done).length;
   const weekScheduled = week.filter(d => d.scheduled).length;
   const weekPct = weekScheduled > 0 ? Math.round(weekDone / weekScheduled * 100) : 0;
+
+  // Quantity totals
+  const weekSum = week.reduce((s, d) => s + (d.value || 0), 0);
+  const todayValue = isQuantity && typeof (h.log && h.log[today]) === 'number' ? h.log[today] : 0;
+  // For target tracking
+  let periodSum = 0, periodTarget = target;
+  if (isQuantity) {
+    if (targetPeriod === 'day') { periodSum = todayValue; }
+    else if (targetPeriod === 'week') { periodSum = weekSum; }
+    else if (targetPeriod === 'month') {
+      const ym = today.slice(0, 7);
+      periodSum = Object.entries(h.log || {}).reduce((s, [ds, v]) => ds.startsWith(ym) && typeof v === 'number' ? s + v : s, 0);
+    }
+  }
+  const targetPct = isQuantity && periodTarget > 0 ? Math.min(100, Math.round(periodSum / periodTarget * 100)) : 0;
+  const targetMet = isQuantity && periodSum >= periodTarget;
+  const periodLabel = targetPeriod === 'day' ? 'hoje' : targetPeriod === 'week' ? 'semana' : 'mês';
+
+  function quickAdd(amount) {
+    addHabitQuantity(h.id, today, amount);
+  }
+  function submitLog() {
+    const v = parseFloat(String(logVal).replace(',', '.'));
+    if (!isNaN(v) && v > 0) addHabitQuantity(h.id, today, v);
+    setLogVal(''); setLogOpen(false);
+  }
 
   const year = new Date().getFullYear();
   const nowDate = new Date();
@@ -191,33 +225,86 @@ function HabitCard({ habit, today, dow, onEdit }) {
         <button className="icon-btn" onClick={() => { if (confirm('Deletar hábito "' + h.name + '"?')) deleteHabit(h.id); }} style={{ width: 30, height: 30, fontSize: 13 }}>✕</button>
       </div>
 
-      {/* Active days + frequency */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-        {dayLabelsShort.map((d, i) => (
-          <div key={i} style={{
-            width: 24, height: 24, borderRadius: '50%', display: 'grid', placeItems: 'center',
-            fontSize: 9, fontWeight: 700,
-            background: activeDays.includes(i) ? hColor : 'transparent',
-            color: activeDays.includes(i) ? '#fff' : 'var(--ink-4)',
-            border: activeDays.includes(i) ? 'none' : '1px solid var(--line)',
-          }}>{d}</div>
-        ))}
-        <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 4 }}>{freq}x/sem</span>
-      </div>
+      {/* Quantity hero: target progress */}
+      {isQuantity && (
+        <div style={{ marginBottom: 14, padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${targetMet ? '#3ccf91' : hColor}33` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Meta {periodLabel}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span className="mono" style={{ fontSize: 28, fontWeight: 700, color: targetMet ? '#3ccf91' : hColor, lineHeight: 1 }}>{Math.round(periodSum * 10) / 10}</span>
+                <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>/ {target} {unitLabel}</span>
+                {targetMet && <span style={{ fontSize: 14, color: '#3ccf91' }}>✓</span>}
+              </div>
+            </div>
+            {!logOpen ? (
+              <button onClick={() => setLogOpen(true)}
+                style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--gradient-neon)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>
+                ＋ Sessão
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input className="form-input" autoFocus type="text" inputMode="decimal" placeholder={`+${unitLabel}`} value={logVal}
+                  onChange={e => setLogVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') submitLog(); if (e.key === 'Escape') { setLogOpen(false); setLogVal(''); } }}
+                  style={{ width: 70, padding: '4px 8px', fontSize: 12, textAlign: 'center' }} />
+                <button onClick={submitLog} style={{ padding: '4px 8px', background: '#3ccf91', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', fontSize: 11 }}>✓</button>
+                <button onClick={() => { setLogOpen(false); setLogVal(''); }} style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--ink-3)', cursor: 'pointer', fontSize: 11 }}>✕</button>
+              </div>
+            )}
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ width: `${targetPct}%`, height: '100%', background: targetMet ? '#3ccf91' : hColor, borderRadius: 3, transition: 'width 300ms' }} />
+          </div>
+          {/* Quick add chips */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+            {[15, 30, 45, 60].map(n => (
+              <button key={n} onClick={() => quickAdd(n)}
+                style={{ padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)', color: 'var(--ink-2)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>
+                +{n}{unitLabel}
+              </button>
+            ))}
+            {todayValue > 0 && (
+              <button onClick={() => addHabitQuantity(h.id, today, -todayValue)} title="Zerar hoje"
+                style={{ padding: '4px 10px', borderRadius: 999, background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.2)', color: '#ff5a3c', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>
+                ↺ zerar hoje ({todayValue}{unitLabel})
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Active days + frequency (binary only) */}
+      {!isQuantity && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+          {dayLabelsShort.map((d, i) => (
+            <div key={i} style={{
+              width: 24, height: 24, borderRadius: '50%', display: 'grid', placeItems: 'center',
+              fontSize: 9, fontWeight: 700,
+              background: activeDays.includes(i) ? hColor : 'transparent',
+              color: activeDays.includes(i) ? '#fff' : 'var(--ink-4)',
+              border: activeDays.includes(i) ? 'none' : '1px solid var(--line)',
+            }}>{d}</div>
+          ))}
+          <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 4 }}>{freq}x/sem</span>
+        </div>
+      )}
 
       {/* Current week calendar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 16 }}>
         {week.map((d, i) => (
-          <div key={i} onClick={() => toggleHabitDay(h.id, d.ds)}
+          <div key={i} onClick={() => isQuantity ? quickAdd(d.isToday ? 30 : 0) : toggleHabitDay(h.id, d.ds)}
             style={{
-              textAlign: 'center', padding: '6px 2px', borderRadius: 8, cursor: 'pointer',
+              textAlign: 'center', padding: '6px 2px', borderRadius: 8, cursor: isQuantity && !d.isToday ? 'default' : 'pointer',
               background: d.isToday ? (d.done ? hColor : 'rgba(255,255,255,0.06)') : (d.done ? hColor + 'cc' : 'rgba(255,255,255,0.02)'),
               border: d.isToday ? `2px solid ${hColor}` : '1px solid var(--line)',
-              opacity: d.scheduled ? 1 : 0.3,
+              opacity: isQuantity ? 1 : (d.scheduled ? 1 : 0.3),
               transition: 'all 140ms',
             }}>
             <div className="mono" style={{ fontSize: 8, color: d.done ? '#fff' : 'var(--ink-3)', marginBottom: 2 }}>{d.label}</div>
             <div style={{ fontSize: 14, fontWeight: d.isToday ? 700 : 400, color: d.done ? '#fff' : 'var(--ink-2)' }}>{d.day}</div>
+            {isQuantity && d.value > 0 && <div className="mono" style={{ fontSize: 8, color: d.done ? '#fff' : hColor, marginTop: 2 }}>{Math.round(d.value)}{unitLabel}</div>}
           </div>
         ))}
       </div>
