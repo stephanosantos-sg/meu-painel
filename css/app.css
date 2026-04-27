@@ -423,5 +423,8 @@ body.theme-light ::selection { background: var(--neon-a); color: #fff; }
   .meal-card { padding: 12px !important; }
   .meal-card .meal-macro { display: none !important; }
   .meal-card-action { padding: 4px 7px !important; min-width: 0 !important; }
+  .diet-item-row { gap: 6px !important; }
+  .diet-item-name { font-size: 13px !important; }
+  .diet-item-qty { font-size: 9.5px !important; }
   .meal-summary-pills { flex-wrap: wrap !important; gap: 4px !important; }
 }

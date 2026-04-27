@@ -10,7 +10,7 @@ function ScreenDiet() {
   const measurements = diet.measurements || [];
   const photos = diet.photos || [];
   const extras = diet.extraCalories || [];
-  const targets = diet.targets || { dailyCalories: 2000, protein: 150, carbs: 200, fat: 65, weightGoal: null };
+  const targets = diet.targets || { dailyCalories: 1400, freeCaloriesWeekly: 1800, protein: 115, carbs: 175, fat: 35, weightGoal: null };
   const today = selDate;
   const isToday = selDate === Orbita.todayStr();
 
@@ -22,6 +22,27 @@ function ScreenDiet() {
   }, 0);
   const todayExtraCalories = extras.filter(e => e.date === today).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
   const todayTotalCalories = todayMealCalories + todayExtraCalories;
+
+  // Weekly totals (Mon→Sun, week containing selDate)
+  const weekDates = (() => {
+    const [y, m, d] = today.split('-').map(Number);
+    const ref = new Date(y, m - 1, d);
+    const dow = ref.getDay();
+    const monOffset = (dow + 6) % 7;
+    const start = new Date(ref); start.setDate(ref.getDate() - monOffset);
+    return Array.from({ length: 7 }, (_, i) => {
+      const x = new Date(start); x.setDate(start.getDate() + i);
+      return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+    });
+  })();
+  const weekMealCalories = meals.reduce((sum, m) => {
+    const items = (m.items || []).reduce((s, i) => s + (i.doneDates || []).filter(d => weekDates.includes(d)).length * (parseFloat(i.calories) || 0), 0);
+    const ext = (m.mealExtras || []).filter(e => weekDates.includes(e.date)).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+    return sum + items + ext;
+  }, 0);
+  const weekExtraCalories = extras.filter(e => weekDates.includes(e.date)).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+  const weekTotalCalories = weekMealCalories + weekExtraCalories;
+  const weeklyTarget = (parseInt(targets.dailyCalories) || 0) * 7 + (parseInt(targets.freeCaloriesWeekly) || 0);
 
   const currentWeight = weightLog.length > 0 ? weightLog[weightLog.length - 1].weight : null;
   const firstWeight = weightLog.length > 0 ? weightLog[0].weight : null;
@@ -57,6 +78,7 @@ function ScreenDiet() {
       />
       <div className="diet-screen-pad">
         {tab === 'hoje' && <DietDateSwitcher selDate={selDate} setSelDate={setSelDate} isToday={isToday} />}
+        {tab === 'hoje' && <DietWeekBar weekTotal={weekTotalCalories} weekTarget={weeklyTarget} dailyTarget={targets.dailyCalories} freeWeekly={targets.freeCaloriesWeekly} weekDates={weekDates} today={today} meals={meals} extras={extras} />}
         {tab === 'hoje' && <DietToday meals={meals} targets={targets} today={today} todayMealCalories={todayMealCalories} todayExtraCalories={todayExtraCalories} commit={commit} extras={extras} openaiKey={data._settings?.aiKeys?.openai || diet.openaiKey} isToday={isToday} />}
         {tab === 'peso' && <DietWeight log={weightLog} current={currentWeight} first={firstWeight} target={targets.weightGoal} commit={commit} />}
         {tab === 'medidas' && <DietMeasurements log={measurements} commit={commit} />}
@@ -64,6 +86,76 @@ function ScreenDiet() {
         {tab === 'config' && <DietConfig targets={targets} openaiKey={diet.openaiKey} commit={commit} />}
       </div>
     </>
+  );
+}
+
+function DietWeekBar({ weekTotal, weekTarget, dailyTarget, freeWeekly, weekDates, today, meals, extras }) {
+  const pct = weekTarget > 0 ? Math.min(100, Math.round(weekTotal / weekTarget * 100)) : 0;
+  const over = weekTotal > weekTarget;
+  const remaining = Math.max(0, weekTarget - weekTotal);
+  // Per-day breakdown for the bar segments
+  const dayLabels = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
+  const days = weekDates.map(ds => {
+    const cal = meals.reduce((sum, m) => {
+      const items = (m.items || []).filter(i => (i.doneDates || []).includes(ds)).reduce((s, i) => s + (parseFloat(i.calories) || 0), 0);
+      const ext = (m.mealExtras || []).filter(e => e.date === ds).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+      return sum + items + ext;
+    }, 0) + extras.filter(e => e.date === ds).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+    return { ds, cal, isToday: ds === today, isFuture: ds > today };
+  });
+  const maxCal = Math.max(dailyTarget * 1.4, ...days.map(d => d.cal));
+
+  return (
+    <div className="panel" style={{ padding: 16, marginBottom: 16, borderLeft: `3px solid ${over ? '#ff5555' : '#3ccf91'}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <div className="eyebrow">Calorias da semana</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4 }}>
+            <span className="mono" style={{ fontSize: 26, fontWeight: 700, color: over ? '#ff5555' : '#3ccf91', lineHeight: 1 }}>{Math.round(weekTotal).toLocaleString('pt-BR')}</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>/ {weekTarget.toLocaleString('pt-BR')} kcal</span>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{pct}% usado</div>
+          <div className="mono" style={{ fontSize: 11, color: over ? '#ff5555' : 'var(--ink-2)', marginTop: 2 }}>
+            {over ? `+${(weekTotal - weekTarget).toLocaleString('pt-BR')} acima` : `${remaining.toLocaleString('pt-BR')} restam`}
+          </div>
+        </div>
+      </div>
+
+      {/* Daily breakdown bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
+        {days.map((d, i) => {
+          const dayPct = dailyTarget > 0 ? Math.min(100, (d.cal / dailyTarget) * 100) : 0;
+          const dayOver = d.cal > dailyTarget;
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{ position: 'relative', width: '100%', height: 48, background: 'rgba(255,255,255,0.04)', borderRadius: 6, overflow: 'hidden', border: d.isToday ? '1.5px solid #3ccf91' : '1px solid var(--line)' }}>
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  height: `${Math.min(100, dayPct)}%`,
+                  background: dayOver ? '#ff5555' : (d.isToday ? '#3ccf91' : 'rgba(60,207,145,0.7)'),
+                  transition: 'height 300ms',
+                }} />
+                {dayOver && <div style={{ position: 'absolute', top: 2, left: 0, right: 0, height: 2, background: '#ff5555' }} />}
+              </div>
+              <div className="mono" style={{ fontSize: 8, color: d.isToday ? '#3ccf91' : 'var(--ink-4)', fontWeight: d.isToday ? 700 : 400 }}>{dayLabels[i]}</div>
+              <div className="mono" style={{ fontSize: 8.5, color: dayOver ? '#ff5555' : (d.cal > 0 ? 'var(--ink-2)' : 'var(--ink-4)') }}>{d.cal > 0 ? Math.round(d.cal) : '—'}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Total bar */}
+      <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden', marginTop: 6 }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: over ? '#ff5555' : 'linear-gradient(90deg, #3ccf91, #5b8dff)', transition: 'width 300ms' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 9.5, color: 'var(--ink-4)' }} className="mono">
+        <span>{dailyTarget}×7 = {(dailyTarget * 7).toLocaleString('pt-BR')}</span>
+        {freeWeekly > 0 && <span>+ {freeWeekly} livres</span>}
+        <span>= {weekTarget.toLocaleString('pt-BR')} kcal/sem</span>
+      </div>
+    </div>
   );
 }
 
@@ -473,18 +565,18 @@ function MealCard({ meal, today, commit, openaiKey, onEdit, onDelete, toggleItem
 function ItemRow({ item, mealId, idx, today, onToggle, isOption }) {
   const done = (item.doneDates || []).includes(today);
   return (
-    <div onClick={() => onToggle(mealId, idx)} style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '5px 8px', borderRadius: 6,
-      cursor: 'pointer', transition: 'all 120ms',
+    <div className="diet-item-row" onClick={() => onToggle(mealId, idx)} style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 6,
+      cursor: 'pointer', transition: 'all 120ms', minWidth: 0,
       background: done ? 'rgba(60,207,145,0.08)' : 'transparent',
       border: done ? '1px solid rgba(60,207,145,0.25)' : '1px solid transparent',
     }}
     onMouseEnter={e => { if (!done) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
     onMouseLeave={e => { if (!done) e.currentTarget.style.background = 'transparent'; }}>
-      <div className={`check ${done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7, background: done ? '#3ccf91' : undefined, borderColor: done ? 'transparent' : undefined }}>{done && '✓'}</div>
-      <span style={{ fontSize: 12.5, flex: 1, textDecoration: done ? 'line-through' : 'none', color: done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{item.name}</span>
-      {item.qty && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', flexShrink: 0 }}>{item.qty}</span>}
-      {item.calories ? <span className="mono" style={{ fontSize: 10, color: done ? 'var(--ink-4)' : '#ffa830', flexShrink: 0, width: 56, textAlign: 'right' }}>{item.calories} kcal</span> : <span style={{ width: 56 }} />}
+      <div className={`check ${done ? 'checked' : ''}`} style={{ width: 14, height: 14, fontSize: 7, flexShrink: 0, background: done ? '#3ccf91' : undefined, borderColor: done ? 'transparent' : undefined }}>{done && '✓'}</div>
+      <span className="diet-item-name" style={{ fontSize: 12.5, flex: 1, minWidth: 0, fontWeight: 400, lineHeight: 1.3, textDecoration: done ? 'line-through' : 'none', color: done ? 'var(--ink-3)' : 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
+      {item.qty && <span className="mono diet-item-qty" style={{ fontSize: 10, color: 'var(--ink-3)', flexShrink: 0, whiteSpace: 'nowrap' }}>{item.qty}</span>}
+      {item.calories ? <span className="mono" style={{ fontSize: 10, color: done ? 'var(--ink-4)' : '#ffa830', flexShrink: 0, minWidth: 50, textAlign: 'right', whiteSpace: 'nowrap' }}>{item.calories} kcal</span> : null}
     </div>
   );
 }
@@ -1170,23 +1262,29 @@ function DietExtra({ extras, today, openaiKey, commit }) {
 
 /* ── Config: Targets and OpenAI key ── */
 function DietConfig({ targets, openaiKey, commit }) {
-  const [dailyCalories, setDailyCalories] = React.useState(targets.dailyCalories || 2000);
-  const [protein, setProtein] = React.useState(targets.protein || 150);
-  const [carbs, setCarbs] = React.useState(targets.carbs || 200);
-  const [fat, setFat] = React.useState(targets.fat || 65);
+  const [dailyCalories, setDailyCalories] = React.useState(targets.dailyCalories || 1400);
+  const [freeCaloriesWeekly, setFreeCaloriesWeekly] = React.useState(targets.freeCaloriesWeekly !== undefined ? targets.freeCaloriesWeekly : 1800);
+  const [protein, setProtein] = React.useState(targets.protein || 115);
+  const [carbs, setCarbs] = React.useState(targets.carbs || 175);
+  const [fat, setFat] = React.useState(targets.fat || 35);
   const [weightGoal, setWeightGoal] = React.useState(targets.weightGoal || '');
   const [key, setKey] = React.useState(openaiKey || '');
   const [showKey, setShowKey] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
+  const dailyN = parseInt(dailyCalories) || 0;
+  const freeN = parseInt(freeCaloriesWeekly) || 0;
+  const weeklyN = dailyN * 7 + freeN;
+
   function save() {
     commit(D => {
       if (!D._diet) D._diet = {};
       D._diet.targets = {
-        dailyCalories: parseInt(dailyCalories) || 2000,
-        protein: parseInt(protein) || 150,
-        carbs: parseInt(carbs) || 200,
-        fat: parseInt(fat) || 65,
+        dailyCalories: parseInt(dailyCalories) || 1400,
+        freeCaloriesWeekly: parseInt(freeCaloriesWeekly) || 0,
+        protein: parseInt(protein) || 115,
+        carbs: parseInt(carbs) || 175,
+        fat: parseInt(fat) || 35,
         weightGoal: weightGoal ? parseFloat(weightGoal) : null,
       };
       D._diet.openaiKey = key.trim() || null;
@@ -1199,28 +1297,38 @@ function DietConfig({ targets, openaiKey, commit }) {
     <div style={{ maxWidth: 600 }}>
       <div className="panel" style={{ padding: 24, marginBottom: 16 }}>
         <div className="eyebrow">Metas nutricionais</div>
-        <h3 className="panel-title" style={{ marginBottom: 16, marginTop: 4 }}>Objetivos diários.</h3>
+        <h3 className="panel-title" style={{ marginBottom: 16, marginTop: 4 }}>Objetivos.</h3>
         <div className="form-row">
           <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Calorias (kcal)</label>
+            <label className="form-label">Calorias por dia (kcal)</label>
             <input className="form-input" type="number" value={dailyCalories} onChange={e => setDailyCalories(e.target.value)} />
           </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Livres por semana</label>
+            <input className="form-input" type="number" value={freeCaloriesWeekly} onChange={e => setFreeCaloriesWeekly(e.target.value)} />
+          </div>
+        </div>
+        <div style={{ padding: '10px 14px', background: 'rgba(60,207,145,0.08)', border: '1px solid rgba(60,207,145,0.22)', borderRadius: 10, marginBottom: 16, fontSize: 12, color: 'var(--ink-2)' }}>
+          Total semanal: <strong className="mono" style={{ color: '#3ccf91' }}>{weeklyN.toLocaleString('pt-BR')} kcal</strong>
+          <span style={{ color: 'var(--ink-3)' }}> · {dailyN}×7 + {freeN} livres</span>
+        </div>
+        <div className="form-row">
           <div className="form-group" style={{ flex: 1 }}>
             <label className="form-label">Peso meta (kg)</label>
             <input className="form-input" type="number" step="0.1" placeholder="Opcional" value={weightGoal} onChange={e => setWeightGoal(e.target.value)} />
           </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Proteína (g/dia)</label>
+            <input className="form-input" type="number" value={protein} onChange={e => setProtein(e.target.value)} />
+          </div>
         </div>
         <div className="form-row">
           <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Proteína (g)</label>
-            <input className="form-input" type="number" value={protein} onChange={e => setProtein(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Carboidrato (g)</label>
+            <label className="form-label">Carboidrato (g/dia)</label>
             <input className="form-input" type="number" value={carbs} onChange={e => setCarbs(e.target.value)} />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Gordura (g)</label>
+            <label className="form-label">Gordura (g/dia)</label>
             <input className="form-input" type="number" value={fat} onChange={e => setFat(e.target.value)} />
           </div>
         </div>
