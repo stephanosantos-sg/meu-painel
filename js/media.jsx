@@ -114,18 +114,18 @@ function ScreenBooks() {
       <TopBar title="Livros." subtitle={`${reading.length} lendo · ${queued.length} na fila · ${done.length} lidos${library.length ? ` · ${library.length} no acervo` : ''}`}
         actions={<button className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 13 }} onClick={() => setShowAdd(true)}>＋ Livro</button>}
       />
-      <div style={{ padding: '0 28px 40px' }}>
+      <div className="books-screen-pad">
 
         {/* Hero: Lendo Agora */}
         {heroBook && (
-          <div className="panel" style={{ padding: 28, marginBottom: 24, display: 'flex', gap: 28 }}>
-            <BookCover book={heroBook} size={160} />
-            <div style={{ flex: 1 }}>
+          <div className="panel books-hero" style={{ padding: 28, marginBottom: 24, display: 'flex', gap: 28 }}>
+            <div className="books-hero-cover"><BookCover book={heroBook} size={160} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div className="eyebrow" style={{ marginBottom: 6 }}>Lendo agora</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 32, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{heroBook.title}</div>
+              <div className="books-hero-title" style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 32, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{heroBook.title}</div>
               {heroBook.author && <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 6 }}>por {heroBook.author}</div>}
               <div style={{ marginTop: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>página {heroBook.progress || 0}</span>
                   <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>{heroBook.pages ? `de ${heroBook.pages} · ${Math.round((heroBook.progress || 0) / heroBook.pages * 100)}%` : 'sem total — busque metadados'}</span>
                 </div>
@@ -137,7 +137,7 @@ function ScreenBooks() {
                     style={{ width: '100%', background: `linear-gradient(90deg, #ff2e88 0%, #b066ff ${pct}%, rgba(255,255,255,0.06) ${pct}%)` }} />;
                 })()}
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                 {heroBook.pages && (heroBook.progress || 0) >= heroBook.pages ? (
                   <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 14 }} onClick={() => setStatus(heroIdx, 'Lido')}>✓ Marcar como lido</button>
                 ) : (
