@@ -9,6 +9,9 @@ function ScreenShopping() {
   const [addingItemTo, setAddingItemTo] = React.useState(null);
   const [newItemText, setNewItemText] = React.useState('');
   const [newItemPrice, setNewItemPrice] = React.useState('');
+  const [newItemUrl, setNewItemUrl] = React.useState('');
+  const [newItemDate, setNewItemDate] = React.useState('');
+  const [showExtras, setShowExtras] = React.useState(false);
 
   function createList() {
     if (!newListName.trim()) return;
@@ -21,12 +24,17 @@ function ScreenShopping() {
 
   function addItem(listId) {
     if (!newItemText.trim()) return;
+    let url = newItemUrl.trim();
+    if (url && !/^[a-z]+:\/\//i.test(url)) url = 'https://' + url;
     commit(D => {
       const list = D.shopLists.find(l => l.id === listId);
       if (!list) return;
-      list.items.push({ text: newItemText.trim(), price: parseFloat(newItemPrice) || 0, done: false });
+      const item = { text: newItemText.trim(), price: parseFloat(newItemPrice) || 0, done: false };
+      if (url) item.url = url;
+      if (newItemDate) item.date = newItemDate;
+      list.items.push(item);
     });
-    setNewItemText(''); setNewItemPrice(''); setAddingItemTo(null);
+    setNewItemText(''); setNewItemPrice(''); setNewItemUrl(''); setNewItemDate(''); setShowExtras(false); setAddingItemTo(null);
   }
 
   function toggleItem(listId, idx) {
@@ -100,26 +108,65 @@ function ScreenShopping() {
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {list.items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-                    <div className={`check ${item.done ? 'checked' : ''}`} style={{ width: 16, height: 16, fontSize: 8 }}
-                      onClick={() => toggleItem(list.id, idx)}>{item.done && '✓'}</div>
-                    <span style={{ flex: 1, fontSize: 13, textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--ink-3)' : 'var(--ink-1)' }}>{item.text}</span>
-                    {parseFloat(item.price) > 0 && <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>R$ {parseFloat(item.price).toFixed(2)}</span>}
-                    <button onClick={() => deleteItem(list.id, idx)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 12 }}>✕</button>
-                  </div>
-                ))}
+                {list.items.map((item, idx) => {
+                  const dateLabel = item.date ? (() => {
+                    const [y, m, d] = item.date.split('-').map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const diffDays = Math.round((dt - today) / 86400000);
+                    if (diffDays === 0) return 'hoje';
+                    if (diffDays === 1) return 'amanhã';
+                    if (diffDays === -1) return 'ontem';
+                    if (diffDays > 1 && diffDays < 7) return `em ${diffDays}d`;
+                    if (diffDays < -1 && diffDays > -30) return `há ${-diffDays}d`;
+                    return dt.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                  })() : null;
+                  const isOverdue = item.date && !item.done && (new Date(item.date) < new Date(new Date().toDateString()));
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
+                      <div className={`check ${item.done ? 'checked' : ''}`} style={{ width: 16, height: 16, fontSize: 8 }}
+                        onClick={() => toggleItem(list.id, idx)}>{item.done && '✓'}</div>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <span style={{ fontSize: 13, textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--ink-3)' : 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.text}</span>
+                        {dateLabel && (
+                          <span className="mono" style={{ fontSize: 9, color: isOverdue ? '#ff5a3c' : 'var(--ink-3)' }}>
+                            {isOverdue ? '⚠ ' : '⏱ '}{dateLabel}
+                          </span>
+                        )}
+                      </div>
+                      {item.url && (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" title={item.url} onClick={e => e.stopPropagation()}
+                          style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 6, background: 'rgba(91,141,255,0.1)', border: '1px solid rgba(91,141,255,0.25)', color: '#5b8dff', fontSize: 11, textDecoration: 'none', flexShrink: 0 }}>
+                          ↗
+                        </a>
+                      )}
+                      {parseFloat(item.price) > 0 && <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', flexShrink: 0 }}>R$ {parseFloat(item.price).toFixed(2)}</span>}
+                      <button onClick={() => deleteItem(list.id, idx)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}>✕</button>
+                    </div>
+                  );
+                })}
               </div>
               {addingItemTo === list.id ? (
-                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  <input className="form-input" placeholder="Item..." value={newItemText} onChange={e => setNewItemText(e.target.value)} style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
-                    autoFocus onKeyDown={e => { if (e.key === 'Enter') addItem(list.id); if (e.key === 'Escape') setAddingItemTo(null); }} />
-                  <input className="form-input" placeholder="R$" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} style={{ width: 60, padding: '6px 8px', fontSize: 12 }}
-                    onKeyDown={e => { if (e.key === 'Enter') addItem(list.id); }} />
-                  <button className="btn-ghost small" onClick={() => addItem(list.id)}>✓</button>
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input className="form-input" placeholder="Item..." value={newItemText} onChange={e => setNewItemText(e.target.value)} style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                      autoFocus onKeyDown={e => { if (e.key === 'Enter') addItem(list.id); if (e.key === 'Escape') { setAddingItemTo(null); setShowExtras(false); } }} />
+                    <input className="form-input" placeholder="R$" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} style={{ width: 60, padding: '6px 8px', fontSize: 12 }}
+                      onKeyDown={e => { if (e.key === 'Enter') addItem(list.id); }} />
+                    <button className="btn-ghost small" onClick={() => setShowExtras(s => !s)} title="Link / data" style={{ padding: '6px 8px', color: showExtras ? 'var(--neon-a)' : undefined }}>＋</button>
+                    <button className="btn-ghost small" onClick={() => addItem(list.id)}>✓</button>
+                  </div>
+                  {showExtras && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input className="form-input" type="url" placeholder="🔗 https://..." value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} style={{ flex: 1, padding: '6px 10px', fontSize: 11 }}
+                        onKeyDown={e => { if (e.key === 'Enter') addItem(list.id); }} />
+                      <input className="form-input" type="date" placeholder="📅" value={newItemDate} onChange={e => setNewItemDate(e.target.value)} style={{ width: 130, padding: '6px 8px', fontSize: 11 }}
+                        onKeyDown={e => { if (e.key === 'Enter') addItem(list.id); }} />
+                    </div>
+                  )}
                 </div>
               ) : (
-                <button className="btn-ghost small" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => { setAddingItemTo(list.id); setNewItemText(''); setNewItemPrice(''); }}>
+                <button className="btn-ghost small" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => { setAddingItemTo(list.id); setNewItemText(''); setNewItemPrice(''); setNewItemUrl(''); setNewItemDate(''); setShowExtras(false); }}>
                   ＋ Adicionar item
                 </button>
               )}

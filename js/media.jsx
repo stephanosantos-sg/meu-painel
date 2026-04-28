@@ -375,9 +375,23 @@ function BookEditModal({ book, idx, onClose, commit, onReFetch }) {
   const [progress, setProgress] = React.useState(book.progress || 0);
   const [genre, setGenre] = React.useState(book.genre || '');
   const [year, setYear] = React.useState(book.year || '');
+  const [poster, setPoster] = React.useState(book.poster || '');
   const [status, setStatus] = React.useState(book.status || 'Fila');
+  const [coverMsg, setCoverMsg] = React.useState('');
+  const fileRef = React.useRef();
+
+  function handleFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024) { setCoverMsg('Imagem muito grande (max 2MB)'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => { setPoster(ev.target.result); setCoverMsg('✓ Capa carregada'); };
+    reader.readAsDataURL(f);
+  }
 
   function handleSave() {
+    let p = poster.trim();
+    if (p && !/^(https?:|data:)/.test(p)) p = 'https://' + p;
     commit(D => {
       const b = D.media.livros[idx];
       if (!b) return;
@@ -387,6 +401,7 @@ function BookEditModal({ book, idx, onClose, commit, onReFetch }) {
       b.progress = parseInt(progress) || 0;
       b.genre = genre.trim() || null;
       b.year = parseInt(year) || null;
+      b.poster = p || null;
       b.status = status;
       b.done = status === 'Lido';
       b.queued = status === 'Fila';
@@ -425,6 +440,24 @@ function BookEditModal({ book, idx, onClose, commit, onReFetch }) {
             <div className="form-group">
               <label className="form-label">Ano</label>
               <input className="form-input" type="number" value={year} onChange={e => setYear(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Capa (URL ou upload)</label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              {poster && (
+                <img src={poster} alt="" style={{ width: 56, height: 84, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid var(--line)' }}
+                  onError={e => { e.target.style.display = 'none'; }} />
+              )}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input className="form-input" placeholder="https://... (cole link da imagem)" value={poster} onChange={e => setPoster(e.target.value)} style={{ fontSize: 12 }} />
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+                  <button className="btn-ghost small" type="button" onClick={() => fileRef.current && fileRef.current.click()} style={{ fontSize: 11 }}>📁 Upload</button>
+                  {poster && <button className="btn-ghost small" type="button" onClick={() => setPoster('')} style={{ fontSize: 11, color: 'var(--ink-4)' }}>✕ Limpar</button>}
+                  {coverMsg && <span style={{ fontSize: 10, color: coverMsg.startsWith('✓') ? '#3ccf91' : '#ff5a3c' }}>{coverMsg}</span>}
+                </div>
+              </div>
             </div>
           </div>
           <div className="form-group">
@@ -480,24 +513,63 @@ function ScreenMedia() {
   const doneItems = items.filter(i => i.done);
   const unwatched = items.filter(i => !i.queued && !i.done);
 
-  function fetchOMDB(title, tabKey, idx) {
-    const q = encodeURIComponent(title);
+  async function fetchOMDB(title, tabKey, idx, opts = {}) {
+    const KEY = '4a3b711b';
     const type = tabKey === 'series' ? 'series' : 'movie';
-    fetch(`https://www.omdbapi.com/?t=${q}&type=${type}&apikey=4a3b711b`)
-      .then(r => r.json()).then(d => {
-        if (d.Response === 'False') return;
-        commit(D => {
-          const item = D.media[tabKey][idx];
-          if (!item) return;
-          if (d.Poster && d.Poster !== 'N/A') item.poster = d.Poster;
-          if (d.Year) item.year = d.Year;
-          if (d.Genre) item.genre = d.Genre;
-          if (d.Director && d.Director !== 'N/A') item.director = d.Director;
-          if (d.Runtime && d.Runtime !== 'N/A') item.runtime = d.Runtime;
-          if (d.totalSeasons) item.seasons = parseInt(d.totalSeasons);
-          if (d.imdbRating && d.imdbRating !== 'N/A') item.rating = Math.round(parseFloat(d.imdbRating) / 2);
-        });
-      }).catch(() => {});
+    const setStatus = opts.setStatus;
+    const titleClean = title.trim();
+    if (!titleClean) {
+      if (setStatus) setStatus('Digite um título para buscar.', 'err');
+      return;
+    }
+    if (setStatus) setStatus('⟳ Buscando...', 'info');
+    async function applyByImdbID(id) {
+      const r = await fetch(`https://www.omdbapi.com/?i=${encodeURIComponent(id)}&plot=short&apikey=${KEY}`);
+      const d = await r.json();
+      if (d.Response === 'False') {
+        if (setStatus) setStatus('Não encontrado: ' + (d.Error || 'sem detalhes'), 'err');
+        return false;
+      }
+      commit(D => {
+        const item = D.media[tabKey][idx];
+        if (!item) return;
+        if (d.Poster && d.Poster !== 'N/A') item.poster = d.Poster;
+        if (d.Year) item.year = d.Year;
+        if (d.Genre) item.genre = d.Genre;
+        if (d.Director && d.Director !== 'N/A') item.director = d.Director;
+        if (d.Runtime && d.Runtime !== 'N/A') item.runtime = d.Runtime;
+        if (d.totalSeasons) item.seasons = parseInt(d.totalSeasons);
+        if (d.imdbRating && d.imdbRating !== 'N/A') item.rating = Math.round(parseFloat(d.imdbRating) / 2);
+        if (d.imdbID) item.imdbID = d.imdbID;
+        if (d.Plot && d.Plot !== 'N/A') item.plot = d.Plot;
+      });
+      if (setStatus) setStatus('✓ Metadados atualizados', 'ok');
+      return true;
+    }
+    try {
+      // Strategy: try exact title first (t=), then fallback to search (s=) → first result
+      const exact = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(titleClean)}&type=${type}&plot=short&apikey=${KEY}`);
+      const ed = await exact.json();
+      if (ed.Response !== 'False' && ed.imdbID) {
+        return applyByImdbID(ed.imdbID);
+      }
+      // Fallback: search
+      const search = await fetch(`https://www.omdbapi.com/?s=${encodeURIComponent(titleClean)}&type=${type}&apikey=${KEY}`);
+      const sd = await search.json();
+      if (sd.Response === 'False' || !sd.Search || !sd.Search.length) {
+        // Try without type restriction
+        const any = await fetch(`https://www.omdbapi.com/?s=${encodeURIComponent(titleClean)}&apikey=${KEY}`);
+        const ad = await any.json();
+        if (ad.Response === 'False' || !ad.Search || !ad.Search.length) {
+          if (setStatus) setStatus('Nenhum resultado para "' + titleClean + '"', 'err');
+          return;
+        }
+        return applyByImdbID(ad.Search[0].imdbID);
+      }
+      return applyByImdbID(sd.Search[0].imdbID);
+    } catch (e) {
+      if (setStatus) setStatus('Erro de rede: ' + e.message, 'err');
+    }
   }
 
   function addItem(status) {
@@ -541,9 +613,9 @@ function ScreenMedia() {
     });
   }
 
-  function reFetch(idx) {
+  function reFetch(idx, opts) {
     const item = items[idx];
-    if (item) fetchOMDB(item.title, tab, idx);
+    if (item) fetchOMDB(item.title, tab, idx, opts);
   }
 
   function deleteItem(idx) {
@@ -677,11 +749,25 @@ function MediaEditModal({ item, idx, tabKey, commit, reFetch, onClose }) {
   const [year, setYear] = React.useState(item.year || '');
   const [genre, setGenre] = React.useState(item.genre || '');
   const [director, setDirector] = React.useState(item.director || '');
+  const [poster, setPoster] = React.useState(item.poster || '');
   const [seasons, setSeasons] = React.useState(item.seasons || '');
   const [currentSeason, setCurrentSeason] = React.useState(item.currentSeason || 1);
   const [status, setStatus] = React.useState(item.done ? 'done' : item.queued ? 'queue' : 'list');
+  const [fetchMsg, setFetchMsg] = React.useState({ text: '', kind: '' });
+  const fileRef = React.useRef();
+
+  function handleFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024) { setFetchMsg({ text: 'Imagem muito grande (max 2MB)', kind: 'err' }); return; }
+    const reader = new FileReader();
+    reader.onload = ev => { setPoster(ev.target.result); setFetchMsg({ text: '✓ Capa carregada', kind: 'ok' }); };
+    reader.readAsDataURL(f);
+  }
 
   function handleSave() {
+    let p = poster.trim();
+    if (p && !/^(https?:|data:)/.test(p)) p = 'https://' + p;
     commit(D => {
       const it = D.media[tabKey][idx];
       if (!it) return;
@@ -689,6 +775,7 @@ function MediaEditModal({ item, idx, tabKey, commit, reFetch, onClose }) {
       it.year = year || null;
       it.genre = genre.trim() || null;
       it.director = director.trim() || null;
+      it.poster = p || null;
       if (tabKey === 'series') { it.seasons = parseInt(seasons) || null; it.currentSeason = parseInt(currentSeason) || 1; }
       it.done = status === 'done';
       it.queued = status === 'queue';
@@ -732,6 +819,23 @@ function MediaEditModal({ item, idx, tabKey, commit, reFetch, onClose }) {
             </div>
           )}
           <div className="form-group">
+            <label className="form-label">Capa (URL ou upload)</label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              {poster && (
+                <img src={poster} alt="" style={{ width: 56, height: 84, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid var(--line)' }}
+                  onError={e => { e.target.style.display = 'none'; }} />
+              )}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input className="form-input" placeholder="https://... (cole link da imagem)" value={poster} onChange={e => setPoster(e.target.value)} style={{ fontSize: 12 }} />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+                  <button className="btn-ghost small" type="button" onClick={() => fileRef.current && fileRef.current.click()} style={{ fontSize: 11 }}>📁 Upload</button>
+                  {poster && <button className="btn-ghost small" type="button" onClick={() => setPoster('')} style={{ fontSize: 11, color: 'var(--ink-4)' }}>✕ Limpar</button>}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="form-group">
             <label className="form-label">Status</label>
             <div className="form-chips">
               {[{ v: 'list', l: 'Para assistir' }, { v: 'queue', l: 'Assistindo' }, { v: 'done', l: 'Concluído' }].map(s => (
@@ -739,7 +843,10 @@ function MediaEditModal({ item, idx, tabKey, commit, reFetch, onClose }) {
               ))}
             </div>
           </div>
-          <button className="btn-ghost small" onClick={() => { reFetch(idx); onClose(); }}>↻ Buscar metadados novamente</button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-ghost small" onClick={() => reFetch(idx, { setStatus: (text, kind) => setFetchMsg({ text, kind }) })} style={{ fontSize: 12 }}>↻ Buscar metadados</button>
+            {fetchMsg.text && <span style={{ fontSize: 11, color: fetchMsg.kind === 'ok' ? '#3ccf91' : fetchMsg.kind === 'err' ? '#ff5a3c' : 'var(--ink-3)' }}>{fetchMsg.text}</span>}
+          </div>
         </div>
         <div className="modal-footer">
           <button className="btn-ghost" onClick={onClose}>Cancelar</button>
