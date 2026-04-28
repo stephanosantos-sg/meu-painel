@@ -113,7 +113,13 @@ window.finGetIncome = finGetIncome;
 /* ────────────────────────────────────────────────────────── */
 function ScreenFinance() {
   const { data, commit } = useData();
-  const [tab, setTab] = React.useState(() => localStorage.getItem('orbita_fin_tab') || 'lancamentos');
+  const [tab, setTab] = React.useState(() => {
+    const t = localStorage.getItem('orbita_fin_tab') || 'lancamentos';
+    // Migrate old tab names to merged ones
+    if (t === 'investimentos' || t === 'dividas') return 'patrimonio';
+    if (t === 'categorias' || t === 'orcamento') return 'config';
+    return t;
+  });
   const [month, setMonth] = React.useState(finCurrentMonth());
   const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
   const fin = data._finance || {};
@@ -137,7 +143,7 @@ function ScreenFinance() {
     }
   }, []);
 
-  const showMonthSwitcher = ['resumo', 'lancamentos', 'cartoes', 'categorias'].includes(tab);
+  const showMonthSwitcher = ['resumo', 'lancamentos', 'cartoes', 'config'].includes(tab);
 
   return (
     <>
@@ -157,14 +163,12 @@ function ScreenFinance() {
             </button>
             {[
               { v: 'lancamentos', l: 'Lançamentos' },
+              { v: 'cartoes', l: 'Cartões' },
               { v: 'resumo', l: 'Resumo' },
               { v: 'graficos', l: 'Gráficos' },
-              { v: 'investimentos', l: 'Investimentos' },
-              { v: 'dividas', l: 'Dívidas' },
-              { v: 'cartoes', l: 'Cartões' },
-              { v: 'categorias', l: 'Categorias' },
+              { v: 'patrimonio', l: 'Patrimônio' },
               { v: 'recorrentes', l: 'Recorrentes' },
-              { v: 'orcamento', l: 'Orçamento' },
+              { v: 'config', l: 'Config' },
             ].map(t => (
               <button key={t.v} className={`tab-btn ${tab === t.v ? 'active' : ''}`} onClick={() => setTab(t.v)}>{t.l}</button>
             ))}
@@ -175,13 +179,13 @@ function ScreenFinance() {
         {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} totalSpent={totalSpent} balance={balance} revealed={revealed} />}
         {tab === 'lancamentos' && <FinLancamentos month={month} setMonth={setMonth} fin={fin} commit={commit} />}
         {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} revealed={revealed} setRevealed={setRevealed} />}
-        {tab === 'graficos' && <FinGraficos fin={fin} />}
-        {tab === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} />}
-        {tab === 'dividas' && <FinDividas fin={fin} commit={commit} />}
+        {tab === 'graficos' && <FinGraficos fin={fin} revealed={revealed} setRevealed={setRevealed} />}
+        {tab === 'patrimonio' && <FinPatrimonio fin={fin} commit={commit} revealed={revealed} />}
+        {tab === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} revealed={revealed} setRevealed={setRevealed} />}
+        {tab === 'dividas' && <FinDividas fin={fin} commit={commit} revealed={revealed} setRevealed={setRevealed} />}
         {tab === 'cartoes' && <FinCartoes month={month} fin={fin} commit={commit} />}
-        {tab === 'categorias' && <FinCategorias month={month} fin={fin} commit={commit} />}
         {tab === 'recorrentes' && <FinRecorrentes fin={fin} commit={commit} />}
-        {tab === 'orcamento' && <FinOrcamento fin={fin} commit={commit} />}
+        {tab === 'config' && <FinConfig month={month} fin={fin} commit={commit} />}
       </div>
     </>
   );
@@ -2348,14 +2352,12 @@ Use a categoria e meio mais apropriados. Se não tiver data, use ${Orbita.todayS
 /* ────────────────────────────────────────────────────────── */
 /* Gráficos / Charts & Insights */
 /* ────────────────────────────────────────────────────────── */
-function FinGraficos({ fin }) {
+function FinGraficos({ fin, revealed = false, setRevealed = () => {} }) {
   const categories = fin.categories || [];
   const txs = fin.transactions || [];
   // Use current month income for projections; fallback to default
   const curMonthForChart = finCurrentMonth();
   const income = finGetIncome(fin, curMonthForChart);
-  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
-  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
   const today = new Date();
   const curMonth = finCurrentMonth();
@@ -2456,21 +2458,6 @@ function FinGraficos({ fin }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Privacy toggle */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
-        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
-            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
-            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
-            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
-            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
-          }}>
-          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
-          {revealed ? 'Ocultar' : 'Revelar'} valores
-        </button>
-      </div>
-
       {/* Insights row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <FinInsightCard
@@ -2774,15 +2761,45 @@ function FinYearlyChart({ data, revealed }) {
 /* ────────────────────────────────────────────────────────── */
 /* Investimentos & Reservas */
 /* ────────────────────────────────────────────────────────── */
-function FinInvestimentos({ fin, commit }) {
+/* ── Patrimônio: Investimentos + Dívidas (assets + liabilities) ── */
+function FinPatrimonio({ fin, commit, revealed }) {
+  const [sub, setSub] = React.useState(() => localStorage.getItem('orbita_fin_patrimonio_sub') || 'investimentos');
+  React.useEffect(() => { localStorage.setItem('orbita_fin_patrimonio_sub', sub); }, [sub]);
+  return (
+    <div>
+      <div className="fin-subtabs" style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        <button className={`tab-btn ${sub === 'investimentos' ? 'active' : ''}`} onClick={() => setSub('investimentos')}>📈 Investimentos</button>
+        <button className={`tab-btn ${sub === 'dividas' ? 'active' : ''}`} onClick={() => setSub('dividas')}>💸 Dívidas</button>
+      </div>
+      {sub === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} revealed={revealed} />}
+      {sub === 'dividas' && <FinDividas fin={fin} commit={commit} revealed={revealed} />}
+    </div>
+  );
+}
+
+/* ── Config: Categorias + Orçamento (settings) ── */
+function FinConfig({ month, fin, commit }) {
+  const [sub, setSub] = React.useState(() => localStorage.getItem('orbita_fin_config_sub') || 'categorias');
+  React.useEffect(() => { localStorage.setItem('orbita_fin_config_sub', sub); }, [sub]);
+  return (
+    <div>
+      <div className="fin-subtabs" style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        <button className={`tab-btn ${sub === 'categorias' ? 'active' : ''}`} onClick={() => setSub('categorias')}>🏷 Categorias</button>
+        <button className={`tab-btn ${sub === 'orcamento' ? 'active' : ''}`} onClick={() => setSub('orcamento')}>📐 Orçamento</button>
+      </div>
+      {sub === 'categorias' && <FinCategorias month={month} fin={fin} commit={commit} />}
+      {sub === 'orcamento' && <FinOrcamento fin={fin} commit={commit} />}
+    </div>
+  );
+}
+
+function FinInvestimentos({ fin, commit, revealed = false, setRevealed = () => {} }) {
   const investments = fin.investments || [];
   const contributions = fin.contributions || [];
-  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
   const [editInv, setEditInv] = React.useState(null);
   const [showAddInv, setShowAddInv] = React.useState(false);
   const [contribFor, setContribFor] = React.useState(null);
   const [showHistory, setShowHistory] = React.useState(false);
-  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
   const total = investments.reduce((s, i) => s + (parseFloat(i.currentValue) || 0), 0);
   const goalTotal = investments.filter(i => i.goal).reduce((s, i) => s + (parseFloat(i.goal) || 0), 0);
@@ -2833,20 +2850,6 @@ function FinInvestimentos({ fin, commit }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Privacy toggle */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
-        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
-            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
-            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
-            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
-            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
-          }}>
-          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
-          {revealed ? 'Ocultar' : 'Revelar'} valores
-        </button>
-      </div>
 
       {/* Hero — Total guardado */}
       <div className="panel" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
@@ -3232,15 +3235,13 @@ function FinContribHistoryModal({ onClose, fin, commit, revealed, deleteContrib 
 /* ────────────────────────────────────────────────────────── */
 /* Dívidas Ativas */
 /* ────────────────────────────────────────────────────────── */
-function FinDividas({ fin, commit }) {
+function FinDividas({ fin, commit, revealed = false, setRevealed = () => {} }) {
   const debts = fin.debts || [];
   const txs = fin.transactions || [];
   const accounts = fin.accounts || [];
-  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
   const [editDebt, setEditDebt] = React.useState(null);
   const [showAdd, setShowAdd] = React.useState(false);
   const [showAuto, setShowAuto] = React.useState(false);
-  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
   // Auto-detect dividas pendentes from installment transactions (parcelas futuras pendentes)
   const today = Orbita.todayStr();
@@ -3296,20 +3297,6 @@ function FinDividas({ fin, commit }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
-        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
-            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
-            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
-            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
-            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
-          }}>
-          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
-          {revealed ? 'Ocultar' : 'Revelar'} valores
-        </button>
-      </div>
-
       {/* Hero summary */}
       <div className="panel" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '40%',
