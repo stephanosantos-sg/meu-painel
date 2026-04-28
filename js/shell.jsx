@@ -263,8 +263,8 @@ function TopBar({ title, subtitle, actions }) {
       </div>
       <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div className="mono desktop-only" style={{ fontSize: 12, color: 'var(--ink-2)', padding: '8px 12px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10 }}>{time}</div>
-        <button className="desktop-only" onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms', flexShrink: 0 }} title="Buscar">⌕</button>
-        <button className="desktop-only" onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms', flexShrink: 0 }} title="Temas">◐</button>
+        <button className="desktop-only" onClick={() => window.dispatchEvent(new CustomEvent('orbita:openCmd'))} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms', flexShrink: 0 }} title="Buscar">⌕</button>
+        <button className="desktop-only" onClick={() => window._openThemes && window._openThemes()} style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 15, cursor: 'pointer', transition: 'all 120ms', flexShrink: 0 }} title="Temas">◐</button>
         <span className="desktop-only"><TopBarSettingsBtn /></span>
         {actions}
       </div>
