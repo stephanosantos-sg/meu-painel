@@ -115,6 +115,7 @@ function ScreenFinance() {
   const { data, commit } = useData();
   const [tab, setTab] = React.useState(() => localStorage.getItem('orbita_fin_tab') || 'lancamentos');
   const [month, setMonth] = React.useState(finCurrentMonth());
+  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
   const fin = data._finance || {};
   const accounts = fin.accounts || FIN_DEFAULT_ACCOUNTS;
   const categories = fin.categories || FIN_DEFAULT_CATEGORIES;
@@ -127,6 +128,7 @@ function ScreenFinance() {
   const balance = income - totalSpent;
 
   React.useEffect(() => { localStorage.setItem('orbita_fin_tab', tab); }, [tab]);
+  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
 
   // Init defaults if first time
   React.useEffect(() => {
@@ -141,7 +143,18 @@ function ScreenFinance() {
     <>
       <TopBar title="Financeiro."
         actions={
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
+              className="fin-reveal-btn"
+              style={{
+                width: 32, height: 32, display: 'grid', placeItems: 'center',
+                background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
+                border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
+                color: revealed ? '#3ccf91' : 'var(--ink-3)', fontSize: 14, cursor: 'pointer',
+                borderRadius: 8, fontFamily: 'var(--font-ui)',
+              }}>
+              {revealed ? '👁' : '⊘'}
+            </button>
             {[
               { v: 'lancamentos', l: 'Lançamentos' },
               { v: 'resumo', l: 'Resumo' },
@@ -159,9 +172,9 @@ function ScreenFinance() {
         }
       />
       <div className="fin-screen-pad">
-        {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} totalSpent={totalSpent} balance={balance} />}
+        {showMonthSwitcher && <FinMonthSwitcher month={month} setMonth={setMonth} totalSpent={totalSpent} balance={balance} revealed={revealed} />}
         {tab === 'lancamentos' && <FinLancamentos month={month} setMonth={setMonth} fin={fin} commit={commit} />}
-        {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} />}
+        {tab === 'resumo' && <FinResumo month={month} fin={fin} commit={commit} revealed={revealed} setRevealed={setRevealed} />}
         {tab === 'graficos' && <FinGraficos fin={fin} />}
         {tab === 'investimentos' && <FinInvestimentos fin={fin} commit={commit} />}
         {tab === 'dividas' && <FinDividas fin={fin} commit={commit} />}
@@ -181,13 +194,13 @@ function BlurValue({ revealed, children, style }) {
 }
 
 /* ── Month switcher ── */
-function FinMonthSwitcher({ month, setMonth, totalSpent, balance }) {
+function FinMonthSwitcher({ month, setMonth, totalSpent, balance, revealed }) {
   function shift(delta) {
     const [y, m] = month.split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     setMonth(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
   }
-  const showStats = typeof totalSpent === 'number' || typeof balance === 'number';
+  const showStats = revealed && (typeof totalSpent === 'number' || typeof balance === 'number');
   return (
     <div className="fin-month-switcher" style={{ marginBottom: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -210,7 +223,7 @@ function FinMonthSwitcher({ month, setMonth, totalSpent, balance }) {
 /* ────────────────────────────────────────────────────────── */
 /* Resumo / Dashboard */
 /* ────────────────────────────────────────────────────────── */
-function FinResumo({ month, fin, commit }) {
+function FinResumo({ month, fin, commit, revealed: revealedProp, setRevealed: setRevealedProp }) {
   const accounts = fin.accounts || [];
   const categories = fin.categories || [];
   const txs = fin.transactions || [];
@@ -233,8 +246,8 @@ function FinResumo({ month, fin, commit }) {
     commit(D => { finEnsure(D); delete D._finance.incomeByMonth[month]; });
     setEditingIncome(false);
   }
-  const [revealed, setRevealed] = React.useState(() => localStorage.getItem('orbita_fin_revealed') === '1');
-  React.useEffect(() => { localStorage.setItem('orbita_fin_revealed', revealed ? '1' : '0'); }, [revealed]);
+  const revealed = revealedProp;
+  const setRevealed = setRevealedProp || (() => {});
 
   const monthTxs = txs.filter(t => finMonth(t.date) === month);
   const prevMonthTxs = txs.filter(t => finMonth(t.date) === finPrevMonth(month));
@@ -282,21 +295,6 @@ function FinResumo({ month, fin, commit }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Privacy toggle */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -10 }}>
-        <button onClick={() => setRevealed(v => !v)} title={revealed ? 'Ocultar valores' : 'Revelar valores'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
-            background: revealed ? 'rgba(60,207,145,0.1)' : 'var(--glass-bg)',
-            border: revealed ? '1px solid rgba(60,207,145,0.3)' : '1px solid var(--glass-border)',
-            color: revealed ? '#3ccf91' : 'var(--ink-2)', fontSize: 12, cursor: 'pointer',
-            fontFamily: 'var(--font-ui)', transition: 'all 120ms',
-          }}>
-          <span style={{ fontSize: 14 }}>{revealed ? '👁' : '⊘'}</span>
-          {revealed ? 'Ocultar' : 'Revelar'} valores
-        </button>
-      </div>
-
       {/* Hero */}
       <div className="panel" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '40%',

@@ -6,7 +6,8 @@
 .desktop-only { display: flex; }
 .tab-scroll { scrollbar-width: none; -ms-overflow-style: none; }
 .tab-scroll::-webkit-scrollbar { display: none; }
-.workspace { min-width: 0; padding: 28px 0 0; overflow-x: hidden; overflow-y: auto; max-height: 100vh; }
+.workspace { min-width: 0; padding: 28px 0 0; overflow-x: hidden; overflow-y: auto; max-height: 100vh; scrollbar-width: none; -ms-overflow-style: none; }
+.workspace::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* ─── SIDEBAR ─── */
 .sidebar {
