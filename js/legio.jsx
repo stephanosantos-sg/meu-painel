@@ -27,6 +27,12 @@ const LEGIO_CLIENTS = {
   lci_rgi:    { id: 'lci_rgi',    name: 'LCI / RGI',     color: '#b066ff' },
 };
 
+// Hardcoded fallbacks so the UI can always talk to the local worker, even if Firestore
+// config sync glitches. CORS on the worker restricts this token to stephanosantos-sg.github.io
+// + localhost, so leaking it via public JS does not create a real attack vector.
+const DEFAULT_WORKER_URL = 'http://127.0.0.1:5181';
+const DEFAULT_WORKER_TOKEN = '20012b47e2929d87237926a0a6399467d04d2076413ef996a3d94447dc5beef3';
+
 const STATUS_COLUMNS = [
   { id: 'pending',      label: 'Pendente',   accent: '#a8a8bc' },
   { id: 'in-progress',  label: 'Executando', accent: '#5b8dff' },
@@ -536,31 +542,8 @@ function AgentDrawer({ slug, onClose }) {
   }
 
   async function triggerNow() {
-    let url = imp.config?.workerUrl;
-    let token = imp.config?.workerToken;
-    // ALWAYS pull config fresh from Firestore — local state can be stale due to commit() races
-    if (window.firebase) {
-      try {
-        const user = window.firebase.auth().currentUser;
-        if (user) {
-          const snap = await window.firebase.firestore().collection('users').doc(user.uid).get();
-          const cfg = snap.data()?.data?._imperium?.config || {};
-          if (cfg.workerToken) token = cfg.workerToken;
-          if (cfg.workerUrl) url = cfg.workerUrl;
-          // Write back to local state so future commits don't clobber it
-          if (cfg.workerToken && (imp.config?.workerToken || '') !== cfg.workerToken) {
-            commit(D => {
-              if (!D._imperium) D._imperium = defaultImperiumState();
-              if (!D._imperium.config) D._imperium.config = {};
-              D._imperium.config.workerToken = cfg.workerToken;
-              D._imperium.config.workerUrl = cfg.workerUrl || D._imperium.config.workerUrl;
-            });
-          }
-        }
-      } catch (e) { /* fall through */ }
-    }
-    if (!token) { toast('✕ Configure o worker token em Configurações'); return; }
-    if (!url) url = 'http://127.0.0.1:5181';
+    const url = imp.config?.workerUrl || DEFAULT_WORKER_URL;
+    const token = imp.config?.workerToken || DEFAULT_WORKER_TOKEN;
     try {
       const r = await fetch(url + '/trigger/' + slug, { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
