@@ -33,6 +33,31 @@ const LEGIO_CLIENTS = {
 const DEFAULT_WORKER_URL = 'http://127.0.0.1:5181';
 const DEFAULT_WORKER_TOKEN = '20012b47e2929d87237926a0a6399467d04d2076413ef996a3d94447dc5beef3';
 
+const SOURCE_STYLES = {
+  asana:    { icon: '◉', label: 'Asana',     color: '#F06A6A', bg: 'rgba(240,106,106,0.14)' },
+  slack:    { icon: '#', label: 'Slack',     color: '#ECB22E', bg: 'rgba(236,178,46,0.14)' },
+  gong:     { icon: '◐', label: 'Gong',      color: '#7B5BD1', bg: 'rgba(123,91,209,0.14)' },
+  gmail:    { icon: '✉', label: 'Gmail',     color: '#EA4335', bg: 'rgba(234,67,53,0.14)' },
+  basecamp: { icon: '▣', label: 'Basecamp',  color: '#4ABF5B', bg: 'rgba(74,191,91,0.14)' },
+  manual:   { icon: '✎', label: 'Manual',    color: '#a8a8bc', bg: 'rgba(168,168,188,0.10)' },
+  cron:     { icon: '⏱', label: 'Cron',      color: '#a8a8bc', bg: 'rgba(168,168,188,0.10)' },
+};
+
+function SourceBadge({ source }) {
+  const s = SOURCE_STYLES[source] || SOURCE_STYLES.manual;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 7px', borderRadius: 999,
+      fontSize: 10, fontWeight: 600,
+      background: s.bg, color: s.color,
+      border: `1px solid ${s.color}33`,
+    }}>
+      <span style={{ fontFamily: 'var(--font-mono)' }}>{s.icon}</span>{s.label}
+    </span>
+  );
+}
+
 const STATUS_COLUMNS = [
   { id: 'pending',      label: 'Pendente',   accent: '#a8a8bc' },
   { id: 'in-progress',  label: 'Executando', accent: '#5b8dff' },
@@ -167,10 +192,10 @@ function TaskCard({ task, agent, client, onClick, onDragStart, onStart, onDelete
         <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-1)', lineHeight: 1.35, flex: 1 }}>{task.title}</div>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0, marginTop: 4 }}/>
       </div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 8, fontSize: 10, color: 'var(--ink-3)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, fontSize: 10, color: 'var(--ink-3)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <SourceBadge source={task.sourceType}/>
         {client ? <span style={{ padding: '2px 7px', borderRadius: 999, background: client.color + '22', color: client.color, fontWeight: 600 }}>{client.name}</span> : null}
         {agent ? <span style={{ padding: '2px 7px', borderRadius: 999, background: 'rgba(255,255,255,0.04)' }}>{agent.name}</span> : null}
-        <span style={{ padding: '2px 7px', borderRadius: 999, background: 'rgba(255,255,255,0.04)' }}>{task.sourceType}</span>
         {task.priority === 1 ? <span style={{ padding: '2px 7px', borderRadius: 999, background: '#C8102E33', color: '#ff7a8a', fontWeight: 600 }}>Urgente</span> : null}
       </div>
       {task.outputSummary ? (
@@ -871,12 +896,35 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
 }
 
 function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart, onDelete }) {
-  const { data } = useData();
+  const { data, toast } = useData();
   const imp = data._imperium || defaultImperiumState();
   const task = (imp.tasks || []).find(t => t.id === taskId);
   if (!task) return null;
   const agent = imp.agents[task.assignedTo];
   const client = imp.clients[task.clientId];
+
+  async function completeInAsana() {
+    const url = imp.config?.workerUrl || DEFAULT_WORKER_URL;
+    const token = imp.config?.workerToken || DEFAULT_WORKER_TOKEN;
+    const gid = (task.sourceRef || '').match(/\d+/)?.[0];
+    if (!gid) { toast('✕ Não achei gid da Asana em sourceRef'); return; }
+    try {
+      const r = await fetch(url + '/asana/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ taskGid: gid }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || ('HTTP ' + r.status));
+      }
+      toast(`✓ Asana ${gid} concluída`);
+    } catch (e) {
+      toast('✕ Asana falhou · ' + e.message);
+    }
+  }
+
+  const asanaGid = task.sourceType === 'asana' ? (task.sourceRef || '').match(/\d+/)?.[0] : null;
 
   return (
     <div onClick={onClose} style={{
@@ -897,10 +945,10 @@ function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart,
           {task.title}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+          <SourceBadge source={task.sourceType}/>
           {client ? <span className="chip" style={{ background: client.color + '22', borderColor: client.color, color: client.color }}>{client.name}</span> : null}
           {agent ? <span className="chip">{agent.name}</span> : null}
-          <span className="chip">{task.sourceType}</span>
           <span className="chip" style={{ background: STATUS_COLUMNS.find(c => c.id === task.status)?.accent + '22', color: STATUS_COLUMNS.find(c => c.id === task.status)?.accent }}>
             {STATUS_COLUMNS.find(c => c.id === task.status)?.label}
           </span>
@@ -951,17 +999,30 @@ function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart,
           </button>
         ) : null}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
             ID: {task.id} · Criada: {fmtAgo(task.createdAt)}
           </div>
-          {onDelete ? (
-            <button onClick={() => { if (confirm('Excluir essa tarefa?')) { onDelete(task.id); onClose(); } }} style={{
-              padding: '6px 10px', borderRadius: 6, fontSize: 11,
-              background: 'rgba(255,90,60,0.06)', color: '#ff7a5a',
-              border: '1px solid rgba(255,90,60,0.25)', cursor: 'pointer',
-            }}>🗑 Excluir</button>
-          ) : null}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {asanaGid ? (
+              <button onClick={completeInAsana} style={{
+                padding: '6px 10px', borderRadius: 6, fontSize: 11,
+                background: 'rgba(240,106,106,0.06)', color: '#F06A6A',
+                border: '1px solid rgba(240,106,106,0.3)', cursor: 'pointer',
+              }} title={`Marcar Asana ${asanaGid} como concluída`}>✓ Concluir no Asana</button>
+            ) : null}
+            {onDelete ? (
+              <button onClick={() => {
+                if (!confirm('Excluir essa tarefa?')) return;
+                if (asanaGid && confirm('Marcar também como concluída no Asana?')) completeInAsana();
+                onDelete(task.id); onClose();
+              }} style={{
+                padding: '6px 10px', borderRadius: 6, fontSize: 11,
+                background: 'rgba(255,90,60,0.06)', color: '#ff7a5a',
+                border: '1px solid rgba(255,90,60,0.25)', cursor: 'pointer',
+              }}>🗑 Excluir</button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
