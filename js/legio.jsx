@@ -86,7 +86,7 @@ function fmtAgo(ts) {
   return `${Math.round(s/86400)}d atrás`;
 }
 
-function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badge }) {
+function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badge, activity }) {
   const svg = window.LegioAvatars ? window.LegioAvatars.getAvatarSVG(slug) : '';
   return (
     <div onClick={onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: onClick ? 'pointer' : 'default', minWidth: size + 24 }}>
@@ -119,6 +119,16 @@ function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badg
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-1)', lineHeight: 1.1 }}>{label}</div>
           {sublabel ? <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 2 }}>{sublabel}</div> : null}
+        </div>
+      ) : null}
+      {activity ? (
+        <div style={{
+          fontSize: 9, fontFamily: 'var(--font-mono)', color: '#D4AF37',
+          padding: '3px 8px', borderRadius: 999,
+          background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)',
+          maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }} title={activity}>
+          {activity}
         </div>
       ) : null}
     </div>
@@ -198,9 +208,9 @@ function ScreenLegio() {
           const cloud = doc.data();
           const cloudImp = cloud?.data?._imperium;
           if (!cloudImp) return;
-          const localImp = dataRef.current._imperium;
-          // Only fire event when the imperium blob actually changed
-          if (JSON.stringify(localImp) === JSON.stringify(cloudImp)) return;
+          // Always re-dispatch — React will reconcile and the diff is cheap.
+          // Equality check (JSON.stringify) was unreliable due to undefined
+          // values + key ordering differences between local + Firestore.
           const merged = { ...dataRef.current, _imperium: cloudImp };
           window.dispatchEvent(new CustomEvent('orbita:dataPulled', { detail: merged }));
         }, err => console.warn('imperium onSnapshot:', err.message));
@@ -343,6 +353,7 @@ function ScreenLegio() {
                     label={a.name}
                     sublabel={a.role}
                     badge={reviewBadge || null}
+                    activity={(agent.status === 'thinking' || agent.status === 'calling') && agent.activity ? agent.activity : null}
                   />
                 </div>
               );
@@ -596,6 +607,34 @@ function AgentDrawer({ slug, onClose }) {
             {agent.enabled ? '⏸ Desabilitar' : '▶ Habilitar'}
           </button>
         </div>
+
+        {(agent.status === 'thinking' || agent.status === 'calling') ? (
+          <div style={{ marginBottom: 20, padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, rgba(212,175,55,0.08), rgba(200,16,46,0.06))', border: '1px solid rgba(212,175,55,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div className="eyebrow" style={{ color: '#D4AF37' }}>
+                {agent.status === 'thinking' ? '◐ Pensando' : '⚡ Chamando ferramenta'}
+              </div>
+              <span className="mono" style={{ fontSize: 11, color: '#D4AF37' }}>
+                {agent.lastStep || 0}/{agent.maxSteps || 16}
+              </span>
+            </div>
+            {agent.activity ? (
+              <div style={{ fontSize: 12, color: 'var(--ink-1)', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>{agent.activity}</div>
+            ) : null}
+            <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${Math.min(100, ((agent.lastStep || 0) / (agent.maxSteps || 16)) * 100)}%`,
+                background: 'linear-gradient(90deg, #C8102E, #D4AF37)',
+                transition: 'width 400ms ease-out',
+              }}/>
+            </div>
+            {agent.lastSpendUSD ? (
+              <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
+                ${agent.lastSpendUSD.toFixed(3)} gastos nesta corrida
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div style={{ marginBottom: 20 }}>
           <div className="eyebrow" style={{ marginBottom: 8 }}>Heartbeat</div>
