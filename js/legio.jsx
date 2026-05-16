@@ -1,16 +1,22 @@
 /* Imperium — Legio screen: live agent dashboard, queue board, review gate */
 
 const LEGIO_AGENTS = [
-  { slug: 'augustus',     name: 'Augustus',        role: 'Task Scanner',         clientId: null,         order: 1 },
-  { slug: 'trajan',       name: 'Trajan',          role: 'TLC Specialist',       clientId: 'tlc',        order: 2 },
-  { slug: 'marcus',       name: 'Marcus Aurelius', role: 'MadCap Specialist',    clientId: 'madcap',     order: 3 },
-  { slug: 'hadrian',      name: 'Hadrian',         role: 'Hyperdrive Specialist',clientId: 'hyperdrive', order: 4 },
-  { slug: 'vespasian',    name: 'Vespasian',       role: 'UpKeep Specialist',    clientId: 'upkeep',     order: 5 },
-  { slug: 'lucius_verus', name: 'Lucius Verus',    role: 'LCI/RGI Specialist',   clientId: 'lci_rgi',    order: 6 },
-  { slug: 'diocletian',   name: 'Diocletian',      role: 'Reviewer',             clientId: null,         order: 7 },
-  { slug: 'caesar',       name: 'Caesar',          role: 'Executor',             clientId: null,         order: 8 },
-  { slug: 'tiberius',     name: 'Tiberius',        role: 'Auditor',              clientId: null,         order: 9 },
-  { slug: 'claudius',     name: 'Claudius',        role: 'Routine',              clientId: null,         order: 10 },
+  { slug: 'augustus',     name: 'Augustus',        role: 'Task Scanner',         clientId: null,         order: 1,  defaultModel: 'claude-opus-4-7' },
+  { slug: 'trajan',       name: 'Trajan',          role: 'TLC Specialist',       clientId: 'tlc',        order: 2,  defaultModel: 'claude-sonnet-4-6' },
+  { slug: 'marcus',       name: 'Marcus Aurelius', role: 'MadCap Specialist',    clientId: 'madcap',     order: 3,  defaultModel: 'claude-sonnet-4-6' },
+  { slug: 'hadrian',      name: 'Hadrian',         role: 'Hyperdrive Specialist',clientId: 'hyperdrive', order: 4,  defaultModel: 'claude-sonnet-4-6' },
+  { slug: 'vespasian',    name: 'Vespasian',       role: 'UpKeep Specialist',    clientId: 'upkeep',     order: 5,  defaultModel: 'claude-sonnet-4-6' },
+  { slug: 'lucius_verus', name: 'Lucius Verus',    role: 'LCI/RGI Specialist',   clientId: 'lci_rgi',    order: 6,  defaultModel: 'claude-sonnet-4-6' },
+  { slug: 'diocletian',   name: 'Diocletian',      role: 'Reviewer',             clientId: null,         order: 7,  defaultModel: 'claude-opus-4-7' },
+  { slug: 'caesar',       name: 'Caesar',          role: 'Executor',             clientId: null,         order: 8,  defaultModel: 'claude-opus-4-7' },
+  { slug: 'tiberius',     name: 'Tiberius',        role: 'Auditor',              clientId: null,         order: 9,  defaultModel: 'claude-sonnet-4-6' },
+  { slug: 'claudius',     name: 'Claudius',        role: 'Routine',              clientId: null,         order: 10, defaultModel: 'claude-haiku-4-5-20251001' },
+];
+
+const LEGIO_MODELS = [
+  { id: 'claude-opus-4-7',           label: 'Opus 4.7',   tier: 'premium',  hint: 'mais capaz, mais caro' },
+  { id: 'claude-sonnet-4-6',         label: 'Sonnet 4.6', tier: 'standard', hint: 'equilibrado' },
+  { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5',  tier: 'fast',     hint: 'rápido, mais barato' },
 ];
 
 const LEGIO_CLIENTS = {
@@ -36,7 +42,7 @@ function defaultImperiumState() {
     agents[a.slug] = {
       id: a.slug, name: a.name, role: a.role, clientId: a.clientId,
       status: 'offline', lastHeartbeat: 0, lastError: null, currentTaskId: null,
-      model: 'claude-sonnet-4-5', systemPromptRef: `${a.slug}.md`,
+      model: a.defaultModel, systemPromptRef: `${a.slug}.md`,
       avatarKey: a.slug, enabled: a.slug === 'augustus',
     };
   });
@@ -483,6 +489,12 @@ function AgentDrawer({ slug, onClose }) {
     toast(agent.enabled ? `${meta.name} desabilitado` : `${meta.name} habilitado`);
   }
 
+  function setModel(modelId) {
+    commit(D => { D._imperium.agents[slug].model = modelId; });
+    const lbl = LEGIO_MODELS.find(m => m.id === modelId)?.label || modelId;
+    toast(`${meta.name} → ${lbl}`);
+  }
+
   async function triggerNow() {
     const url = imp.config?.workerUrl + '/trigger/' + slug;
     const token = imp.config?.workerToken;
@@ -524,7 +536,27 @@ function AgentDrawer({ slug, onClose }) {
           {client ? (
             <span className="chip" style={{ background: client.color + '22', borderColor: client.color, color: client.color }}>{client.name}</span>
           ) : null}
-          <span className="chip">{agent.model}</span>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Modelo</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {LEGIO_MODELS.map(m => {
+              const active = (agent.model || meta.defaultModel) === m.id;
+              return (
+                <button key={m.id} onClick={() => setModel(m.id)} style={{
+                  flex: 1, minWidth: 110, padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
+                  background: active ? 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(200,16,46,0.12))' : 'var(--glass-bg)',
+                  border: active ? '1px solid #D4AF37' : '1px solid var(--glass-border)',
+                  color: active ? '#F4D17A' : 'var(--ink-2)', textAlign: 'center',
+                  fontFamily: 'var(--font-ui)', transition: 'all 150ms',
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{m.label}</div>
+                  <div style={{ fontSize: 9.5, color: active ? '#D4AF37bb' : 'var(--ink-3)', marginTop: 2 }}>{m.hint}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
