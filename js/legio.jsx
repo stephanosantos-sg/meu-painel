@@ -608,33 +608,43 @@ function AgentDrawer({ slug, onClose }) {
           </button>
         </div>
 
-        {(agent.status === 'thinking' || agent.status === 'calling') ? (
-          <div style={{ marginBottom: 20, padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, rgba(212,175,55,0.08), rgba(200,16,46,0.06))', border: '1px solid rgba(212,175,55,0.3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div className="eyebrow" style={{ color: '#D4AF37' }}>
-                {agent.status === 'thinking' ? '◐ Pensando' : '⚡ Chamando ferramenta'}
+        {(agent.status === 'thinking' || agent.status === 'calling') ? (() => {
+          const step = agent.lastStep || 0;
+          const total = agent.maxSteps || 16;
+          const startedAt = agent.runStartedAt || Date.now();
+          const elapsedMs = Date.now() - startedAt;
+          const elapsedS = Math.round(elapsedMs / 1000);
+          const fmtSec = s => s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+          const etaS = step > 0 && step < total
+            ? Math.round((elapsedMs / step) * (total - step) / 1000)
+            : null;
+          return (
+            <div style={{ marginBottom: 20, padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, rgba(212,175,55,0.08), rgba(200,16,46,0.06))', border: '1px solid rgba(212,175,55,0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div className="eyebrow" style={{ color: '#D4AF37' }}>
+                  {agent.status === 'thinking' ? '◐ Pensando' : '⚡ Chamando ferramenta'}
+                </div>
+                <span className="mono" style={{ fontSize: 11, color: '#D4AF37' }}>
+                  {step}/{total}
+                </span>
               </div>
-              <span className="mono" style={{ fontSize: 11, color: '#D4AF37' }}>
-                {agent.lastStep || 0}/{agent.maxSteps || 16}
-              </span>
-            </div>
-            {agent.activity ? (
-              <div style={{ fontSize: 12, color: 'var(--ink-1)', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>{agent.activity}</div>
-            ) : null}
-            <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${Math.min(100, ((agent.lastStep || 0) / (agent.maxSteps || 16)) * 100)}%`,
-                background: 'linear-gradient(90deg, #C8102E, #D4AF37)',
-                transition: 'width 400ms ease-out',
-              }}/>
-            </div>
-            {agent.lastSpendUSD ? (
-              <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
-                ${agent.lastSpendUSD.toFixed(3)} gastos nesta corrida
+              {agent.activity ? (
+                <div style={{ fontSize: 12, color: 'var(--ink-1)', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>{agent.activity}</div>
+              ) : null}
+              <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${Math.min(100, (step / total) * 100)}%`,
+                  background: 'linear-gradient(90deg, #C8102E, #D4AF37)',
+                  transition: 'width 400ms ease-out',
+                }}/>
               </div>
-            ) : null}
-          </div>
-        ) : null}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8, fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+                <span>⏱ {fmtSec(elapsedS)} decorrido{etaS != null ? ` · ~${fmtSec(etaS)} restante` : ''}</span>
+                {agent.lastSpendUSD ? <span>${agent.lastSpendUSD.toFixed(3)}</span> : null}
+              </div>
+            </div>
+          );
+        })() : null}
 
         <div style={{ marginBottom: 20 }}>
           <div className="eyebrow" style={{ marginBottom: 8 }}>Heartbeat</div>
