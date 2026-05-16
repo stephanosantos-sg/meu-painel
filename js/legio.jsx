@@ -92,21 +92,22 @@ function fmtAgo(ts) {
   return `${Math.round(s/86400)}d atrás`;
 }
 
-function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badge, activity }) {
+function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badge, activity, working }) {
   const svg = window.LegioAvatars ? window.LegioAvatars.getAvatarSVG(slug) : '';
   return (
     <div onClick={onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: onClick ? 'pointer' : 'default', minWidth: size + 24 }}>
       <div style={{ position: 'relative' }}>
         <div
+          className={working ? 'legio-avatar-working' : ''}
           style={{
             width: size, height: size, borderRadius: '50%', overflow: 'hidden',
             background: 'radial-gradient(circle, #1a0606, #08080c)',
-            boxShadow: `0 0 0 2px ${status ? status.color : '#3a3a4a'}, 0 0 ${size * 0.4}px ${status ? status.color + '55' : 'transparent'}`,
+            boxShadow: working ? undefined : `0 0 0 2px ${status ? status.color : '#3a3a4a'}, 0 0 ${size * 0.4}px ${status ? status.color + '55' : 'transparent'}`,
             transition: 'all 200ms',
           }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-        <div style={{
+        <div className={working ? 'legio-dot-working' : ''} style={{
           position: 'absolute', bottom: 2, right: 2,
           width: 12, height: 12, borderRadius: '50%',
           background: status ? status.color : '#3a3a4a',
@@ -356,6 +357,7 @@ function ScreenLegio() {
                     slug={a.slug}
                     size={72}
                     status={status}
+                    working={agent.status === 'thinking' || agent.status === 'calling'}
                     onClick={() => setSelectedAgent(a.slug)}
                     label={a.name}
                     sublabel={a.role}
@@ -367,6 +369,8 @@ function ScreenLegio() {
             })}
           </div>
         </div>
+
+        <SlackPullCard impConfig={imp.config} clients={imp.clients} toast={toast} />
 
         {/* Para minha revisão hero */}
         {needsReview.length > 0 ? (
@@ -523,6 +527,93 @@ function ScreenLegio() {
         />
       ) : null}
     </>
+  );
+}
+
+function SlackPullCard({ impConfig, clients, toast }) {
+  const [channels, setChannels] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [chosenChannel, setChosenChannel] = React.useState('');
+  const [chosenClient, setChosenClient] = React.useState('');
+  const [pulling, setPulling] = React.useState(false);
+  const [lastResult, setLastResult] = React.useState('');
+
+  const url = impConfig?.workerUrl || DEFAULT_WORKER_URL;
+  const token = impConfig?.workerToken || DEFAULT_WORKER_TOKEN;
+
+  async function loadChannels() {
+    setLoading(true);
+    try {
+      const r = await fetch(url + '/slack/channels', { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      setChannels(j.channels || []);
+    } catch (e) {
+      toast('✕ Falha ao listar canais · ' + e.message);
+    } finally { setLoading(false); }
+  }
+  React.useEffect(() => { loadChannels(); }, []);
+
+  async function pull() {
+    if (!chosenChannel) { toast('✕ Escolha um canal'); return; }
+    setPulling(true);
+    setLastResult('');
+    try {
+      const ch = channels.find(c => c.id === chosenChannel);
+      const r = await fetch(url + '/slack/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ channel: chosenChannel, channelName: ch?.name, clientId: chosenClient || null }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      setLastResult(`✓ ${j.created} tarefa${j.created === 1 ? '' : 's'} criada${j.created === 1 ? '' : 's'} · $${(j.spend || 0).toFixed(3)}`);
+      toast(`✓ Slack pull: ${j.created} tarefas`);
+    } catch (e) {
+      setLastResult('✕ ' + e.message);
+      toast('✕ Slack pull falhou · ' + e.message);
+    } finally { setPulling(false); }
+  }
+
+  return (
+    <div className="glass" style={{ padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div className="eyebrow">Puxar do Slack manual</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>
+            Extrai tarefas de um canal específico (mais rápido + barato que rodar Augustus inteiro)
+          </div>
+        </div>
+        <button onClick={loadChannels} disabled={loading} style={{
+          fontSize: 11, padding: '6px 10px', borderRadius: 999, background: 'transparent',
+          border: '1px solid var(--glass-border)', color: 'var(--ink-3)', cursor: 'pointer',
+        }}>{loading ? '...' : '↻ Recarregar canais'}</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(180px, 1fr) auto', gap: 10, alignItems: 'end' }}>
+        <div>
+          <label className="form-label" style={{ fontSize: 10 }}>Canal Slack ({channels.length} disponíveis)</label>
+          <select className="form-input" value={chosenChannel} onChange={e => setChosenChannel(e.target.value)} disabled={loading || !channels.length} style={{ width: '100%' }}>
+            <option value="">— Escolha um canal —</option>
+            {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="form-label" style={{ fontSize: 10 }}>Cliente (opcional, força mapping)</label>
+          <select className="form-input" value={chosenClient} onChange={e => setChosenClient(e.target.value)} style={{ width: '100%' }}>
+            <option value="">— Augustus decide —</option>
+            {Object.values(clients || {}).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <button onClick={pull} disabled={pulling || !chosenChannel} className="btn btn-primary" style={{ height: 38, padding: '0 18px', fontSize: 13, justifyContent: 'center', opacity: pulling || !chosenChannel ? 0.5 : 1 }}>
+          {pulling ? 'Extraindo...' : '⚡ Extrair tarefas'}
+        </button>
+      </div>
+
+      {lastResult ? (
+        <div style={{ marginTop: 10, fontSize: 12, color: lastResult.startsWith('✓') ? '#3ccf91' : '#ff7a5a' }}>{lastResult}</div>
+      ) : null}
+    </div>
   );
 }
 

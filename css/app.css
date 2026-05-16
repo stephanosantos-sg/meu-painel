@@ -8,6 +8,16 @@
 .tab-scroll::-webkit-scrollbar { display: none; }
 .legio-kanban { scrollbar-width: none; -ms-overflow-style: none; }
 .legio-kanban::-webkit-scrollbar { display: none; }
+@keyframes legio-working-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #D4AF37, 0 0 0px rgba(212,175,55,0.0); }
+  50%      { box-shadow: 0 0 0 2px #F4D17A, 0 0 32px rgba(212,175,55,0.55); }
+}
+.legio-avatar-working { animation: legio-working-pulse 1.4s ease-in-out infinite; }
+@keyframes legio-dot-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.7; }
+}
+.legio-dot-working { animation: legio-dot-pulse 1s ease-in-out infinite; background: #F4D17A !important; }
 .workspace { min-width: 0; padding: 28px 0 0; overflow-x: hidden; overflow-y: auto; max-height: 100vh; scrollbar-width: none; -ms-overflow-style: none; }
 .workspace::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
