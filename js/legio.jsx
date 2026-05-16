@@ -184,6 +184,7 @@ function ScreenLegio() {
   const [selectedTask, setSelectedTask] = React.useState(null);
   const [filterClient, setFilterClient] = React.useState('all');
   const [showNewTask, setShowNewTask] = React.useState(false);
+  const [newTaskPreset, setNewTaskPreset] = React.useState(null);
   const [, force] = React.useReducer(x => x + 1, 0);
 
   // Initialize _imperium on first mount if missing
@@ -497,7 +498,11 @@ function ScreenLegio() {
       </div>
 
       {selectedAgent ? (
-        <AgentDrawer slug={selectedAgent} onClose={() => setSelectedAgent(null)} />
+        <AgentDrawer
+          slug={selectedAgent}
+          onClose={() => setSelectedAgent(null)}
+          onQuickAdd={(preset) => { setNewTaskPreset(preset); setShowNewTask(true); setSelectedAgent(null); }}
+        />
       ) : null}
 
       {selectedTask ? (
@@ -511,13 +516,17 @@ function ScreenLegio() {
       ) : null}
 
       {showNewTask ? (
-        <NewTaskModal onClose={() => setShowNewTask(false)} onCreate={createTask} />
+        <NewTaskModal
+          onClose={() => { setShowNewTask(false); setNewTaskPreset(null); }}
+          onCreate={createTask}
+          preset={newTaskPreset}
+        />
       ) : null}
     </>
   );
 }
 
-function AgentDrawer({ slug, onClose }) {
+function AgentDrawer({ slug, onClose, onQuickAdd }) {
   const { data, commit, toast } = useData();
   const imp = data._imperium || defaultImperiumState();
   const agent = imp.agents[slug];
@@ -604,7 +613,7 @@ function AgentDrawer({ slug, onClose }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
           <button onClick={triggerNow} disabled={!agent.enabled} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', opacity: agent.enabled ? 1 : 0.5 }}>
             ⚡ Disparar agora
           </button>
@@ -612,6 +621,15 @@ function AgentDrawer({ slug, onClose }) {
             {agent.enabled ? '⏸ Desabilitar' : '▶ Habilitar'}
           </button>
         </div>
+        {onQuickAdd ? (
+          <button
+            onClick={() => onQuickAdd({ assignedTo: slug, clientId: meta.clientId || null })}
+            className="btn"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 24, fontSize: 13 }}
+          >
+            ＋ Nova tarefa pra {meta.name}
+          </button>
+        ) : null}
 
         {(agent.status === 'thinking' || agent.status === 'calling') ? (() => {
           const step = agent.lastStep || 0;
@@ -787,10 +805,10 @@ function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign }) {
   );
 }
 
-function NewTaskModal({ onClose, onCreate }) {
+function NewTaskModal({ onClose, onCreate, preset }) {
   const [title, setTitle] = React.useState('');
-  const [clientId, setClientId] = React.useState('');
-  const [assignedTo, setAssignedTo] = React.useState('');
+  const [clientId, setClientId] = React.useState(preset?.clientId || '');
+  const [assignedTo, setAssignedTo] = React.useState(preset?.assignedTo || '');
   const [priority, setPriority] = React.useState(2);
 
   function submit() {
