@@ -224,6 +224,7 @@ function App() {
 
   const screens = {
     today: () => <ScreenToday onNewTask={openNewTask} />,
+    legio: () => <ScreenLegio />,
     habits: () => <ScreenHabits onNewHabit={openNewHabit} />,
     goals: () => <ScreenGoals />,
     diet: () => <ScreenDiet />,

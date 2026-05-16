@@ -1,6 +1,7 @@
 /* Orbita v2 — Theme system with visual picker */
 
 const THEMES = [
+  { id: 'imperator', name: 'Imperator', bg: '#0a0604', orb1: '#C8102E', orb2: '#D4AF37', accent: '#C8102E', accent2: '#D4AF37', surface: 'rgba(212,175,55,0.04)', text: '#f0e0c8', line: 'rgba(212,175,55,0.14)' },
   { id: 'default', name: 'Neon Glass', bg: '#08080c', orb1: '#ff2e88', orb2: '#5b8dff', accent: '#ff2e88', accent2: '#5b8dff', surface: 'rgba(255,255,255,0.04)', text: '#e8e8f0', line: 'rgba(255,255,255,0.08)' },
   { id: 'teal', name: 'Teal & Cobre', bg: '#0a100f', orb1: '#1abc9c', orb2: '#e67e22', accent: '#1abc9c', accent2: '#e67e22', surface: 'rgba(255,255,255,0.04)', text: '#e0ede8', line: 'rgba(255,255,255,0.08)' },
   { id: 'outono', name: 'Outono', bg: '#0f0a08', orb1: '#e67e22', orb2: '#c0392b', accent: '#e67e22', accent2: '#c0392b', surface: 'rgba(255,255,255,0.04)', text: '#f0e6d8', line: 'rgba(255,255,255,0.08)' },
@@ -166,12 +167,15 @@ function ThemePicker({ onClose }) {
   );
 }
 
-// Apply saved theme on load
+// Apply saved theme on load. Imperator is the new default (red+gold).
 (function() {
   try {
-    const d = JSON.parse(localStorage.getItem('meuPainel_v4'));
-    if (d && d._theme) applyTheme(d._theme);
-  } catch(e) {}
+    const d = JSON.parse(localStorage.getItem('meuPainel_v4')) || {};
+    const themeId = d._theme || 'imperator';
+    applyTheme(themeId);
+  } catch(e) {
+    applyTheme('imperator');
+  }
 })();
 
 window.THEMES = THEMES;

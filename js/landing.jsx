@@ -36,10 +36,10 @@ function LandingPage() {
         <OrbLogo size={56} />
       </div>
       <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 52, lineHeight: 1, letterSpacing: '-0.03em', marginBottom: 8 }}>
-        Orbita
+        Imperium
       </h1>
       <p style={{ fontSize: 15, color: 'var(--ink-2)', marginBottom: 40, textAlign: 'center', maxWidth: 360, lineHeight: 1.6 }}>
-        Produtividade gamificada. Tarefas, hábitos, objetivos e mais — com XP, conquistas e avatares pixel art.
+        Produtividade imperial. Tarefas, hábitos, objetivos e uma legião de agentes IA — sob seu comando.
       </p>
 
       {/* Login card */}
@@ -106,7 +106,7 @@ function LandingPage() {
       </button>
 
       <div style={{ marginTop: 40, fontSize: 10, color: 'var(--ink-4)' }}>
-        Orbita v2 · Produtividade gamificada
+        Imperium · SPQR · v2
       </div>
     </div>
   );

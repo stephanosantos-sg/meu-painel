@@ -36,10 +36,10 @@ function Onboarding({ onComplete }) {
       <div style={{ textAlign: 'center', maxWidth: 420 }}>
         <div style={{ marginBottom: 24 }}><OrbLogo size={64} /></div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 42, lineHeight: 1, letterSpacing: '-0.03em', marginBottom: 12 }}>
-          Bem-vindo ao Orbita
+          Bem-vindo ao Imperium
         </h1>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.6, marginBottom: 32 }}>
-          Produtividade gamificada. Vamos configurar sua conta em 3 passos rápidos.
+          Sua legião à postos. Vamos configurar sua conta em 3 passos rápidos.
         </p>
         <button className="btn btn-primary" style={{ padding: '14px 40px', fontSize: 15 }} onClick={() => setStep(1)}>
           Começar →
@@ -64,7 +64,7 @@ function Onboarding({ onComplete }) {
           <label className="form-label">Data de nascimento</label>
           <input className="form-input" type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
             style={{ fontSize: 14, padding: '12px 16px' }} />
-          <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4 }}>O Orbita vai te dar parabéns no seu aniversário</div>
+          <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4 }}>O Imperium vai te dar parabéns no seu aniversário</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn-ghost" onClick={() => setStep(0)}>← Voltar</button>

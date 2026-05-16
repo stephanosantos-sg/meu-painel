@@ -4,15 +4,28 @@ function OrbLogo({ size = 22 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%',
-      background: 'radial-gradient(circle at 30% 30%, #ffbae0, #ff2e88 30%, #b066ff 55%, #5b8dff 80%, #1a1a2e 100%)',
-      boxShadow: `0 0 ${size*0.8}px rgba(255,46,136,0.45), inset 0 0 ${size*0.3}px rgba(255,255,255,0.2)`,
+      background: 'radial-gradient(circle at 35% 30%, #3a0a0a 0%, #1a0606 55%, #08080c 100%)',
+      boxShadow: `0 0 ${size*0.8}px rgba(200, 16, 46, 0.45), inset 0 0 ${size*0.25}px rgba(212,175,55,0.25)`,
+      border: '1px solid rgba(212,175,55,0.5)',
+      display: 'grid', placeItems: 'center',
       position: 'relative',
     }}>
-      <div style={{
-        position: 'absolute', top: '15%', left: '22%',
-        width: '24%', height: '18%', borderRadius: '50%',
-        background: 'rgba(255,255,255,0.55)', filter: 'blur(1px)',
-      }} />
+      <svg viewBox="0 0 180 180" width={size * 0.78} height={size * 0.78} style={{ display: 'block' }}>
+        <defs>
+          <linearGradient id={`orblg-gold-${size}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F4D17A"/>
+            <stop offset="50%" stopColor="#D4AF37"/>
+            <stop offset="100%" stopColor="#9A7B1F"/>
+          </linearGradient>
+        </defs>
+        <g fill={`url(#orblg-gold-${size})`}>
+          <path d="M90 70 C 70 64, 50 70, 32 90 C 50 86, 62 90, 72 100 C 60 102, 50 110, 44 122 C 60 116, 76 116, 86 124 L 90 116 Z"/>
+          <path d="M90 70 C 110 64, 130 70, 148 90 C 130 86, 118 90, 108 100 C 120 102, 130 110, 136 122 C 120 116, 104 116, 94 124 L 90 116 Z"/>
+          <path d="M84 70 L 96 70 L 100 92 L 96 122 L 90 132 L 84 122 L 80 92 Z"/>
+          <path d="M88 64 C 88 58, 92 54, 98 54 L 106 60 L 100 64 L 100 70 L 92 70 Z"/>
+          <path d="M84 122 L 78 138 L 90 132 L 102 138 L 96 122 Z"/>
+        </g>
+      </svg>
     </div>
   );
 }

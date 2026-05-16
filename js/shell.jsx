@@ -4,6 +4,9 @@ const NAV = [
   { section: 'WORKSPACE', items: [
     { id: 'today', icon: '☀︎', label: 'Home' },
   ]},
+  { section: 'LEGIO', items: [
+    { id: 'legio', icon: '⚔', label: 'Legio' },
+  ]},
   { section: 'JORNADA', items: [
     { id: 'habits', icon: '✦', label: 'Hábitos' },
     { id: 'goals', icon: '◎', label: 'Objetivos' },
@@ -51,8 +54,8 @@ function Sidebar({ active, setActive, className }) {
         <div className="sidebar-logo" onClick={() => setActive('today')} style={{ cursor: 'pointer' }}>
           <OrbLogo size={26} />
           <div>
-            <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em' }}>Orbita</div>
-            <div className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)', marginTop: 2, letterSpacing: '0.08em' }}>v2.0</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em' }}>Imperium</div>
+            <div className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)', marginTop: 2, letterSpacing: '0.08em' }}>SPQR · v2</div>
           </div>
         </div>
       </div>

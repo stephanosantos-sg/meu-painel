@@ -17,6 +17,7 @@ function SettingsModal({ onClose }) {
         <div style={{ display: 'flex', gap: 6, padding: '0 20px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           {[
             { v: 'ias', l: '🤖 IAs' },
+            { v: 'imperium', l: '⚔ Imperium' },
             { v: 'calendar', l: '📅 Calendar' },
             { v: 'asana', l: '✓ Asana' },
           ].map(t => (
@@ -25,6 +26,7 @@ function SettingsModal({ onClose }) {
         </div>
         <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
           {tab === 'ias' && <SettingsIAs data={data} commit={commit} />}
+          {tab === 'imperium' && <SettingsImperium data={data} commit={commit} />}
           {tab === 'calendar' && <SettingsCalendar />}
           {tab === 'asana' && <SettingsAsana data={data} commit={commit} />}
         </div>
@@ -100,7 +102,7 @@ function SettingsIAs({ data, commit }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 12, color: 'var(--ink-3)', padding: '0 0 8px' }}>
-        Suas chaves ficam salvas localmente neste navegador. Use para Coach 🥗, Orbita IA 🌌 e Assistente Financeiro 💰.
+        Suas chaves ficam salvas localmente neste navegador. Use para Coach 🥗, Imperium IA 🌌 e Assistente Financeiro 💰.
       </div>
 
       {/* OpenAI */}
@@ -345,7 +347,7 @@ function SettingsAsana({ data, commit }) {
         <div style={{ fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.6, marginBottom: 10, padding: 10, background: 'rgba(255,46,136,0.04)', border: '1px solid rgba(255,46,136,0.12)', borderRadius: 8 }}>
           <strong>Como pegar o token:</strong><br/>
           1. Vá em <span className="mono" style={{ fontSize: 10 }}>app.asana.com/0/my-apps</span><br/>
-          2. Clique em <strong>+ Create new token</strong> · dê um nome (ex: Orbita)<br/>
+          2. Clique em <strong>+ Create new token</strong> · dê um nome (ex: Imperium)<br/>
           3. Copie o token (começa com <span className="mono" style={{ fontSize: 10 }}>1/</span> ou <span className="mono" style={{ fontSize: 10 }}>2/</span>) e cole abaixo
         </div>
 
@@ -391,6 +393,118 @@ function SettingsAsana({ data, commit }) {
             ℹ Importa tarefas <strong>incompletas</strong> atribuídas a você do workspace selecionado, criando-as com a categoria <strong>Asana</strong>. Tarefas já importadas são atualizadas (não duplica).
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Imperium (worker config + Anthropic) ── */
+function SettingsImperium({ data, commit }) {
+  const imp = data._imperium || (window.defaultImperiumState ? window.defaultImperiumState() : { config: {} });
+  const cfg = imp.config || {};
+  const [workerUrl, setWorkerUrl] = React.useState(cfg.workerUrl || 'http://127.0.0.1:5181');
+  const [workerToken, setWorkerToken] = React.useState(cfg.workerToken || '');
+  const [paused, setPaused] = React.useState(!!cfg.paused);
+  const [status, setStatus] = React.useState('');
+  const [testing, setTesting] = React.useState(false);
+
+  function save() {
+    commit(D => {
+      if (!D._imperium && window.defaultImperiumState) D._imperium = window.defaultImperiumState();
+      if (!D._imperium.config) D._imperium.config = {};
+      D._imperium.config.workerUrl = workerUrl.trim();
+      D._imperium.config.workerToken = workerToken.trim();
+      D._imperium.config.paused = paused;
+    });
+    setStatus('✓ Salvo');
+    setTimeout(() => setStatus(''), 2000);
+  }
+
+  async function testWorker() {
+    setTesting(true);
+    setStatus('');
+    try {
+      const r = await fetch(workerUrl.trim() + '/health', {
+        headers: workerToken ? { Authorization: 'Bearer ' + workerToken.trim() } : {},
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      setStatus(`✓ Worker online · ${j.agents || 0} agentes registrados`);
+    } catch (e) {
+      setStatus('✕ Worker indisponível · ' + e.message);
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  const agents = imp.agents || {};
+  const enabled = Object.values(agents).filter(a => a && a.enabled).length;
+  const tasks = (imp.tasks || []).length;
+  const review = (imp.tasks || []).filter(t => t.status === 'needs-review').length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ fontSize: 12, color: 'var(--ink-3)', padding: '0 0 8px', lineHeight: 1.5 }}>
+        O Imperium roda em um worker Node.js separado, com o Claude Agent SDK conectado ao SingleGrain Gateway.
+        Configure aqui a URL local do worker e o token compartilhado. Veja <span className="mono" style={{ fontSize: 10 }}>~/Downloads/orbita-imperium/README.md</span> para subir.
+      </div>
+
+      <div className="panel" style={{ padding: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#C8102E22', border: '1px solid #D4AF3744', display: 'grid', placeItems: 'center', fontSize: 16 }}>⚔</div>
+          <div>
+            <div style={{ fontWeight: 600 }}>Worker local</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>LaunchAgent em <span className="mono">com.stephano.orbita-imperium</span></div>
+          </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 10 }}>
+          <label className="form-label">URL do Worker</label>
+          <input className="form-input" value={workerUrl} onChange={e => setWorkerUrl(e.target.value)} placeholder="http://127.0.0.1:5181"/>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 10 }}>
+          <label className="form-label">Worker Token (Bearer)</label>
+          <input className="form-input" type="password" value={workerToken} onChange={e => setWorkerToken(e.target.value)} placeholder="Token compartilhado (gerado no .env do worker)"/>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0' }}>
+          <input type="checkbox" id="imp-paused" checked={paused} onChange={e => setPaused(e.target.checked)} style={{ width: 16, height: 16 }}/>
+          <label htmlFor="imp-paused" style={{ fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer' }}>
+            ⏸ Pausar todos os agentes (Vacation mode)
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={save} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Salvar</button>
+          <button onClick={testWorker} disabled={testing} className="btn" style={{ flex: 1, justifyContent: 'center' }}>
+            {testing ? 'Testando...' : 'Testar conexão'}
+          </button>
+        </div>
+
+        {status && <div style={{ marginTop: 12, fontSize: 12, color: status.startsWith('✓') ? '#3ccf91' : '#ff7a5a' }}>{status}</div>}
+      </div>
+
+      <div className="panel" style={{ padding: 18 }}>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>Estado atual</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div>
+            <div className="mono" style={{ fontSize: 22, fontWeight: 700, color: '#D4AF37' }}>{enabled}/10</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>Agentes ativos</div>
+          </div>
+          <div>
+            <div className="mono" style={{ fontSize: 22, fontWeight: 700 }}>{tasks}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>Tarefas totais</div>
+          </div>
+          <div>
+            <div className="mono" style={{ fontSize: 22, fontWeight: 700, color: review > 0 ? '#D4AF37' : 'var(--ink-2)' }}>{review}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>Para revisão</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--ink-4)', padding: '0 4px', lineHeight: 1.5 }}>
+        <strong>Segurança</strong> · O agente Caesar (Executor) nunca aplica mudanças em plataformas de mídia sem você aprovar manualmente cada tarefa. Tarefas precisam passar por: especialista → Diocletian (revisor) → sua aprovação → confirmação dupla com slug do cliente.
       </div>
     </div>
   );
