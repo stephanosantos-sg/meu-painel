@@ -538,15 +538,24 @@ function AgentDrawer({ slug, onClose }) {
   async function triggerNow() {
     let url = imp.config?.workerUrl;
     let token = imp.config?.workerToken;
-    // Fallback: pull config fresh from Firestore if local state hasn't synced yet
-    if ((!url || !token) && window.firebase) {
+    // ALWAYS pull config fresh from Firestore — local state can be stale due to commit() races
+    if (window.firebase) {
       try {
         const user = window.firebase.auth().currentUser;
         if (user) {
           const snap = await window.firebase.firestore().collection('users').doc(user.uid).get();
           const cfg = snap.data()?.data?._imperium?.config || {};
-          url = url || cfg.workerUrl;
-          token = token || cfg.workerToken;
+          if (cfg.workerToken) token = cfg.workerToken;
+          if (cfg.workerUrl) url = cfg.workerUrl;
+          // Write back to local state so future commits don't clobber it
+          if (cfg.workerToken && (imp.config?.workerToken || '') !== cfg.workerToken) {
+            commit(D => {
+              if (!D._imperium) D._imperium = defaultImperiumState();
+              if (!D._imperium.config) D._imperium.config = {};
+              D._imperium.config.workerToken = cfg.workerToken;
+              D._imperium.config.workerUrl = cfg.workerUrl || D._imperium.config.workerUrl;
+            });
+          }
         }
       } catch (e) { /* fall through */ }
     }
