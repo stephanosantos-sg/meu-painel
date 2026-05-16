@@ -533,7 +533,11 @@ function ScreenLegio() {
 function SlackPullCard({ impConfig, clients, toast }) {
   const [channels, setChannels] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
+  const [loadError, setLoadError] = React.useState('');
   const [chosenChannel, setChosenChannel] = React.useState('');
+  const [manualMode, setManualMode] = React.useState(false);
+  const [manualId, setManualId] = React.useState('');
+  const [manualName, setManualName] = React.useState('');
   const [chosenClient, setChosenClient] = React.useState('');
   const [pulling, setPulling] = React.useState(false);
   const [lastResult, setLastResult] = React.useState('');
@@ -543,27 +547,31 @@ function SlackPullCard({ impConfig, clients, toast }) {
 
   async function loadChannels() {
     setLoading(true);
+    setLoadError('');
     try {
       const r = await fetch(url + '/slack/channels', { headers: { Authorization: 'Bearer ' + token } });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || ('HTTP ' + r.status));
       setChannels(j.channels || []);
+      if (!(j.channels || []).length) setLoadError('Nenhum canal retornado — use o modo manual abaixo');
     } catch (e) {
-      toast('✕ Falha ao listar canais · ' + e.message);
+      setLoadError(e.message);
+      setManualMode(true);
     } finally { setLoading(false); }
   }
   React.useEffect(() => { loadChannels(); }, []);
 
   async function pull() {
-    if (!chosenChannel) { toast('✕ Escolha um canal'); return; }
+    const channelId = manualMode ? manualId.trim() : chosenChannel;
+    const channelLabel = manualMode ? (manualName.trim() || channelId) : (channels.find(c => c.id === channelId)?.name || channelId);
+    if (!channelId) { toast('✕ Informe um canal'); return; }
     setPulling(true);
     setLastResult('');
     try {
-      const ch = channels.find(c => c.id === chosenChannel);
       const r = await fetch(url + '/slack/pull', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ channel: chosenChannel, channelName: ch?.name, clientId: chosenClient || null }),
+        body: JSON.stringify({ channel: channelId, channelName: channelLabel, clientId: chosenClient || null }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
@@ -591,13 +599,25 @@ function SlackPullCard({ impConfig, clients, toast }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(180px, 1fr) auto', gap: 10, alignItems: 'end' }}>
-        <div>
-          <label className="form-label" style={{ fontSize: 10 }}>Canal Slack ({channels.length} disponíveis)</label>
-          <select className="form-input" value={chosenChannel} onChange={e => setChosenChannel(e.target.value)} disabled={loading || !channels.length} style={{ width: '100%' }}>
-            <option value="">— Escolha um canal —</option>
-            {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
-          </select>
-        </div>
+        {manualMode ? (
+          <div>
+            <label className="form-label" style={{ fontSize: 10 }}>Canal Slack — ID + nome manual</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input className="form-input" value={manualId} onChange={e => setManualId(e.target.value)} placeholder="C04ABCDEF" style={{ flex: 1 }}/>
+              <input className="form-input" value={manualName} onChange={e => setManualName(e.target.value)} placeholder="int_madcap" style={{ flex: 1 }}/>
+            </div>
+            <button onClick={() => setManualMode(false)} style={{ marginTop: 4, fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>↩ usar dropdown</button>
+          </div>
+        ) : (
+          <div>
+            <label className="form-label" style={{ fontSize: 10 }}>Canal Slack ({channels.length} disponíveis)</label>
+            <select className="form-input" value={chosenChannel} onChange={e => setChosenChannel(e.target.value)} disabled={loading || !channels.length} style={{ width: '100%' }}>
+              <option value="">— Escolha um canal —</option>
+              {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
+            </select>
+            <button onClick={() => setManualMode(true)} style={{ marginTop: 4, fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>✏ digitar ID manual</button>
+          </div>
+        )}
         <div>
           <label className="form-label" style={{ fontSize: 10 }}>Cliente (opcional, força mapping)</label>
           <select className="form-input" value={chosenClient} onChange={e => setChosenClient(e.target.value)} style={{ width: '100%' }}>
@@ -605,11 +625,14 @@ function SlackPullCard({ impConfig, clients, toast }) {
             {Object.values(clients || {}).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        <button onClick={pull} disabled={pulling || !chosenChannel} className="btn btn-primary" style={{ height: 38, padding: '0 18px', fontSize: 13, justifyContent: 'center', opacity: pulling || !chosenChannel ? 0.5 : 1 }}>
+        <button onClick={pull} disabled={pulling || (manualMode ? !manualId.trim() : !chosenChannel)} className="btn btn-primary" style={{ height: 38, padding: '0 18px', fontSize: 13, justifyContent: 'center', opacity: pulling ? 0.5 : 1 }}>
           {pulling ? 'Extraindo...' : '⚡ Extrair tarefas'}
         </button>
       </div>
 
+      {loadError ? (
+        <div style={{ marginTop: 8, fontSize: 11, color: '#ff7a5a' }}>⚠ {loadError}</div>
+      ) : null}
       {lastResult ? (
         <div style={{ marginTop: 10, fontSize: 12, color: lastResult.startsWith('✓') ? '#3ccf91' : '#ff7a5a' }}>{lastResult}</div>
       ) : null}
