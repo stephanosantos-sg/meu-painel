@@ -183,6 +183,35 @@ function ScreenLegio() {
     return () => clearInterval(t);
   }, []);
 
+  // Subscribe to Firestore doc changes so worker heartbeats land in the UI in real time
+  const dataRef = React.useRef(data);
+  dataRef.current = data;
+  React.useEffect(() => {
+    if (!window.firebase) return;
+    let unsub = null;
+    function attach(user) {
+      if (!user) return;
+      try {
+        const db = window.firebase.firestore();
+        unsub = db.collection('users').doc(user.uid).onSnapshot(doc => {
+          if (!doc.exists) return;
+          const cloud = doc.data();
+          const cloudImp = cloud?.data?._imperium;
+          if (!cloudImp) return;
+          const localImp = dataRef.current._imperium;
+          // Only fire event when the imperium blob actually changed
+          if (JSON.stringify(localImp) === JSON.stringify(cloudImp)) return;
+          const merged = { ...dataRef.current, _imperium: cloudImp };
+          window.dispatchEvent(new CustomEvent('orbita:dataPulled', { detail: merged }));
+        }, err => console.warn('imperium onSnapshot:', err.message));
+      } catch (e) { console.warn('imperium subscribe failed:', e.message); }
+    }
+    const auth = window.firebase.auth();
+    if (auth.currentUser) attach(auth.currentUser);
+    else auth.onAuthStateChanged(attach);
+    return () => { if (unsub) unsub(); };
+  }, []);
+
   const imp = data._imperium || defaultImperiumState();
   const agents = imp.agents || {};
   const tasks = imp.tasks || [];
