@@ -536,11 +536,24 @@ function AgentDrawer({ slug, onClose }) {
   }
 
   async function triggerNow() {
-    const url = imp.config?.workerUrl + '/trigger/' + slug;
-    const token = imp.config?.workerToken;
+    let url = imp.config?.workerUrl;
+    let token = imp.config?.workerToken;
+    // Fallback: pull config fresh from Firestore if local state hasn't synced yet
+    if ((!url || !token) && window.firebase) {
+      try {
+        const user = window.firebase.auth().currentUser;
+        if (user) {
+          const snap = await window.firebase.firestore().collection('users').doc(user.uid).get();
+          const cfg = snap.data()?.data?._imperium?.config || {};
+          url = url || cfg.workerUrl;
+          token = token || cfg.workerToken;
+        }
+      } catch (e) { /* fall through */ }
+    }
     if (!token) { toast('✕ Configure o worker token em Configurações'); return; }
+    if (!url) url = 'http://127.0.0.1:5181';
     try {
-      const r = await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch(url + '/trigger/' + slug, { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       toast(`⚡ ${meta.name} disparado`);
     } catch (e) {
