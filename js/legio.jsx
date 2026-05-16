@@ -433,7 +433,7 @@ function ScreenLegio() {
         </div>
 
         {/* Kanban */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(220px, 1fr))', gap: 12, overflowX: 'auto' }}>
+        <div className="legio-kanban" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(220px, 1fr))', gap: 12, overflowX: 'auto' }}>
           {STATUS_COLUMNS.map(col => {
             const colTasks = tasksByStatus[col.id] || [];
             return (
