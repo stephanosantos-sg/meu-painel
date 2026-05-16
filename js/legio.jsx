@@ -142,8 +142,10 @@ function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badg
   );
 }
 
-function TaskCard({ task, agent, client, onClick, onDragStart }) {
+function TaskCard({ task, agent, client, onClick, onDragStart, onStart, onDelete }) {
   const dotColor = STATUS_COLUMNS.find(c => c.id === task.status)?.accent || '#a8a8bc';
+  const canStart = task.status === 'pending';
+  const stop = e => e.stopPropagation();
   return (
     <div
       draggable
@@ -156,6 +158,7 @@ function TaskCard({ task, agent, client, onClick, onDragStart }) {
         cursor: 'pointer',
         marginBottom: 8,
         transition: 'all 150ms',
+        position: 'relative',
       }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.4)'; e.currentTarget.style.background = 'rgba(212,175,55,0.08)'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.16)'; e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; }}
@@ -175,6 +178,22 @@ function TaskCard({ task, agent, client, onClick, onDragStart }) {
           {task.outputSummary.slice(0, 140)}{task.outputSummary.length > 140 ? '…' : ''}
         </div>
       ) : null}
+      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        {canStart && onStart ? (
+          <button onClick={e => { stop(e); onStart(task.id); }} style={{
+            flex: 1, padding: '6px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+            background: 'linear-gradient(135deg, rgba(60,207,145,0.16), rgba(60,207,145,0.08))',
+            color: '#3ccf91', border: '1px solid rgba(60,207,145,0.4)', cursor: 'pointer',
+          }}>▶ Iniciar</button>
+        ) : null}
+        {onDelete ? (
+          <button onClick={e => { stop(e); if (confirm('Excluir essa tarefa?')) onDelete(task.id); }} style={{
+            width: 28, height: 28, padding: 0, borderRadius: 6, fontSize: 12,
+            background: 'rgba(255,90,60,0.06)', color: '#ff7a5a',
+            border: '1px solid rgba(255,90,60,0.25)', cursor: 'pointer', flexShrink: 0,
+          }} title="Excluir">🗑</button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -281,6 +300,19 @@ function ScreenLegio() {
   function rejectTask(taskId) {
     setTaskStatus(taskId, 'rejected', { rejectedAt: Date.now() });
     toast('✕ Rejeitada');
+  }
+
+  function startTask(taskId) {
+    setTaskStatus(taskId, 'in-progress', { startedByUserAt: Date.now() });
+    toast('▶ Iniciada · especialista vai claimar');
+  }
+
+  function deleteTask(taskId) {
+    commit(D => {
+      if (!D._imperium) return;
+      D._imperium.tasks = (D._imperium.tasks || []).filter(t => t.id !== taskId);
+    });
+    toast('🗑 Excluída');
   }
 
   function createTask(taskData) {
@@ -467,6 +499,8 @@ function ScreenLegio() {
                       client={imp.clients[task.clientId]}
                       onClick={() => setSelectedTask(task.id)}
                       onDragStart={e => { e.dataTransfer.setData('text/x-imperium-task', task.id); }}
+                      onStart={startTask}
+                      onDelete={deleteTask}
                     />
                   ))}
                 </div>
@@ -516,6 +550,8 @@ function ScreenLegio() {
           onApprove={approveTask}
           onReject={rejectTask}
           onReassign={reassignTask}
+          onStart={startTask}
+          onDelete={deleteTask}
         />
       ) : null}
 
@@ -834,7 +870,7 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
   );
 }
 
-function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign }) {
+function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart, onDelete }) {
   const { data } = useData();
   const imp = data._imperium || defaultImperiumState();
   const task = (imp.tasks || []).find(t => t.id === taskId);
@@ -909,10 +945,23 @@ function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign }) {
               ✓ Aprovar · Enviar a Caesar
             </button>
           </div>
+        ) : task.status === 'pending' && onStart ? (
+          <button onClick={() => { onStart(task.id); onClose(); }} className="btn" style={{ width: '100%', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(60,207,145,0.16), rgba(60,207,145,0.08))', color: '#3ccf91', borderColor: 'rgba(60,207,145,0.4)' }}>
+            ▶ Iniciar · {task.assignedTo ? LEGIO_AGENTS.find(a => a.slug === task.assignedTo)?.name + ' vai trabalhar nela' : 'aguarda atribuição'}
+          </button>
         ) : null}
 
-        <div style={{ marginTop: 24, fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
-          ID: {task.id} · Criada: {fmtAgo(task.createdAt)}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
+            ID: {task.id} · Criada: {fmtAgo(task.createdAt)}
+          </div>
+          {onDelete ? (
+            <button onClick={() => { if (confirm('Excluir essa tarefa?')) { onDelete(task.id); onClose(); } }} style={{
+              padding: '6px 10px', borderRadius: 6, fontSize: 11,
+              background: 'rgba(255,90,60,0.06)', color: '#ff7a5a',
+              border: '1px solid rgba(255,90,60,0.25)', cursor: 'pointer',
+            }}>🗑 Excluir</button>
+          ) : null}
         </div>
       </div>
     </div>
