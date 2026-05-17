@@ -120,7 +120,9 @@ function fmtAgo(ts) {
 }
 
 function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badge, activity, working }) {
-  const svg = window.LegioAvatars ? window.LegioAvatars.getAvatarSVG(slug) : '';
+  const [imgFailed, setImgFailed] = React.useState(false);
+  const imgSrc = `img/emperors/${slug}.webp`;
+  const svg = (imgFailed && window.LegioAvatars) ? window.LegioAvatars.getAvatarSVG(slug) : '';
   return (
     <div onClick={onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: onClick ? 'pointer' : 'default', minWidth: size + 24 }}>
       <div style={{ position: 'relative' }}>
@@ -132,8 +134,12 @@ function EmperorAvatar({ slug, size = 64, status, onClick, label, sublabel, badg
             boxShadow: working ? undefined : `0 0 0 2px ${status ? status.color : '#3a3a4a'}, 0 0 ${size * 0.4}px ${status ? status.color + '55' : 'transparent'}`,
             transition: 'all 200ms',
           }}
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        >
+          {imgFailed
+            ? <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: svg }}/>
+            : <img src={imgSrc} alt={slug} onError={() => setImgFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+          }
+        </div>
         <div className={working ? 'legio-dot-working' : ''} style={{
           position: 'absolute', bottom: 2, right: 2,
           width: 12, height: 12, borderRadius: '50%',
@@ -429,8 +435,6 @@ function ScreenLegio() {
           </div>
         </div>
 
-        <SlackPullCard impConfig={imp.config} clients={imp.clients} toast={toast} />
-
         {/* Para minha revisão hero */}
         {needsReview.length > 0 ? (
           <div className="glass" style={{ padding: 20, border: '1px solid rgba(212,175,55,0.4)', boxShadow: '0 0 40px rgba(212,175,55,0.1)' }}>
@@ -593,10 +597,17 @@ function ScreenLegio() {
   );
 }
 
-function SlackPullCard({ impConfig, clients, toast }) {
+function PullSourceSection({ impConfig, clients, toast }) {
+  const SOURCES = [
+    { id: 'slack',  label: 'Slack',  icon: '💬', desc: 'Canal específico (rápido, ~$0.02)' },
+    { id: 'asana',  label: 'Asana',  icon: '📋', desc: 'Tarefas atribuídas a Stephano (~$0.05)' },
+    { id: 'gong',   label: 'Gong',   icon: '🎙', desc: 'Calls recentes do cliente (~$0.10)' },
+    { id: 'gmail',  label: 'Gmail',  icon: '✉',  desc: 'Mensagens estreladas / não lidas (~$0.05)' },
+  ];
+  const [activeSource, setActiveSource] = React.useState('slack');
   const [channels, setChannels] = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
-  const [loadError, setLoadError] = React.useState('');
+  const [loadingChannels, setLoadingChannels] = React.useState(false);
+  const [channelErr, setChannelErr] = React.useState('');
   const [chosenChannel, setChosenChannel] = React.useState('');
   const [manualMode, setManualMode] = React.useState(false);
   const [manualId, setManualId] = React.useState('');
@@ -609,92 +620,121 @@ function SlackPullCard({ impConfig, clients, toast }) {
   const token = impConfig?.workerToken || DEFAULT_WORKER_TOKEN;
 
   async function loadChannels() {
-    setLoading(true);
-    setLoadError('');
+    setLoadingChannels(true);
+    setChannelErr('');
     try {
       const r = await fetch(url + '/slack/channels', { headers: { Authorization: 'Bearer ' + token } });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || ('HTTP ' + r.status));
       setChannels(j.channels || []);
-      if (!(j.channels || []).length) setLoadError('Nenhum canal retornado — use o modo manual abaixo');
+      if (!(j.channels || []).length) setChannelErr('Cache fria — use ID manual abaixo');
     } catch (e) {
-      setLoadError(e.message);
+      setChannelErr(e.message);
       setManualMode(true);
-    } finally { setLoading(false); }
+    } finally { setLoadingChannels(false); }
   }
-  React.useEffect(() => { loadChannels(); }, []);
+  React.useEffect(() => {
+    if (activeSource === 'slack' && !channels.length && !channelErr) loadChannels();
+  }, [activeSource]);
 
   async function pull() {
-    const channelId = manualMode ? manualId.trim() : chosenChannel;
-    const channelLabel = manualMode ? (manualName.trim() || channelId) : (channels.find(c => c.id === channelId)?.name || channelId);
-    if (!channelId) { toast('✕ Informe um canal'); return; }
     setPulling(true);
     setLastResult('');
     try {
-      const r = await fetch(url + '/slack/pull', {
+      let endpoint, body;
+      if (activeSource === 'slack') {
+        const channelId = manualMode ? manualId.trim() : chosenChannel;
+        const channelLabel = manualMode ? (manualName.trim() || channelId) : (channels.find(c => c.id === channelId)?.name || channelId);
+        if (!channelId) { toast('✕ Informe um canal'); setPulling(false); return; }
+        endpoint = '/slack/pull';
+        body = { channel: channelId, channelName: channelLabel, clientId: chosenClient || null };
+      } else {
+        endpoint = '/pull/' + activeSource;
+        body = { clientId: chosenClient || null };
+      }
+      const r = await fetch(url + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ channel: channelId, channelName: channelLabel, clientId: chosenClient || null }),
+        body: JSON.stringify(body),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
-      setLastResult(`✓ ${j.created} tarefa${j.created === 1 ? '' : 's'} criada${j.created === 1 ? '' : 's'} · $${(j.spend || 0).toFixed(3)}`);
-      toast(`✓ Slack pull: ${j.created} tarefas`);
+      setLastResult(`✓ ${j.created} tarefa${j.created === 1 ? '' : 's'} criada${j.created === 1 ? '' : 's'}${j.spend ? ' · $' + j.spend.toFixed(3) : ''}`);
+      toast(`✓ ${activeSource}: ${j.created} tarefas`);
     } catch (e) {
       setLastResult('✕ ' + e.message);
-      toast('✕ Slack pull falhou · ' + e.message);
+      toast('✕ Pull falhou · ' + e.message);
     } finally { setPulling(false); }
   }
 
+  const canPull = activeSource !== 'slack' || (manualMode ? manualId.trim() : chosenChannel);
+  const activeMeta = SOURCES.find(s => s.id === activeSource);
+
   return (
-    <div className="glass" style={{ padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div className="eyebrow">Puxar do Slack manual</div>
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>
-            Extrai tarefas de um canal específico (mais rápido + barato que rodar Augustus inteiro)
-          </div>
-        </div>
-        <button onClick={loadChannels} disabled={loading} style={{
-          fontSize: 11, padding: '6px 10px', borderRadius: 999, background: 'transparent',
-          border: '1px solid var(--glass-border)', color: 'var(--ink-3)', cursor: 'pointer',
-        }}>{loading ? '...' : '↻ Recarregar canais'}</button>
+    <div style={{ marginBottom: 20 }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Puxar de fonte específica</div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
+        {SOURCES.map(s => {
+          const active = activeSource === s.id;
+          return (
+            <button key={s.id} onClick={() => { setActiveSource(s.id); setLastResult(''); }} style={{
+              padding: '10px 6px', borderRadius: 8, cursor: 'pointer',
+              background: active ? 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(200,16,46,0.12))' : 'transparent',
+              border: active ? '1px solid #D4AF37' : '1px solid var(--glass-border)',
+              color: active ? '#F4D17A' : 'var(--ink-2)', textAlign: 'center',
+              transition: 'all 150ms',
+            }}>
+              <div style={{ fontSize: 18, lineHeight: 1 }}>{s.icon}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
+            </button>
+          );
+        })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(180px, 1fr) auto', gap: 10, alignItems: 'end' }}>
-        {manualMode ? (
-          <div>
-            <label className="form-label" style={{ fontSize: 10 }}>Canal Slack — ID + nome manual</label>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input className="form-input" value={manualId} onChange={e => setManualId(e.target.value)} placeholder="C04ABCDEF" style={{ flex: 1 }}/>
-              <input className="form-input" value={manualName} onChange={e => setManualName(e.target.value)} placeholder="int_madcap" style={{ flex: 1 }}/>
+      <div style={{ fontSize: 10, color: 'var(--ink-3)', marginBottom: 10 }}>{activeMeta?.desc}</div>
+
+      {activeSource === 'slack' ? (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {manualMode ? (
+            <div>
+              <label className="form-label" style={{ fontSize: 10 }}>Canal — ID + nome manual</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input className="form-input" value={manualId} onChange={e => setManualId(e.target.value)} placeholder="C04ABCDEF" style={{ flex: 1 }}/>
+                <input className="form-input" value={manualName} onChange={e => setManualName(e.target.value)} placeholder="int_madcap" style={{ flex: 1 }}/>
+              </div>
+              <button onClick={() => setManualMode(false)} style={{ marginTop: 4, fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>↩ usar dropdown</button>
             </div>
-            <button onClick={() => setManualMode(false)} style={{ marginTop: 4, fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>↩ usar dropdown</button>
-          </div>
-        ) : (
-          <div>
-            <label className="form-label" style={{ fontSize: 10 }}>Canal Slack ({channels.length} disponíveis)</label>
-            <select className="form-input" value={chosenChannel} onChange={e => setChosenChannel(e.target.value)} disabled={loading || !channels.length} style={{ width: '100%' }}>
-              <option value="">— Escolha um canal —</option>
-              {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
-            </select>
-            <button onClick={() => setManualMode(true)} style={{ marginTop: 4, fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>✏ digitar ID manual</button>
-          </div>
-        )}
-        <div>
-          <label className="form-label" style={{ fontSize: 10 }}>Cliente (opcional, força mapping)</label>
-          <select className="form-input" value={chosenClient} onChange={e => setChosenClient(e.target.value)} style={{ width: '100%' }}>
-            <option value="">— Augustus decide —</option>
-            {Object.values(clients || {}).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          ) : (
+            <div>
+              <label className="form-label" style={{ fontSize: 10 }}>Canal ({channels.length} disponíveis){loadingChannels ? ' · carregando…' : ''}</label>
+              <select className="form-input" value={chosenChannel} onChange={e => setChosenChannel(e.target.value)} disabled={loadingChannels || !channels.length} style={{ width: '100%' }}>
+                <option value="">— Escolha um canal —</option>
+                {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                <button onClick={() => setManualMode(true)} style={{ fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>✏ digitar ID manual</button>
+                <button onClick={loadChannels} disabled={loadingChannels} style={{ fontSize: 10, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 0 }}>↻ recarregar</button>
+              </div>
+            </div>
+          )}
         </div>
-        <button onClick={pull} disabled={pulling || (manualMode ? !manualId.trim() : !chosenChannel)} className="btn btn-primary" style={{ height: 38, padding: '0 18px', fontSize: 13, justifyContent: 'center', opacity: pulling ? 0.5 : 1 }}>
-          {pulling ? 'Extraindo...' : '⚡ Extrair tarefas'}
-        </button>
+      ) : null}
+
+      <div style={{ marginTop: activeSource === 'slack' ? 10 : 0, marginBottom: 10 }}>
+        <label className="form-label" style={{ fontSize: 10 }}>Cliente (opcional, força mapping)</label>
+        <select className="form-input" value={chosenClient} onChange={e => setChosenClient(e.target.value)} style={{ width: '100%' }}>
+          <option value="">— Augustus decide —</option>
+          {Object.values(clients || {}).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </div>
 
-      {loadError ? (
-        <div style={{ marginTop: 8, fontSize: 11, color: '#ff7a5a' }}>⚠ {loadError}</div>
+      <button onClick={pull} disabled={pulling || !canPull} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', opacity: (pulling || !canPull) ? 0.5 : 1 }}>
+        {pulling ? 'Extraindo…' : `⚡ Extrair tarefas de ${activeMeta?.label}`}
+      </button>
+
+      {channelErr && activeSource === 'slack' ? (
+        <div style={{ marginTop: 8, fontSize: 11, color: '#ff7a5a' }}>⚠ {channelErr}</div>
       ) : null}
       {lastResult ? (
         <div style={{ marginTop: 10, fontSize: 12, color: lastResult.startsWith('✓') ? '#3ccf91' : '#ff7a5a' }}>{lastResult}</div>
@@ -806,6 +846,10 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
           >
             ＋ Nova tarefa pra {meta.name}
           </button>
+        ) : null}
+
+        {slug === 'augustus' ? (
+          <PullSourceSection impConfig={imp.config} clients={imp.clients} toast={toast} />
         ) : null}
 
         {(agent.status === 'thinking' || agent.status === 'calling') ? (() => {
