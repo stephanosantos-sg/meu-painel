@@ -59,12 +59,14 @@ function SourceBadge({ source }) {
 }
 
 const STATUS_COLUMNS = [
-  { id: 'pending',      label: 'Pendente',   accent: '#a8a8bc' },
-  { id: 'in-progress',  label: 'Executando', accent: '#5b8dff' },
-  { id: 'needs-review', label: 'Revisão',    accent: '#D4AF37' },
-  { id: 'approved',     label: 'Aprovada',   accent: '#3ccf91' },
-  { id: 'executed',     label: 'Executada',  accent: '#9A7B1F' },
-  { id: 'failed',       label: 'Falhou',     accent: '#ff5a3c' },
+  { id: 'pending',                 label: 'Pendente',    accent: '#a8a8bc' },
+  { id: 'in-progress',             label: 'Executando',  accent: '#5b8dff' },
+  { id: 'needs-review',            label: 'Revisão',     accent: '#D4AF37' },
+  { id: 'needs-review-verified',   label: 'Verificada',  accent: '#3ccf91' },
+  { id: 'needs-review-flagged',    label: 'Sinalizada',  accent: '#ff9a3c' },
+  { id: 'approved',                label: 'Aprovada',    accent: '#3ccf91' },
+  { id: 'executed',                label: 'Executada',   accent: '#9A7B1F' },
+  { id: 'failed',                  label: 'Falhou',      accent: '#ff5a3c' },
 ];
 
 function defaultImperiumState() {
@@ -895,10 +897,46 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
   );
 }
 
+function ConfidenceStars({ value, max = 5 }) {
+  const v = Math.max(0, Math.min(max, Number(value) || 0));
+  return (
+    <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: 1, color: '#D4AF37' }}>
+      {'★'.repeat(v)}<span style={{ color: 'rgba(212,175,55,0.25)' }}>{'★'.repeat(max - v)}</span>
+    </span>
+  );
+}
+
 function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart, onDelete }) {
   const { data, toast } = useData();
   const imp = data._imperium || defaultImperiumState();
-  const task = (imp.tasks || []).find(t => t.id === taskId);
+  // Tasks should always be an array post-worker-fix; defensively normalize if a map sneaks in.
+  const tasksRaw = imp.tasks;
+  const tasksArr = Array.isArray(tasksRaw)
+    ? tasksRaw
+    : (tasksRaw && typeof tasksRaw === 'object'
+        ? Object.entries(tasksRaw).map(([k, v]) => [Number(k), v]).filter(([k]) => Number.isFinite(k)).sort((a,b) => a[0]-b[0]).map(([, v]) => v)
+        : []);
+  const task = tasksArr.find(t => t.id === taskId);
+  const [specialistOutput, setSpecialistOutput] = React.useState(null);
+  const [reviewDoc, setReviewDoc] = React.useState(null);
+  React.useEffect(() => {
+    setSpecialistOutput(null); setReviewDoc(null);
+    if (!task?.id || !window.firebase) return;
+    const auth = window.firebase.auth();
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const db = window.firebase.firestore();
+    if (task.outputRef) {
+      db.collection('users').doc(uid).collection('taskOutputs').doc(task.id).get()
+        .then(s => { if (s.exists) setSpecialistOutput(s.data()); })
+        .catch(() => {});
+    }
+    if (task.status?.startsWith('needs-review-')) {
+      db.collection('users').doc(uid).collection('taskReviews').doc(task.id).get()
+        .then(s => { if (s.exists) setReviewDoc(s.data()); })
+        .catch(() => {});
+    }
+  }, [task?.id, task?.outputRef, task?.status]);
   if (!task) return null;
   const agent = imp.agents[task.assignedTo];
   const client = imp.clients[task.clientId];
@@ -964,12 +1002,100 @@ function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart,
           </div>
         ) : null}
 
-        {task.reviewerNotes ? (
-          <div style={{ marginBottom: 20 }}>
-            <div className="eyebrow" style={{ marginBottom: 8, color: '#D4AF37' }}>Notas do revisor</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.6, padding: 12, background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 10 }}>
-              {task.reviewerNotes}
+        {specialistOutput ? (
+          <div style={{ marginBottom: 20, padding: 14, background: 'rgba(0,0,0,0.25)', borderRadius: 10, border: '1px solid rgba(212,175,55,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="eyebrow">Proposta do {agent?.name || 'specialist'}</div>
+              {typeof specialistOutput.confidence === 'number' ? (
+                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  Confiança <ConfidenceStars value={specialistOutput.confidence}/>
+                </div>
+              ) : null}
             </div>
+            {specialistOutput.proposed_action ? (
+              <div style={{ fontSize: 13, color: 'var(--ink-1)', lineHeight: 1.55, marginBottom: 12, whiteSpace: 'pre-wrap' }}>
+                {specialistOutput.proposed_action}
+              </div>
+            ) : null}
+            {specialistOutput.reasoning ? (
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.5, marginBottom: 12, fontStyle: 'italic' }}>
+                {specialistOutput.reasoning}
+              </div>
+            ) : null}
+            {Array.isArray(specialistOutput.data_cited) && specialistOutput.data_cited.length ? (
+              <div style={{ marginTop: 10 }}>
+                <div className="eyebrow" style={{ marginBottom: 6, fontSize: 9 }}>Dados citados</div>
+                <table style={{ width: '100%', fontSize: 11, color: 'var(--ink-2)', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {specialistOutput.data_cited.map((d, i) => (
+                      <tr key={i} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                        <td style={{ padding: '6px 8px 6px 0', color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', width: '30%' }}>{d.source}</td>
+                        <td style={{ padding: '6px 0', fontWeight: 600 }}>{d.value}</td>
+                        <td style={{ padding: '6px 0 6px 8px', color: 'var(--ink-3)' }}>{d.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+            {specialistOutput.blockers ? (
+              <div style={{ marginTop: 12, padding: 10, background: 'rgba(255,90,60,0.06)', border: '1px solid rgba(255,90,60,0.25)', borderRadius: 8, fontSize: 11, color: '#ff9a8a' }}>
+                ⚠ Bloqueios: {specialistOutput.blockers}
+              </div>
+            ) : null}
+            {specialistOutput.next_step_for_user ? (
+              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-3)' }}>
+                <strong style={{ color: 'var(--ink-2)' }}>Próximo passo:</strong> {specialistOutput.next_step_for_user}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {reviewDoc || task.reviewerNotes ? (
+          <div style={{ marginBottom: 20, padding: 14, background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="eyebrow" style={{ color: '#D4AF37' }}>Revisão de Diocletian</div>
+              {reviewDoc?.verdict ? (
+                <span className="chip" style={{
+                  background: reviewDoc.verdict === 'verified' ? 'rgba(60,207,145,0.15)' : 'rgba(255,154,60,0.15)',
+                  color: reviewDoc.verdict === 'verified' ? '#3ccf91' : '#ff9a3c',
+                  borderColor: 'transparent',
+                }}>{reviewDoc.verdict === 'verified' ? '✓ Verificado' : '⚠ Sinalizado'}</span>
+              ) : null}
+            </div>
+            {task.reviewerNotes ? (
+              <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 10 }}>
+                {task.reviewerNotes}
+              </div>
+            ) : null}
+            {Array.isArray(reviewDoc?.issues) && reviewDoc.issues.length ? (
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6, fontSize: 9 }}>Issues</div>
+                {reviewDoc.issues.map((iss, i) => (
+                  <div key={i} style={{ fontSize: 11, padding: '4px 0', color: 'var(--ink-3)' }}>
+                    <span style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 9, padding: '1px 6px', borderRadius: 4, marginRight: 6,
+                      background: iss.severity === 'high' ? 'rgba(255,90,60,0.15)' : iss.severity === 'med' ? 'rgba(255,154,60,0.15)' : 'rgba(168,168,188,0.1)',
+                      color: iss.severity === 'high' ? '#ff7a5a' : iss.severity === 'med' ? '#ff9a3c' : '#a8a8bc',
+                    }}>{iss.severity || 'low'}</span>
+                    <span style={{ color: 'var(--ink-4)', marginRight: 6 }}>{iss.type}</span>
+                    {iss.detail}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {Array.isArray(reviewDoc?.verified_numbers) && reviewDoc.verified_numbers.length ? (
+              <div style={{ marginTop: 10 }}>
+                <div className="eyebrow" style={{ marginBottom: 6, fontSize: 9 }}>Números verificados</div>
+                {reviewDoc.verified_numbers.map((v, i) => (
+                  <div key={i} style={{ fontSize: 11, padding: '2px 0', color: 'var(--ink-3)' }}>
+                    <span style={{ color: v.match ? '#3ccf91' : '#ff9a3c', marginRight: 6 }}>{v.match ? '✓' : '≠'}</span>
+                    <span style={{ color: 'var(--ink-2)' }}>{v.claim}</span>
+                    {v.match ? null : <span style={{ color: 'var(--ink-4)' }}> → {v.your_finding}</span>}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -984,7 +1110,7 @@ function TaskDrawer({ taskId, onClose, onApprove, onReject, onReassign, onStart,
           </div>
         </div>
 
-        {task.status === 'needs-review' ? (
+        {task.status === 'needs-review' || task.status === 'needs-review-verified' || task.status === 'needs-review-flagged' ? (
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => { onReject(task.id); onClose(); }} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'rgba(255,90,60,0.08)', borderColor: 'rgba(255,90,60,0.4)', color: '#ff7a5a' }}>
               ✕ Rejeitar
