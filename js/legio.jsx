@@ -767,6 +767,12 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
     toast(`${meta.name} → ${lbl}`);
   }
 
+  function toggleAutonomous() {
+    const next = !agent.autonomous;
+    commit(D => { D._imperium.agents[slug].autonomous = next; });
+    toast(next ? `⚡ ${meta.name} autônomo · puxa pendentes sozinho` : `${meta.name} manual · espera ▶ Iniciar`);
+  }
+
   async function triggerNow() {
     const url = imp.config?.workerUrl || DEFAULT_WORKER_URL;
     const token = imp.config?.workerToken || DEFAULT_WORKER_TOKEN;
@@ -830,7 +836,7 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
           <button onClick={triggerNow} disabled={!agent.enabled} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', opacity: agent.enabled ? 1 : 0.5 }}>
             ⚡ Disparar agora
           </button>
@@ -838,6 +844,20 @@ function AgentDrawer({ slug, onClose, onQuickAdd }) {
             {agent.enabled ? '⏸ Desabilitar' : '▶ Habilitar'}
           </button>
         </div>
+        {/* Autonomous toggle — only relevant for specialists + Diocletian (Augustus already runs on cron) */}
+        {meta.slug !== 'augustus' && meta.slug !== 'caesar' ? (
+          <button onClick={toggleAutonomous} disabled={!agent.enabled} className="btn" style={{
+            width: '100%', justifyContent: 'center', marginBottom: 12, fontSize: 13,
+            opacity: agent.enabled ? 1 : 0.4,
+            background: agent.autonomous ? 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(200,16,46,0.10))' : 'var(--glass-bg)',
+            borderColor: agent.autonomous ? '#D4AF37' : 'var(--glass-border)',
+            color: agent.autonomous ? '#F4D17A' : 'var(--ink-2)',
+          }} title={agent.autonomous
+            ? 'Puxa pendentes sozinho, sem precisar do botão Iniciar. Clica pra desligar.'
+            : 'Liga modo autônomo — agente puxa pendentes do seu cliente sem você clicar Iniciar.'}>
+            {agent.autonomous ? '⚡ Autônomo · ativo' : 'Modo autônomo · desligado'}
+          </button>
+        ) : null}
         {onQuickAdd ? (
           <button
             onClick={() => onQuickAdd({ assignedTo: slug, clientId: meta.clientId || null })}
