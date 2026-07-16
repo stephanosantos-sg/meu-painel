@@ -9,9 +9,102 @@ function loadData() {
 function persistData(D) {
   D.lastModified = Date.now();
   localStorage.setItem(SK, JSON.stringify(D));
+  pushLocalBackup(D);
   if (window.OrbitaFirebase && window.OrbitaFirebase.getCurrentUser()) {
     window.OrbitaFirebase.scheduleSyncFirebase(D);
   }
+}
+
+/* ── Backups locais (ring buffer) ──
+ * Guarda os últimos N snapshots (imagens removidas) num throttle, como rede
+ * de segurança contra um merge/sync ruim. Não substitui o sync — é seguro extra. */
+const BK = 'meuPainel_backups';
+const BK_MAX = 8;
+const BK_THROTTLE_MS = 30 * 60 * 1000; // no máx 1 backup a cada 30 min
+
+function loadBackups() {
+  try { return JSON.parse(localStorage.getItem(BK) || '[]'); } catch (e) { return []; }
+}
+
+function pushLocalBackup(D) {
+  try {
+    const list = loadBackups();
+    const now = Date.now();
+    const last = list[0];
+    if (last && (now - last.ts) < BK_THROTTLE_MS) return; // respeita o throttle
+    const snap = stripImagesForSync(JSON.parse(JSON.stringify(D)));
+    const counts = {
+      tasks: (D.tasks || []).length,
+      habits: (D.habits || []).length,
+      goals: (D.goals || []).length,
+      tx: ((D._finance || {}).transactions || []).length,
+    };
+    list.unshift({ ts: now, counts, data: snap });
+    while (list.length > BK_MAX) list.pop();
+    localStorage.setItem(BK, JSON.stringify(list));
+  } catch (e) {
+    // Se estourar a cota do localStorage, descarta o backup mais antigo e tenta 1x
+    try {
+      const list = loadBackups();
+      list.pop();
+      localStorage.setItem(BK, JSON.stringify(list));
+    } catch (e2) { /* desiste silenciosamente — backup é best-effort */ }
+  }
+}
+
+function restoreBackup(ts) {
+  const list = loadBackups();
+  const entry = list.find(b => b.ts === ts);
+  if (!entry) return null;
+  // Preserva imagens do estado atual (backups não guardam imagens)
+  const current = loadData() || {};
+  const restored = JSON.parse(JSON.stringify(entry.data));
+  if (window.OrbitaFirebase && window.OrbitaFirebase.mergeImagesInto) {
+    window.OrbitaFirebase.mergeImagesInto(restored, current);
+  }
+  restored.lastModified = Date.now();
+  localStorage.setItem(SK, JSON.stringify(restored));
+  return restored;
+}
+
+function exportData() {
+  const D = loadData() || defaultData();
+  const blob = new Blob([JSON.stringify(D, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.href = url; a.download = `imperium-backup-${stamp}.json`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+}
+
+function importData(jsonText) {
+  const parsed = JSON.parse(jsonText); // deixa estourar pra quem chama tratar
+  if (!parsed || typeof parsed !== 'object' || !('tasks' in parsed || 'habits' in parsed)) {
+    throw new Error('Arquivo não parece um backup do Imperium');
+  }
+  // Snapshot do estado atual antes de sobrescrever
+  const current = loadData();
+  if (current) pushLocalBackup(current);
+  parsed.lastModified = Date.now();
+  localStorage.setItem(SK, JSON.stringify(parsed));
+  return parsed;
+}
+
+/* ── Auto-export semanal ── baixa um JSON 1x por semana (domingo) como seguro extra. */
+function maybeAutoExport() {
+  try {
+    const D = loadData();
+    if (!D || !(D.tasks || []).length) return;
+    const lastStr = localStorage.getItem('orbita_lastAutoExport');
+    const now = Date.now();
+    const WEEK = 7 * 86400000;
+    if (lastStr && (now - parseInt(lastStr, 10)) < WEEK) return;
+    // só dispara download automático se a aba estiver visível (evita bloqueio do browser)
+    if (document.visibilityState !== 'visible') return;
+    exportData();
+    localStorage.setItem('orbita_lastAutoExport', String(now));
+  } catch (e) { /* best-effort */ }
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -228,4 +321,5 @@ window.Orbita = {
   getXPForLevel, getTotalXPForLevel, calcLevel,
   TITLES_MAP, CLASSES_MAP, COLOR_MAP, resolveColor,
   fmtDate, isOverdue, getSpriteIndex, defaultData,
+  loadBackups, pushLocalBackup, restoreBackup, exportData, importData, maybeAutoExport,
 };

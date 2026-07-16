@@ -6,61 +6,70 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Imperium">
 <meta name="theme-color" content="#0a0604">
+<link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Imperium</title>
 <link rel="icon" href="icon-180.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&display=swap">
-<link rel="stylesheet" href="css/tokens.css">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/tokens.css?v=84">
+<link rel="stylesheet" href="css/app.css?v=84">
 </head>
 <body>
 <div id="app"></div>
 
-<!-- React 18 -->
+<!-- React 18 + Firebase (externos) -->
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone@7.26.10/babel.min.js" crossorigin></script>
-
-<!-- Firebase SDK (compat for non-bundler use) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <!-- Pure JS -->
-<script src="js/sprites.js"></script>
-<script src="js/legio-avatars.js?v=81"></script>
-<script src="js/google-calendar.js"></script>
-<script src="js/firebase-sync.js"></script>
-<script src="js/utils.js"></script>
+<script src="js/sprites.js?v=84"></script>
+<script src="js/legio-avatars.js?v=84"></script>
+<script src="js/google-calendar.js?v=84"></script>
+<script src="js/firebase-sync.js?v=84"></script>
+<script src="js/utils.js?v=84"></script>
+<script src="js/notify.js?v=84"></script>
 
-<!-- JSX Components — v=81 (Imperium rebrand) -->
-<script type="text/babel" src="js/data.jsx?v=81"></script>
-<script type="text/babel" src="js/helpers.jsx?v=81"></script>
-<script type="text/babel" src="js/emoji-picker.jsx?v=81"></script>
-<script type="text/babel" src="js/achievements.jsx?v=81"></script>
-<script type="text/babel" src="js/themes.jsx?v=81"></script>
-<script type="text/babel" src="js/shell.jsx?v=81"></script>
-<script type="text/babel" src="js/modals.jsx?v=81"></script>
-<script type="text/babel" src="js/today.jsx?v=81"></script>
-<script type="text/babel" src="js/legio.jsx?v=81"></script>
-<script type="text/babel" src="js/habits.jsx?v=81"></script>
-<script type="text/babel" src="js/pomodoro.jsx?v=81"></script>
-<script type="text/babel" src="js/calendar.jsx?v=81"></script>
-<script type="text/babel" src="js/shopping.jsx?v=81"></script>
-<script type="text/babel" src="js/diet.jsx?v=81"></script>
-<script type="text/babel" src="js/finance.jsx?v=81"></script>
-<script type="text/babel" src="js/settings.jsx?v=81"></script>
-<script type="text/babel" src="js/orbita-ai.jsx?v=81"></script>
-<script type="text/babel" src="js/notes.jsx?v=81"></script>
-<script type="text/babel" src="js/media.jsx?v=81"></script>
-<script type="text/babel" src="js/history.jsx?v=81"></script>
-<script type="text/babel" src="js/charts.jsx?v=81"></script>
-<script type="text/babel" src="js/onboarding.jsx?v=81"></script>
-<script type="text/babel" src="js/landing.jsx?v=81"></script>
-<script type="text/babel" src="js/screens.jsx?v=81"></script>
-<script type="text/babel" src="js/app.jsx?v=81"></script>
+<!-- Componentes (JSX precompilado — v=84) -->
+<script src="js/data.js?v=84"></script>
+<script src="js/helpers.js?v=84"></script>
+<script src="js/emoji-picker.js?v=84"></script>
+<script src="js/achievements.js?v=84"></script>
+<script src="js/themes.js?v=84"></script>
+<script src="js/shell.js?v=84"></script>
+<script src="js/modals.js?v=84"></script>
+<script src="js/today.js?v=84"></script>
+<script src="js/legio.js?v=84"></script>
+<script src="js/habits.js?v=84"></script>
+<script src="js/pomodoro.js?v=84"></script>
+<script src="js/calendar.js?v=84"></script>
+<script src="js/shopping.js?v=84"></script>
+<script src="js/diet.js?v=84"></script>
+<script src="js/finance.js?v=84"></script>
+<script src="js/settings.js?v=84"></script>
+<script src="js/orbita-ai.js?v=84"></script>
+<script src="js/notes.js?v=84"></script>
+<script src="js/media.js?v=84"></script>
+<script src="js/history.js?v=84"></script>
+<script src="js/charts.js?v=84"></script>
+<script src="js/weekly.js?v=84"></script>
+<script src="js/onboarding.js?v=84"></script>
+<script src="js/landing.js?v=84"></script>
+<script src="js/screens.js?v=84"></script>
+<script src="js/app.js?v=84"></script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js?v=84').catch(e => console.warn('SW falhou:', e));
+  });
+}
+</script>
 </body>
 </html>

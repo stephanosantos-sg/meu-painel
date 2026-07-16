@@ -1,0 +1,2492 @@
+const LEGIO_AGENTS = [{
+  slug: 'augustus',
+  name: 'Augustus',
+  role: 'Task Scanner',
+  clientId: null,
+  order: 1,
+  defaultModel: 'claude-opus-4-7'
+}, {
+  slug: 'trajan',
+  name: 'Trajan',
+  role: 'TLC Specialist',
+  clientId: 'tlc',
+  order: 2,
+  defaultModel: 'claude-sonnet-4-6'
+}, {
+  slug: 'marcus',
+  name: 'Marcus Aurelius',
+  role: 'MadCap Specialist',
+  clientId: 'madcap',
+  order: 3,
+  defaultModel: 'claude-sonnet-4-6'
+}, {
+  slug: 'hadrian',
+  name: 'Hadrian',
+  role: 'Hyperdrive Specialist',
+  clientId: 'hyperdrive',
+  order: 4,
+  defaultModel: 'claude-sonnet-4-6'
+}, {
+  slug: 'vespasian',
+  name: 'Vespasian',
+  role: 'UpKeep Specialist',
+  clientId: 'upkeep',
+  order: 5,
+  defaultModel: 'claude-sonnet-4-6'
+}, {
+  slug: 'lucius_verus',
+  name: 'Lucius Verus',
+  role: 'LCI/RGI Specialist',
+  clientId: 'lci_rgi',
+  order: 6,
+  defaultModel: 'claude-sonnet-4-6'
+}, {
+  slug: 'diocletian',
+  name: 'Diocletian',
+  role: 'Reviewer',
+  clientId: null,
+  order: 7,
+  defaultModel: 'claude-opus-4-7'
+}, {
+  slug: 'caesar',
+  name: 'Caesar',
+  role: 'Executor',
+  clientId: null,
+  order: 8,
+  defaultModel: 'claude-opus-4-7'
+}, {
+  slug: 'tiberius',
+  name: 'Tiberius',
+  role: 'Auditor',
+  clientId: null,
+  order: 9,
+  defaultModel: 'claude-sonnet-4-6'
+}, {
+  slug: 'claudius',
+  name: 'Claudius',
+  role: 'Routine',
+  clientId: null,
+  order: 10,
+  defaultModel: 'claude-haiku-4-5-20251001'
+}];
+const LEGIO_MODELS = [{
+  id: 'claude-opus-4-7',
+  label: 'Opus 4.7',
+  tier: 'premium',
+  hint: 'mais capaz, mais caro'
+}, {
+  id: 'claude-sonnet-4-6',
+  label: 'Sonnet 4.6',
+  tier: 'standard',
+  hint: 'equilibrado'
+}, {
+  id: 'claude-haiku-4-5-20251001',
+  label: 'Haiku 4.5',
+  tier: 'fast',
+  hint: 'rápido, mais barato'
+}];
+const LEGIO_CLIENTS = {
+  tlc: {
+    id: 'tlc',
+    name: 'Tax Lien Code',
+    color: '#C8102E'
+  },
+  madcap: {
+    id: 'madcap',
+    name: 'MadCap',
+    color: '#D4AF37'
+  },
+  hyperdrive: {
+    id: 'hyperdrive',
+    name: 'Hyperdrive',
+    color: '#5b8dff'
+  },
+  upkeep: {
+    id: 'upkeep',
+    name: 'UpKeep',
+    color: '#3ccf91'
+  },
+  lci_rgi: {
+    id: 'lci_rgi',
+    name: 'LCI / RGI',
+    color: '#b066ff'
+  }
+};
+const DEFAULT_WORKER_URL = 'http://127.0.0.1:5181';
+const DEFAULT_WORKER_TOKEN = '20012b47e2929d87237926a0a6399467d04d2076413ef996a3d94447dc5beef3';
+const SOURCE_STYLES = {
+  asana: {
+    icon: '◉',
+    label: 'Asana',
+    color: '#F06A6A',
+    bg: 'rgba(240,106,106,0.14)'
+  },
+  slack: {
+    icon: '#',
+    label: 'Slack',
+    color: '#ECB22E',
+    bg: 'rgba(236,178,46,0.14)'
+  },
+  gong: {
+    icon: '◐',
+    label: 'Gong',
+    color: '#7B5BD1',
+    bg: 'rgba(123,91,209,0.14)'
+  },
+  gmail: {
+    icon: '✉',
+    label: 'Gmail',
+    color: '#EA4335',
+    bg: 'rgba(234,67,53,0.14)'
+  },
+  basecamp: {
+    icon: '▣',
+    label: 'Basecamp',
+    color: '#4ABF5B',
+    bg: 'rgba(74,191,91,0.14)'
+  },
+  manual: {
+    icon: '✎',
+    label: 'Manual',
+    color: '#a8a8bc',
+    bg: 'rgba(168,168,188,0.10)'
+  },
+  cron: {
+    icon: '⏱',
+    label: 'Cron',
+    color: '#a8a8bc',
+    bg: 'rgba(168,168,188,0.10)'
+  }
+};
+function SourceBadge({
+  source
+}) {
+  const s = SOURCE_STYLES[source] || SOURCE_STYLES.manual;
+  return React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '2px 7px',
+      borderRadius: 999,
+      fontSize: 10,
+      fontWeight: 600,
+      background: s.bg,
+      color: s.color,
+      border: `1px solid ${s.color}33`
+    }
+  }, React.createElement("span", {
+    style: {
+      fontFamily: 'var(--font-mono)'
+    }
+  }, s.icon), s.label);
+}
+const STATUS_COLUMNS = [{
+  id: 'pending',
+  label: 'Pendente',
+  accent: '#a8a8bc'
+}, {
+  id: 'in-progress',
+  label: 'Executando',
+  accent: '#5b8dff'
+}, {
+  id: 'needs-review',
+  label: 'Revisão',
+  accent: '#D4AF37'
+}, {
+  id: 'needs-review-verified',
+  label: 'Verificada',
+  accent: '#3ccf91'
+}, {
+  id: 'needs-review-flagged',
+  label: 'Sinalizada',
+  accent: '#ff9a3c'
+}, {
+  id: 'approved',
+  label: 'Aprovada',
+  accent: '#3ccf91'
+}, {
+  id: 'executed',
+  label: 'Executada',
+  accent: '#9A7B1F'
+}, {
+  id: 'failed',
+  label: 'Falhou',
+  accent: '#ff5a3c'
+}];
+function defaultImperiumState() {
+  const agents = {};
+  LEGIO_AGENTS.forEach(a => {
+    agents[a.slug] = {
+      id: a.slug,
+      name: a.name,
+      role: a.role,
+      clientId: a.clientId,
+      status: 'offline',
+      lastHeartbeat: 0,
+      lastError: null,
+      currentTaskId: null,
+      model: a.defaultModel,
+      systemPromptRef: `${a.slug}.md`,
+      avatarKey: a.slug,
+      enabled: a.slug === 'augustus'
+    };
+  });
+  return {
+    agents,
+    tasks: [],
+    clients: {
+      ...LEGIO_CLIENTS
+    },
+    recentLogs: [],
+    config: {
+      workerUrl: 'http://127.0.0.1:5181',
+      workerToken: '',
+      autoApproveDiocletian: false,
+      executorRequiresDoubleConfirm: true,
+      paused: false,
+      auditRotation: {
+        mon: 'tlc',
+        tue: 'madcap',
+        wed: 'hyperdrive',
+        thu: 'upkeep',
+        fri: 'lci_rgi'
+      }
+    }
+  };
+}
+function ensureImperiumState(data) {
+  if (!data._imperium) return false;
+  return true;
+}
+function agentStatusOf(agent) {
+  if (!agent.enabled) return {
+    code: 'disabled',
+    color: '#3a3a4a',
+    label: 'Desabilitado'
+  };
+  const now = Date.now();
+  const age = now - (agent.lastHeartbeat || 0);
+  if (agent.lastError && age > 60_000) return {
+    code: 'error',
+    color: '#ff5a3c',
+    label: 'Erro'
+  };
+  if (age <= 60_000) return {
+    code: 'online',
+    color: '#3ccf91',
+    label: 'Online'
+  };
+  if (age <= 5 * 60_000) return {
+    code: 'stale',
+    color: '#D4AF37',
+    label: 'Stale'
+  };
+  return {
+    code: 'offline',
+    color: '#ff5a3c',
+    label: 'Offline'
+  };
+}
+function fmtAgo(ts) {
+  if (!ts) return 'nunca';
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return `${s}s atrás`;
+  if (s < 3600) return `${Math.round(s / 60)}min atrás`;
+  if (s < 86400) return `${Math.round(s / 3600)}h atrás`;
+  return `${Math.round(s / 86400)}d atrás`;
+}
+function EmperorAvatar({
+  slug,
+  size = 64,
+  status,
+  onClick,
+  label,
+  sublabel,
+  badge,
+  activity,
+  working
+}) {
+  const [imgFailed, setImgFailed] = React.useState(false);
+  const imgSrc = `img/emperors/${slug}.webp`;
+  const svg = imgFailed && window.LegioAvatars ? window.LegioAvatars.getAvatarSVG(slug) : '';
+  return React.createElement("div", {
+    onClick: onClick,
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 6,
+      cursor: onClick ? 'pointer' : 'default',
+      minWidth: size + 24
+    }
+  }, React.createElement("div", {
+    style: {
+      position: 'relative'
+    }
+  }, React.createElement("div", {
+    className: working ? 'legio-avatar-working' : '',
+    style: {
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      background: 'radial-gradient(circle, #1a0606, #08080c)',
+      boxShadow: working ? undefined : `0 0 0 2px ${status ? status.color : '#3a3a4a'}, 0 0 ${size * 0.4}px ${status ? status.color + '55' : 'transparent'}`,
+      transition: 'all 200ms'
+    }
+  }, imgFailed ? React.createElement("div", {
+    style: {
+      width: '100%',
+      height: '100%'
+    },
+    dangerouslySetInnerHTML: {
+      __html: svg
+    }
+  }) : React.createElement("img", {
+    src: imgSrc,
+    alt: slug,
+    onError: () => setImgFailed(true),
+    style: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block'
+    }
+  })), React.createElement("div", {
+    className: working ? 'legio-dot-working' : '',
+    style: {
+      position: 'absolute',
+      bottom: 2,
+      right: 2,
+      width: 12,
+      height: 12,
+      borderRadius: '50%',
+      background: status ? status.color : '#3a3a4a',
+      border: '2px solid #08080c'
+    },
+    title: status ? status.label : ''
+  }), badge ? React.createElement("div", {
+    style: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      minWidth: 18,
+      height: 18,
+      padding: '0 5px',
+      borderRadius: 9,
+      fontSize: 10,
+      fontWeight: 700,
+      background: '#C8102E',
+      color: '#fff',
+      display: 'grid',
+      placeItems: 'center',
+      fontFamily: 'var(--font-mono)',
+      boxShadow: '0 0 10px rgba(200,16,46,0.6)'
+    }
+  }, badge) : null), label ? React.createElement("div", {
+    style: {
+      textAlign: 'center'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      color: 'var(--ink-1)',
+      lineHeight: 1.1
+    }
+  }, label), sublabel ? React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-3)',
+      marginTop: 2
+    }
+  }, sublabel) : null) : null, activity ? React.createElement("div", {
+    style: {
+      fontSize: 9,
+      fontFamily: 'var(--font-mono)',
+      color: '#D4AF37',
+      padding: '3px 8px',
+      borderRadius: 999,
+      background: 'rgba(212,175,55,0.12)',
+      border: '1px solid rgba(212,175,55,0.3)',
+      maxWidth: 140,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    title: activity
+  }, activity) : null);
+}
+function TaskCard({
+  task,
+  agent,
+  client,
+  onClick,
+  onDragStart,
+  onStart,
+  onDelete
+}) {
+  const dotColor = STATUS_COLUMNS.find(c => c.id === task.status)?.accent || '#a8a8bc';
+  const canStart = task.status === 'pending';
+  const stop = e => e.stopPropagation();
+  return React.createElement("div", {
+    draggable: true,
+    onDragStart: onDragStart,
+    onClick: onClick,
+    style: {
+      padding: 12,
+      borderRadius: 10,
+      background: 'rgba(212,175,55,0.04)',
+      border: '1px solid rgba(212,175,55,0.16)',
+      cursor: 'pointer',
+      marginBottom: 8,
+      transition: 'all 150ms',
+      position: 'relative'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.borderColor = 'rgba(212,175,55,0.4)';
+      e.currentTarget.style.background = 'rgba(212,175,55,0.08)';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.borderColor = 'rgba(212,175,55,0.16)';
+      e.currentTarget.style.background = 'rgba(212,175,55,0.04)';
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 500,
+      color: 'var(--ink-1)',
+      lineHeight: 1.35,
+      flex: 1
+    }
+  }, task.title), React.createElement("span", {
+    style: {
+      width: 8,
+      height: 8,
+      borderRadius: '50%',
+      background: dotColor,
+      flexShrink: 0,
+      marginTop: 4
+    }
+  })), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      marginTop: 8,
+      fontSize: 10,
+      color: 'var(--ink-3)',
+      flexWrap: 'wrap',
+      alignItems: 'center'
+    }
+  }, React.createElement(SourceBadge, {
+    source: task.sourceType
+  }), client ? React.createElement("span", {
+    style: {
+      padding: '2px 7px',
+      borderRadius: 999,
+      background: client.color + '22',
+      color: client.color,
+      fontWeight: 600
+    }
+  }, client.name) : null, agent ? React.createElement("span", {
+    style: {
+      padding: '2px 7px',
+      borderRadius: 999,
+      background: 'rgba(255,255,255,0.04)'
+    }
+  }, agent.name) : null, task.priority === 1 ? React.createElement("span", {
+    style: {
+      padding: '2px 7px',
+      borderRadius: 999,
+      background: '#C8102E33',
+      color: '#ff7a8a',
+      fontWeight: 600
+    }
+  }, "Urgente") : null), task.outputSummary ? React.createElement("div", {
+    style: {
+      marginTop: 8,
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      lineHeight: 1.4,
+      padding: 8,
+      background: 'rgba(0,0,0,0.2)',
+      borderRadius: 6
+    }
+  }, task.outputSummary.slice(0, 140), task.outputSummary.length > 140 ? '…' : '') : null, React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      marginTop: 10
+    }
+  }, canStart && onStart ? React.createElement("button", {
+    onClick: e => {
+      stop(e);
+      onStart(task.id);
+    },
+    style: {
+      flex: 1,
+      padding: '6px 8px',
+      borderRadius: 6,
+      fontSize: 11,
+      fontWeight: 600,
+      background: 'linear-gradient(135deg, rgba(60,207,145,0.16), rgba(60,207,145,0.08))',
+      color: '#3ccf91',
+      border: '1px solid rgba(60,207,145,0.4)',
+      cursor: 'pointer'
+    }
+  }, "\u25B6 Iniciar") : null, onDelete ? React.createElement("button", {
+    onClick: e => {
+      stop(e);
+      if (confirm('Excluir essa tarefa?')) onDelete(task.id);
+    },
+    style: {
+      width: 28,
+      height: 28,
+      padding: 0,
+      borderRadius: 6,
+      fontSize: 12,
+      background: 'rgba(255,90,60,0.06)',
+      color: '#ff7a5a',
+      border: '1px solid rgba(255,90,60,0.25)',
+      cursor: 'pointer',
+      flexShrink: 0
+    },
+    title: "Excluir"
+  }, "\uD83D\uDDD1") : null));
+}
+function ScreenLegio() {
+  const {
+    data,
+    commit,
+    toast
+  } = useData();
+  const [selectedAgent, setSelectedAgent] = React.useState(null);
+  const [selectedTask, setSelectedTask] = React.useState(null);
+  const [filterClient, setFilterClient] = React.useState('all');
+  const [showNewTask, setShowNewTask] = React.useState(false);
+  const [newTaskPreset, setNewTaskPreset] = React.useState(null);
+  const [, force] = React.useReducer(x => x + 1, 0);
+  React.useEffect(() => {
+    if (!data._imperium) {
+      commit(D => {
+        D._imperium = defaultImperiumState();
+      });
+    }
+  }, []);
+  React.useEffect(() => {
+    const t = setInterval(() => force(), 15_000);
+    return () => clearInterval(t);
+  }, []);
+  const dataRef = React.useRef(data);
+  dataRef.current = data;
+  React.useEffect(() => {
+    if (!window.firebase) return;
+    let unsub = null;
+    function attach(user) {
+      if (!user) return;
+      try {
+        const db = window.firebase.firestore();
+        unsub = db.collection('users').doc(user.uid).onSnapshot(doc => {
+          if (!doc.exists) return;
+          const cloud = doc.data();
+          const cloudImp = cloud?.data?._imperium;
+          if (!cloudImp) return;
+          const merged = {
+            ...dataRef.current,
+            _imperium: cloudImp
+          };
+          window.dispatchEvent(new CustomEvent('orbita:dataPulled', {
+            detail: merged
+          }));
+        }, err => console.warn('imperium onSnapshot:', err.message));
+      } catch (e) {
+        console.warn('imperium subscribe failed:', e.message);
+      }
+    }
+    const auth = window.firebase.auth();
+    if (auth.currentUser) attach(auth.currentUser);else auth.onAuthStateChanged(attach);
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+  const imp = data._imperium || defaultImperiumState();
+  const agents = imp.agents || {};
+  const tasks = imp.tasks || [];
+  const visibleTasks = filterClient === 'all' ? tasks : tasks.filter(t => t.clientId === filterClient);
+  const tasksByStatus = STATUS_COLUMNS.reduce((acc, col) => {
+    acc[col.id] = visibleTasks.filter(t => t.status === col.id);
+    return acc;
+  }, {});
+  const needsReview = tasksByStatus['needs-review'] || [];
+  const reviewByAgent = {};
+  LEGIO_AGENTS.forEach(a => {
+    reviewByAgent[a.slug] = tasks.filter(t => t.status === 'needs-review' && t.assignedTo === a.slug).length;
+  });
+  const healthIssues = LEGIO_AGENTS.map(a => ({
+    ...a,
+    agent: agents[a.slug]
+  })).filter(({
+    agent
+  }) => agent && agent.enabled && agentStatusOf(agent).code !== 'online' && agentStatusOf(agent).code !== 'stale');
+  function setTaskStatus(taskId, newStatus, extra = {}) {
+    commit(D => {
+      const t = (D._imperium.tasks || []).find(x => x.id === taskId);
+      if (!t) return;
+      t.status = newStatus;
+      Object.assign(t, extra);
+    });
+  }
+  function reassignTask(taskId, agentSlug) {
+    commit(D => {
+      const t = (D._imperium.tasks || []).find(x => x.id === taskId);
+      if (!t) return;
+      t.assignedTo = agentSlug;
+      if (t.status === 'in-progress') t.status = 'pending';
+    });
+    toast(`↪ Reatribuído para ${LEGIO_AGENTS.find(a => a.slug === agentSlug)?.name || agentSlug}`);
+  }
+  function approveTask(taskId) {
+    setTaskStatus(taskId, 'approved', {
+      assignedTo: 'caesar',
+      approvedAt: Date.now()
+    });
+    toast('✓ Aprovada · Caesar pronto para executar');
+  }
+  function rejectTask(taskId) {
+    setTaskStatus(taskId, 'rejected', {
+      rejectedAt: Date.now()
+    });
+    toast('✕ Rejeitada');
+  }
+  function startTask(taskId) {
+    setTaskStatus(taskId, 'in-progress', {
+      startedByUserAt: Date.now()
+    });
+    toast('▶ Iniciada · especialista vai claimar');
+  }
+  function deleteTask(taskId) {
+    commit(D => {
+      if (!D._imperium) return;
+      D._imperium.tasks = (D._imperium.tasks || []).filter(t => t.id !== taskId);
+    });
+    toast('🗑 Excluída');
+  }
+  function createTask(taskData) {
+    commit(D => {
+      if (!D._imperium) D._imperium = defaultImperiumState();
+      if (!D._imperium.tasks) D._imperium.tasks = [];
+      D._imperium.tasks.unshift({
+        id: 't_' + Orbita.uid(),
+        title: taskData.title,
+        clientId: taskData.clientId || null,
+        sourceType: taskData.sourceType || 'manual',
+        sourceRef: taskData.sourceRef || '',
+        assignedTo: taskData.assignedTo || null,
+        status: 'pending',
+        priority: taskData.priority || 2,
+        createdAt: Date.now(),
+        claimedAt: null,
+        completedAt: null,
+        outputRef: null,
+        outputSummary: '',
+        reviewerNotes: null,
+        executorLogs: null,
+        idempotencyKey: 'manual:' + Date.now()
+      });
+    });
+    toast('＋ Tarefa criada');
+  }
+  function onDropOnAgent(e, agentSlug) {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/x-imperium-task');
+    if (taskId) reassignTask(taskId, agentSlug);
+  }
+  return React.createElement(React.Fragment, null, React.createElement(TopBar, {
+    title: "Legio.",
+    subtitle: `${tasks.length} tarefa${tasks.length === 1 ? '' : 's'} · ${needsReview.length} para revisão`,
+    actions: React.createElement("button", {
+      className: "btn btn-primary",
+      onClick: () => setShowNewTask(true)
+    }, "\uFF0B Nova tarefa")
+  }), React.createElement("div", {
+    style: {
+      padding: '20px 28px 80px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 24
+    }
+  }, React.createElement("div", {
+    className: "glass",
+    style: {
+      padding: '20px 18px',
+      overflowX: 'auto'
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+      padding: '0 6px'
+    }
+  }, React.createElement("div", {
+    className: "eyebrow"
+  }, "Legio Imperialis"), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      fontSize: 11,
+      color: 'var(--ink-3)'
+    }
+  }, React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, React.createElement("span", {
+    style: {
+      width: 7,
+      height: 7,
+      borderRadius: '50%',
+      background: '#3ccf91'
+    }
+  }), "Online"), React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, React.createElement("span", {
+    style: {
+      width: 7,
+      height: 7,
+      borderRadius: '50%',
+      background: '#D4AF37'
+    }
+  }), "Stale"), React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, React.createElement("span", {
+    style: {
+      width: 7,
+      height: 7,
+      borderRadius: '50%',
+      background: '#ff5a3c'
+    }
+  }), "Offline / Erro"), React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, React.createElement("span", {
+    style: {
+      width: 7,
+      height: 7,
+      borderRadius: '50%',
+      background: '#3a3a4a'
+    }
+  }), "Desabilitado"))), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 14,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-start'
+    }
+  }, LEGIO_AGENTS.map(a => {
+    const agent = agents[a.slug] || {
+      enabled: false,
+      lastHeartbeat: 0
+    };
+    const status = agentStatusOf(agent);
+    const reviewBadge = reviewByAgent[a.slug] || 0;
+    return React.createElement("div", {
+      key: a.slug,
+      onDragOver: e => {
+        e.preventDefault();
+        e.currentTarget.style.transform = 'scale(1.05)';
+      },
+      onDragLeave: e => {
+        e.currentTarget.style.transform = 'scale(1)';
+      },
+      onDrop: e => {
+        e.currentTarget.style.transform = 'scale(1)';
+        onDropOnAgent(e, a.slug);
+      },
+      style: {
+        transition: 'transform 150ms'
+      }
+    }, React.createElement(EmperorAvatar, {
+      slug: a.slug,
+      size: 72,
+      status: status,
+      working: agent.status === 'thinking' || agent.status === 'calling',
+      onClick: () => setSelectedAgent(a.slug),
+      label: a.name,
+      sublabel: a.role,
+      badge: reviewBadge || null,
+      activity: (agent.status === 'thinking' || agent.status === 'calling') && agent.activity ? agent.activity : null
+    }));
+  }))), needsReview.length > 0 ? React.createElement("div", {
+    className: "glass",
+    style: {
+      padding: 20,
+      border: '1px solid rgba(212,175,55,0.4)',
+      boxShadow: '0 0 40px rgba(212,175,55,0.1)'
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14
+    }
+  }, React.createElement("div", null, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      color: '#D4AF37'
+    }
+  }, "Para minha revis\xE3o"), React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontStyle: 'italic',
+      fontSize: 26,
+      color: 'var(--ink-0)',
+      marginTop: 4
+    }
+  }, needsReview.length, " tarefa", needsReview.length === 1 ? '' : 's', " aguardando aprova\xE7\xE3o"))), React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+      gap: 12
+    }
+  }, needsReview.map(task => {
+    const agent = agents[task.assignedTo];
+    const client = imp.clients[task.clientId];
+    return React.createElement("div", {
+      key: task.id,
+      style: {
+        padding: 14,
+        borderRadius: 12,
+        background: 'rgba(0,0,0,0.25)',
+        border: '1px solid rgba(212,175,55,0.2)'
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: 14,
+        fontWeight: 500,
+        marginBottom: 6
+      }
+    }, task.title), React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        marginBottom: 10,
+        flexWrap: 'wrap',
+        fontSize: 10
+      }
+    }, client ? React.createElement("span", {
+      style: {
+        padding: '2px 7px',
+        borderRadius: 999,
+        background: client.color + '22',
+        color: client.color,
+        fontWeight: 600
+      }
+    }, client.name) : null, agent ? React.createElement("span", {
+      style: {
+        padding: '2px 7px',
+        borderRadius: 999,
+        background: 'rgba(212,175,55,0.12)',
+        color: '#D4AF37'
+      }
+    }, agent.name) : null), task.outputSummary ? React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-2)',
+        lineHeight: 1.45,
+        marginBottom: 12,
+        padding: 10,
+        background: 'rgba(0,0,0,0.3)',
+        borderRadius: 8,
+        maxHeight: 80,
+        overflow: 'hidden'
+      }
+    }, task.outputSummary.slice(0, 200), task.outputSummary.length > 200 ? '…' : '') : null, React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8
+      }
+    }, React.createElement("button", {
+      onClick: () => setSelectedTask(task.id),
+      style: {
+        flex: 1,
+        padding: '8px 0',
+        borderRadius: 8,
+        border: '1px solid var(--glass-border)',
+        background: 'transparent',
+        color: 'var(--ink-2)',
+        fontSize: 12,
+        cursor: 'pointer'
+      }
+    }, "Ver"), React.createElement("button", {
+      onClick: () => rejectTask(task.id),
+      style: {
+        flex: 1,
+        padding: '8px 0',
+        borderRadius: 8,
+        border: '1px solid rgba(255,90,60,0.4)',
+        background: 'rgba(255,90,60,0.08)',
+        color: '#ff7a5a',
+        fontSize: 12,
+        cursor: 'pointer',
+        fontWeight: 600
+      }
+    }, "\u2715 Rejeitar"), React.createElement("button", {
+      onClick: () => approveTask(task.id),
+      style: {
+        flex: 1.4,
+        padding: '8px 0',
+        borderRadius: 8,
+        border: 'none',
+        background: 'linear-gradient(135deg, #D4AF37, #C8102E)',
+        color: '#08080c',
+        fontSize: 12,
+        cursor: 'pointer',
+        fontWeight: 700
+      }
+    }, "\u2713 Aprovar")));
+  }))) : null, React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      flexWrap: 'wrap'
+    }
+  }, React.createElement("span", {
+    className: "eyebrow",
+    style: {
+      marginRight: 4
+    }
+  }, "Filtrar"), React.createElement("button", {
+    onClick: () => setFilterClient('all'),
+    className: `chip ${filterClient === 'all' ? 'chip-neon' : ''}`,
+    style: {
+      cursor: 'pointer'
+    }
+  }, "Todos (", tasks.length, ")"), Object.values(LEGIO_CLIENTS).map(c => {
+    const count = tasks.filter(t => t.clientId === c.id).length;
+    return React.createElement("button", {
+      key: c.id,
+      onClick: () => setFilterClient(c.id),
+      className: "chip",
+      style: {
+        cursor: 'pointer',
+        background: filterClient === c.id ? c.color + '33' : 'var(--glass-bg)',
+        border: filterClient === c.id ? `1px solid ${c.color}` : '1px solid var(--glass-border)',
+        color: filterClient === c.id ? c.color : 'var(--ink-2)',
+        fontWeight: filterClient === c.id ? 600 : 400
+      }
+    }, React.createElement("span", {
+      style: {
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: c.color
+      }
+    }), c.name, " (", count, ")");
+  })), React.createElement("div", {
+    className: "legio-kanban",
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(6, minmax(220px, 1fr))',
+      gap: 12,
+      overflowX: 'auto'
+    }
+  }, STATUS_COLUMNS.map(col => {
+    const colTasks = tasksByStatus[col.id] || [];
+    return React.createElement("div", {
+      key: col.id,
+      style: {
+        minWidth: 220
+      }
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        padding: '0 6px'
+      }
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, React.createElement("span", {
+      style: {
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: col.accent
+      }
+    }), React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        color: 'var(--ink-2)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em'
+      }
+    }, col.label)), React.createElement("span", {
+      className: "mono",
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)'
+      }
+    }, colTasks.length)), React.createElement("div", {
+      style: {
+        padding: 10,
+        borderRadius: 12,
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid var(--glass-border)',
+        minHeight: 100
+      }
+    }, colTasks.length === 0 ? React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-4)',
+        textAlign: 'center',
+        padding: '20px 0',
+        fontStyle: 'italic'
+      }
+    }, "\u2014") : colTasks.map(task => React.createElement(TaskCard, {
+      key: task.id,
+      task: task,
+      agent: agents[task.assignedTo],
+      client: imp.clients[task.clientId],
+      onClick: () => setSelectedTask(task.id),
+      onDragStart: e => {
+        e.dataTransfer.setData('text/x-imperium-task', task.id);
+      },
+      onStart: startTask,
+      onDelete: deleteTask
+    }))));
+  })), healthIssues.length > 0 ? React.createElement("div", {
+    className: "glass",
+    style: {
+      padding: 16,
+      borderColor: 'rgba(255,90,60,0.3)'
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      color: '#ff7a5a',
+      marginBottom: 10
+    }
+  }, "Sa\xFAde do ex\xE9rcito"), React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+      gap: 10
+    }
+  }, healthIssues.map(({
+    slug,
+    name,
+    role,
+    agent
+  }) => {
+    const status = agentStatusOf(agent);
+    return React.createElement("div", {
+      key: slug,
+      onClick: () => setSelectedAgent(slug),
+      style: {
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: 10,
+        borderRadius: 10,
+        background: 'rgba(0,0,0,0.2)',
+        border: '1px solid rgba(255,90,60,0.2)'
+      }
+    }, React.createElement(EmperorAvatar, {
+      slug: slug,
+      size: 36,
+      status: status
+    }), React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 600
+      }
+    }, name), React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-3)'
+      }
+    }, role, " \xB7 ", status.label), React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: '#ff7a5a',
+        marginTop: 2
+      }
+    }, agent.lastError?.msg || `Último sinal: ${fmtAgo(agent.lastHeartbeat)}`)));
+  }))) : null), selectedAgent ? React.createElement(AgentDrawer, {
+    slug: selectedAgent,
+    onClose: () => setSelectedAgent(null),
+    onQuickAdd: preset => {
+      setNewTaskPreset(preset);
+      setShowNewTask(true);
+      setSelectedAgent(null);
+    }
+  }) : null, selectedTask ? React.createElement(TaskDrawer, {
+    taskId: selectedTask,
+    onClose: () => setSelectedTask(null),
+    onApprove: approveTask,
+    onReject: rejectTask,
+    onReassign: reassignTask,
+    onStart: startTask,
+    onDelete: deleteTask
+  }) : null, showNewTask ? React.createElement(NewTaskModal, {
+    onClose: () => {
+      setShowNewTask(false);
+      setNewTaskPreset(null);
+    },
+    onCreate: createTask,
+    preset: newTaskPreset
+  }) : null);
+}
+function PullSourceSection({
+  impConfig,
+  clients,
+  toast
+}) {
+  const SOURCES = [{
+    id: 'slack',
+    label: 'Slack',
+    icon: '💬',
+    desc: 'Canal específico (rápido, ~$0.02)'
+  }, {
+    id: 'asana',
+    label: 'Asana',
+    icon: '📋',
+    desc: 'Tarefas atribuídas a Stephano (~$0.05)'
+  }, {
+    id: 'gong',
+    label: 'Gong',
+    icon: '🎙',
+    desc: 'Calls recentes do cliente (~$0.10)'
+  }, {
+    id: 'gmail',
+    label: 'Gmail',
+    icon: '✉',
+    desc: 'Mensagens estreladas / não lidas (~$0.05)'
+  }];
+  const [activeSource, setActiveSource] = React.useState('slack');
+  const [channels, setChannels] = React.useState([]);
+  const [loadingChannels, setLoadingChannels] = React.useState(false);
+  const [channelErr, setChannelErr] = React.useState('');
+  const [chosenChannel, setChosenChannel] = React.useState('');
+  const [manualMode, setManualMode] = React.useState(false);
+  const [manualId, setManualId] = React.useState('');
+  const [manualName, setManualName] = React.useState('');
+  const [chosenClient, setChosenClient] = React.useState('');
+  const [pulling, setPulling] = React.useState(false);
+  const [lastResult, setLastResult] = React.useState('');
+  const url = impConfig?.workerUrl || DEFAULT_WORKER_URL;
+  const token = impConfig?.workerToken || DEFAULT_WORKER_TOKEN;
+  async function loadChannels() {
+    setLoadingChannels(true);
+    setChannelErr('');
+    try {
+      const r = await fetch(url + '/slack/channels', {
+        headers: {
+          Authorization: 'Bearer ' + token
+        }
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || 'HTTP ' + r.status);
+      setChannels(j.channels || []);
+      if (!(j.channels || []).length) setChannelErr('Cache fria — use ID manual abaixo');
+    } catch (e) {
+      setChannelErr(e.message);
+      setManualMode(true);
+    } finally {
+      setLoadingChannels(false);
+    }
+  }
+  React.useEffect(() => {
+    if (activeSource === 'slack' && !channels.length && !channelErr) loadChannels();
+  }, [activeSource]);
+  async function pull() {
+    setPulling(true);
+    setLastResult('');
+    try {
+      let endpoint, body;
+      if (activeSource === 'slack') {
+        const channelId = manualMode ? manualId.trim() : chosenChannel;
+        const channelLabel = manualMode ? manualName.trim() || channelId : channels.find(c => c.id === channelId)?.name || channelId;
+        if (!channelId) {
+          toast('✕ Informe um canal');
+          setPulling(false);
+          return;
+        }
+        endpoint = '/slack/pull';
+        body = {
+          channel: channelId,
+          channelName: channelLabel,
+          clientId: chosenClient || null
+        };
+      } else {
+        endpoint = '/pull/' + activeSource;
+        body = {
+          clientId: chosenClient || null
+        };
+      }
+      const r = await fetch(url + endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify(body)
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+      setLastResult(`✓ ${j.created} tarefa${j.created === 1 ? '' : 's'} criada${j.created === 1 ? '' : 's'}${j.spend ? ' · $' + j.spend.toFixed(3) : ''}`);
+      toast(`✓ ${activeSource}: ${j.created} tarefas`);
+    } catch (e) {
+      setLastResult('✕ ' + e.message);
+      toast('✕ Pull falhou · ' + e.message);
+    } finally {
+      setPulling(false);
+    }
+  }
+  const canPull = activeSource !== 'slack' || (manualMode ? manualId.trim() : chosenChannel);
+  const activeMeta = SOURCES.find(s => s.id === activeSource);
+  return React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 10
+    }
+  }, "Puxar de fonte espec\xEDfica"), React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: 6,
+      marginBottom: 12
+    }
+  }, SOURCES.map(s => {
+    const active = activeSource === s.id;
+    return React.createElement("button", {
+      key: s.id,
+      onClick: () => {
+        setActiveSource(s.id);
+        setLastResult('');
+      },
+      style: {
+        padding: '10px 6px',
+        borderRadius: 8,
+        cursor: 'pointer',
+        background: active ? 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(200,16,46,0.12))' : 'transparent',
+        border: active ? '1px solid #D4AF37' : '1px solid var(--glass-border)',
+        color: active ? '#F4D17A' : 'var(--ink-2)',
+        textAlign: 'center',
+        transition: 'all 150ms'
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: 18,
+        lineHeight: 1
+      }
+    }, s.icon), React.createElement("div", {
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        marginTop: 4
+      }
+    }, s.label));
+  })), React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-3)',
+      marginBottom: 10
+    }
+  }, activeMeta?.desc), activeSource === 'slack' ? React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, manualMode ? React.createElement("div", null, React.createElement("label", {
+    className: "form-label",
+    style: {
+      fontSize: 10
+    }
+  }, "Canal \u2014 ID + nome manual"), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6
+    }
+  }, React.createElement("input", {
+    className: "form-input",
+    value: manualId,
+    onChange: e => setManualId(e.target.value),
+    placeholder: "C04ABCDEF",
+    style: {
+      flex: 1
+    }
+  }), React.createElement("input", {
+    className: "form-input",
+    value: manualName,
+    onChange: e => setManualName(e.target.value),
+    placeholder: "int_madcap",
+    style: {
+      flex: 1
+    }
+  })), React.createElement("button", {
+    onClick: () => setManualMode(false),
+    style: {
+      marginTop: 4,
+      fontSize: 10,
+      background: 'none',
+      border: 'none',
+      color: 'var(--ink-3)',
+      cursor: 'pointer',
+      padding: 0
+    }
+  }, "\u21A9 usar dropdown")) : React.createElement("div", null, React.createElement("label", {
+    className: "form-label",
+    style: {
+      fontSize: 10
+    }
+  }, "Canal (", channels.length, " dispon\xEDveis)", loadingChannels ? ' · carregando…' : ''), React.createElement("select", {
+    className: "form-input",
+    value: chosenChannel,
+    onChange: e => setChosenChannel(e.target.value),
+    disabled: loadingChannels || !channels.length,
+    style: {
+      width: '100%'
+    }
+  }, React.createElement("option", {
+    value: ""
+  }, "\u2014 Escolha um canal \u2014"), channels.map(c => React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, "#", c.name))), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 12,
+      marginTop: 4
+    }
+  }, React.createElement("button", {
+    onClick: () => setManualMode(true),
+    style: {
+      fontSize: 10,
+      background: 'none',
+      border: 'none',
+      color: 'var(--ink-3)',
+      cursor: 'pointer',
+      padding: 0
+    }
+  }, "\u270F digitar ID manual"), React.createElement("button", {
+    onClick: loadChannels,
+    disabled: loadingChannels,
+    style: {
+      fontSize: 10,
+      background: 'none',
+      border: 'none',
+      color: 'var(--ink-3)',
+      cursor: 'pointer',
+      padding: 0
+    }
+  }, "\u21BB recarregar")))) : null, React.createElement("div", {
+    style: {
+      marginTop: activeSource === 'slack' ? 10 : 0,
+      marginBottom: 10
+    }
+  }, React.createElement("label", {
+    className: "form-label",
+    style: {
+      fontSize: 10
+    }
+  }, "Cliente (opcional, for\xE7a mapping)"), React.createElement("select", {
+    className: "form-input",
+    value: chosenClient,
+    onChange: e => setChosenClient(e.target.value),
+    style: {
+      width: '100%'
+    }
+  }, React.createElement("option", {
+    value: ""
+  }, "\u2014 Augustus decide \u2014"), Object.values(clients || {}).map(c => React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.name)))), React.createElement("button", {
+    onClick: pull,
+    disabled: pulling || !canPull,
+    className: "btn btn-primary",
+    style: {
+      width: '100%',
+      justifyContent: 'center',
+      opacity: pulling || !canPull ? 0.5 : 1
+    }
+  }, pulling ? 'Extraindo…' : `⚡ Extrair tarefas de ${activeMeta?.label}`), channelErr && activeSource === 'slack' ? React.createElement("div", {
+    style: {
+      marginTop: 8,
+      fontSize: 11,
+      color: '#ff7a5a'
+    }
+  }, "\u26A0 ", channelErr) : null, lastResult ? React.createElement("div", {
+    style: {
+      marginTop: 10,
+      fontSize: 12,
+      color: lastResult.startsWith('✓') ? '#3ccf91' : '#ff7a5a'
+    }
+  }, lastResult) : null);
+}
+function AgentDrawer({
+  slug,
+  onClose,
+  onQuickAdd
+}) {
+  const {
+    data,
+    commit,
+    toast
+  } = useData();
+  const imp = data._imperium || defaultImperiumState();
+  const agent = imp.agents[slug];
+  const meta = LEGIO_AGENTS.find(a => a.slug === slug);
+  if (!agent || !meta) return null;
+  const status = agentStatusOf(agent);
+  const client = meta.clientId ? imp.clients[meta.clientId] : null;
+  const recentLogs = (imp.recentLogs || []).filter(l => l.agentId === slug).slice(0, 10);
+  const myTasks = (imp.tasks || []).filter(t => t.assignedTo === slug);
+  function toggleEnabled() {
+    commit(D => {
+      D._imperium.agents[slug].enabled = !D._imperium.agents[slug].enabled;
+    });
+    toast(agent.enabled ? `${meta.name} desabilitado` : `${meta.name} habilitado`);
+  }
+  function setModel(modelId) {
+    commit(D => {
+      D._imperium.agents[slug].model = modelId;
+    });
+    const lbl = LEGIO_MODELS.find(m => m.id === modelId)?.label || modelId;
+    toast(`${meta.name} → ${lbl}`);
+  }
+  function toggleAutonomous() {
+    const next = !agent.autonomous;
+    commit(D => {
+      D._imperium.agents[slug].autonomous = next;
+    });
+    toast(next ? `⚡ ${meta.name} autônomo · puxa pendentes sozinho` : `${meta.name} manual · espera ▶ Iniciar`);
+  }
+  async function triggerNow() {
+    const url = imp.config?.workerUrl || DEFAULT_WORKER_URL;
+    const token = imp.config?.workerToken || DEFAULT_WORKER_TOKEN;
+    try {
+      const r = await fetch(url + '/trigger/' + slug, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token
+        }
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      toast(`⚡ ${meta.name} disparado`);
+    } catch (e) {
+      toast('✕ Worker indisponível · ' + e.message);
+    }
+  }
+  return React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.55)',
+      zIndex: 200,
+      display: 'flex',
+      justifyContent: 'flex-end'
+    }
+  }, React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      width: 'min(480px, 92vw)',
+      height: '100vh',
+      overflowY: 'auto',
+      background: 'linear-gradient(180deg, #1a0606 0%, #0a0604 100%)',
+      borderLeft: '1px solid rgba(212,175,55,0.3)',
+      padding: 28,
+      boxShadow: '-20px 0 60px -20px rgba(0,0,0,0.8)'
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 24
+    }
+  }, React.createElement(EmperorAvatar, {
+    slug: slug,
+    size: 96,
+    status: status
+  }), React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'transparent',
+      border: 'none',
+      color: 'var(--ink-3)',
+      fontSize: 22,
+      cursor: 'pointer'
+    }
+  }, "\u2715")), React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontStyle: 'italic',
+      fontSize: 38,
+      lineHeight: 1,
+      marginBottom: 4
+    }
+  }, meta.name), React.createElement("div", {
+    style: {
+      fontSize: 14,
+      color: '#D4AF37',
+      marginBottom: 16
+    }
+  }, meta.role), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      marginBottom: 20
+    }
+  }, React.createElement("span", {
+    className: "chip",
+    style: {
+      background: status.color + '22',
+      borderColor: status.color,
+      color: status.color
+    }
+  }, React.createElement("span", {
+    style: {
+      width: 6,
+      height: 6,
+      borderRadius: '50%',
+      background: status.color
+    }
+  }), " ", status.label), client ? React.createElement("span", {
+    className: "chip",
+    style: {
+      background: client.color + '22',
+      borderColor: client.color,
+      color: client.color
+    }
+  }, client.name) : null), React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 8
+    }
+  }, "Modelo"), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap'
+    }
+  }, LEGIO_MODELS.map(m => {
+    const active = (agent.model || meta.defaultModel) === m.id;
+    return React.createElement("button", {
+      key: m.id,
+      onClick: () => setModel(m.id),
+      style: {
+        flex: 1,
+        minWidth: 110,
+        padding: '10px 8px',
+        borderRadius: 8,
+        cursor: 'pointer',
+        background: active ? 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(200,16,46,0.12))' : 'var(--glass-bg)',
+        border: active ? '1px solid #D4AF37' : '1px solid var(--glass-border)',
+        color: active ? '#F4D17A' : 'var(--ink-2)',
+        textAlign: 'center',
+        fontFamily: 'var(--font-ui)',
+        transition: 'all 150ms'
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 600
+      }
+    }, m.label), React.createElement("div", {
+      style: {
+        fontSize: 9.5,
+        color: active ? '#D4AF37bb' : 'var(--ink-3)',
+        marginTop: 2
+      }
+    }, m.hint));
+  }))), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      marginBottom: 10
+    }
+  }, React.createElement("button", {
+    onClick: triggerNow,
+    disabled: !agent.enabled,
+    className: "btn btn-primary",
+    style: {
+      flex: 1,
+      justifyContent: 'center',
+      opacity: agent.enabled ? 1 : 0.5
+    }
+  }, "\u26A1 Disparar agora"), React.createElement("button", {
+    onClick: toggleEnabled,
+    className: "btn",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    }
+  }, agent.enabled ? '⏸ Desabilitar' : '▶ Habilitar')), meta.slug !== 'augustus' && meta.slug !== 'caesar' ? React.createElement("button", {
+    onClick: toggleAutonomous,
+    disabled: !agent.enabled,
+    className: "btn",
+    style: {
+      width: '100%',
+      justifyContent: 'center',
+      marginBottom: 12,
+      fontSize: 13,
+      opacity: agent.enabled ? 1 : 0.4,
+      background: agent.autonomous ? 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(200,16,46,0.10))' : 'var(--glass-bg)',
+      borderColor: agent.autonomous ? '#D4AF37' : 'var(--glass-border)',
+      color: agent.autonomous ? '#F4D17A' : 'var(--ink-2)'
+    },
+    title: agent.autonomous ? 'Puxa pendentes sozinho, sem precisar do botão Iniciar. Clica pra desligar.' : 'Liga modo autônomo — agente puxa pendentes do seu cliente sem você clicar Iniciar.'
+  }, agent.autonomous ? '⚡ Autônomo · ativo' : 'Modo autônomo · desligado') : null, onQuickAdd ? React.createElement("button", {
+    onClick: () => onQuickAdd({
+      assignedTo: slug,
+      clientId: meta.clientId || null
+    }),
+    className: "btn",
+    style: {
+      width: '100%',
+      justifyContent: 'center',
+      marginBottom: 24,
+      fontSize: 13
+    }
+  }, "\uFF0B Nova tarefa pra ", meta.name) : null, slug === 'augustus' ? React.createElement(PullSourceSection, {
+    impConfig: imp.config,
+    clients: imp.clients,
+    toast: toast
+  }) : null, agent.status === 'thinking' || agent.status === 'calling' ? (() => {
+    const step = agent.lastStep || 0;
+    const total = agent.maxSteps || 16;
+    const startedAt = agent.runStartedAt || Date.now();
+    const elapsedMs = Date.now() - startedAt;
+    const elapsedS = Math.round(elapsedMs / 1000);
+    const fmtSec = s => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+    const etaS = step > 0 && step < total ? Math.round(elapsedMs / step * (total - step) / 1000) : null;
+    return React.createElement("div", {
+      style: {
+        marginBottom: 20,
+        padding: 14,
+        borderRadius: 10,
+        background: 'linear-gradient(135deg, rgba(212,175,55,0.08), rgba(200,16,46,0.06))',
+        border: '1px solid rgba(212,175,55,0.3)'
+      }
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8
+      }
+    }, React.createElement("div", {
+      className: "eyebrow",
+      style: {
+        color: '#D4AF37'
+      }
+    }, agent.status === 'thinking' ? '◐ Pensando' : '⚡ Chamando ferramenta'), React.createElement("span", {
+      className: "mono",
+      style: {
+        fontSize: 11,
+        color: '#D4AF37'
+      }
+    }, step, "/", total)), agent.activity ? React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-1)',
+        marginBottom: 8,
+        fontFamily: 'var(--font-mono)'
+      }
+    }, agent.activity) : null, React.createElement("div", {
+      style: {
+        height: 4,
+        borderRadius: 2,
+        background: 'rgba(255,255,255,0.06)',
+        overflow: 'hidden'
+      }
+    }, React.createElement("div", {
+      style: {
+        height: '100%',
+        width: `${Math.min(100, step / total * 100)}%`,
+        background: 'linear-gradient(90deg, #C8102E, #D4AF37)',
+        transition: 'width 400ms ease-out'
+      }
+    })), React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        marginTop: 8,
+        fontSize: 10,
+        color: 'var(--ink-3)',
+        fontFamily: 'var(--font-mono)'
+      }
+    }, React.createElement("span", null, "\u23F1 ", fmtSec(elapsedS), " decorrido", etaS != null ? ` · ~${fmtSec(etaS)} restante` : ''), agent.lastSpendUSD ? React.createElement("span", null, "$", agent.lastSpendUSD.toFixed(3)) : null));
+  })() : null, React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 8
+    }
+  }, "Heartbeat"), React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-2)',
+      fontFamily: 'var(--font-mono)'
+    }
+  }, "\xDAltimo sinal: ", fmtAgo(agent.lastHeartbeat)), agent.currentTaskId ? React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-2)',
+      marginTop: 4
+    }
+  }, "Trabalhando em: ", React.createElement("span", {
+    className: "mono"
+  }, agent.currentTaskId)) : null), agent.lastError ? React.createElement("div", {
+    style: {
+      marginBottom: 20,
+      padding: 12,
+      borderRadius: 10,
+      background: 'rgba(255,90,60,0.08)',
+      border: '1px solid rgba(255,90,60,0.3)'
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      color: '#ff7a5a',
+      marginBottom: 6
+    }
+  }, "\xDAltimo erro"), React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: '#ffa896',
+      lineHeight: 1.5
+    }
+  }, agent.lastError.msg), React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-3)',
+      marginTop: 4
+    }
+  }, fmtAgo(agent.lastError.at))) : null, React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 8
+    }
+  }, "Tarefas atribu\xEDdas (", myTasks.length, ")"), myTasks.length === 0 ? React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-4)',
+      fontStyle: 'italic'
+    }
+  }, "\u2014") : myTasks.slice(0, 5).map(t => React.createElement("div", {
+    key: t.id,
+    style: {
+      padding: 10,
+      borderRadius: 8,
+      background: 'rgba(0,0,0,0.2)',
+      marginBottom: 6,
+      fontSize: 12
+    }
+  }, React.createElement("div", {
+    style: {
+      fontWeight: 500
+    }
+  }, t.title), React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-3)',
+      marginTop: 2
+    }
+  }, STATUS_COLUMNS.find(c => c.id === t.status)?.label, " \xB7 ", fmtAgo(t.createdAt))))), recentLogs.length > 0 ? React.createElement("div", null, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 8
+    }
+  }, "Atividade recente"), React.createElement("div", {
+    className: "mono",
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      lineHeight: 1.6
+    }
+  }, recentLogs.map(l => React.createElement("div", {
+    key: l.id || l.at,
+    style: {
+      padding: '4px 0',
+      borderBottom: '1px solid var(--line)'
+    }
+  }, React.createElement("span", {
+    style: {
+      color: l.level === 'error' ? '#ff7a5a' : l.level === 'warn' ? '#D4AF37' : 'var(--ink-2)'
+    }
+  }, l.level), ' · ', l.msg, React.createElement("span", {
+    style: {
+      float: 'right'
+    }
+  }, fmtAgo(l.at)))))) : null));
+}
+function ConfidenceStars({
+  value,
+  max = 5
+}) {
+  const v = Math.max(0, Math.min(max, Number(value) || 0));
+  return React.createElement("span", {
+    style: {
+      fontFamily: 'var(--font-mono)',
+      letterSpacing: 1,
+      color: '#D4AF37'
+    }
+  }, '★'.repeat(v), React.createElement("span", {
+    style: {
+      color: 'rgba(212,175,55,0.25)'
+    }
+  }, '★'.repeat(max - v)));
+}
+function TaskDrawer({
+  taskId,
+  onClose,
+  onApprove,
+  onReject,
+  onReassign,
+  onStart,
+  onDelete
+}) {
+  const {
+    data,
+    toast
+  } = useData();
+  const imp = data._imperium || defaultImperiumState();
+  const tasksRaw = imp.tasks;
+  const tasksArr = Array.isArray(tasksRaw) ? tasksRaw : tasksRaw && typeof tasksRaw === 'object' ? Object.entries(tasksRaw).map(([k, v]) => [Number(k), v]).filter(([k]) => Number.isFinite(k)).sort((a, b) => a[0] - b[0]).map(([, v]) => v) : [];
+  const task = tasksArr.find(t => t.id === taskId);
+  const [specialistOutput, setSpecialistOutput] = React.useState(null);
+  const [reviewDoc, setReviewDoc] = React.useState(null);
+  React.useEffect(() => {
+    setSpecialistOutput(null);
+    setReviewDoc(null);
+    if (!task?.id || !window.firebase) return;
+    const auth = window.firebase.auth();
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const db = window.firebase.firestore();
+    if (task.outputRef) {
+      db.collection('users').doc(uid).collection('taskOutputs').doc(task.id).get().then(s => {
+        if (s.exists) setSpecialistOutput(s.data());
+      }).catch(() => {});
+    }
+    if (task.status?.startsWith('needs-review-')) {
+      db.collection('users').doc(uid).collection('taskReviews').doc(task.id).get().then(s => {
+        if (s.exists) setReviewDoc(s.data());
+      }).catch(() => {});
+    }
+  }, [task?.id, task?.outputRef, task?.status]);
+  if (!task) return null;
+  const agent = imp.agents[task.assignedTo];
+  const client = imp.clients[task.clientId];
+  async function completeInAsana() {
+    const url = imp.config?.workerUrl || DEFAULT_WORKER_URL;
+    const token = imp.config?.workerToken || DEFAULT_WORKER_TOKEN;
+    const gid = (task.sourceRef || '').match(/\d+/)?.[0];
+    if (!gid) {
+      toast('✕ Não achei gid da Asana em sourceRef');
+      return;
+    }
+    try {
+      const r = await fetch(url + '/asana/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          taskGid: gid
+        })
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || 'HTTP ' + r.status);
+      }
+      toast(`✓ Asana ${gid} concluída`);
+    } catch (e) {
+      toast('✕ Asana falhou · ' + e.message);
+    }
+  }
+  const asanaGid = task.sourceType === 'asana' ? (task.sourceRef || '').match(/\d+/)?.[0] : null;
+  return React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.55)',
+      zIndex: 200,
+      display: 'flex',
+      justifyContent: 'flex-end'
+    }
+  }, React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      width: 'min(560px, 95vw)',
+      height: '100vh',
+      overflowY: 'auto',
+      background: 'linear-gradient(180deg, #1a0606 0%, #0a0604 100%)',
+      borderLeft: '1px solid rgba(212,175,55,0.3)',
+      padding: 28
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 16
+    }
+  }, React.createElement("div", {
+    className: "eyebrow"
+  }, "Tarefa"), React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'transparent',
+      border: 'none',
+      color: 'var(--ink-3)',
+      fontSize: 22,
+      cursor: 'pointer'
+    }
+  }, "\u2715")), React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontStyle: 'italic',
+      fontSize: 28,
+      lineHeight: 1.15,
+      marginBottom: 16
+    }
+  }, task.title), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      marginBottom: 20,
+      alignItems: 'center'
+    }
+  }, React.createElement(SourceBadge, {
+    source: task.sourceType
+  }), client ? React.createElement("span", {
+    className: "chip",
+    style: {
+      background: client.color + '22',
+      borderColor: client.color,
+      color: client.color
+    }
+  }, client.name) : null, agent ? React.createElement("span", {
+    className: "chip"
+  }, agent.name) : null, React.createElement("span", {
+    className: "chip",
+    style: {
+      background: STATUS_COLUMNS.find(c => c.id === task.status)?.accent + '22',
+      color: STATUS_COLUMNS.find(c => c.id === task.status)?.accent
+    }
+  }, STATUS_COLUMNS.find(c => c.id === task.status)?.label), task.priority === 1 ? React.createElement("span", {
+    className: "chip",
+    style: {
+      background: '#C8102E33',
+      color: '#ff7a8a'
+    }
+  }, "Urgente") : null), task.outputSummary ? React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 8
+    }
+  }, "Resumo do output"), React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-2)',
+      lineHeight: 1.6,
+      padding: 14,
+      background: 'rgba(0,0,0,0.3)',
+      borderRadius: 10,
+      whiteSpace: 'pre-wrap'
+    }
+  }, task.outputSummary)) : null, specialistOutput ? React.createElement("div", {
+    style: {
+      marginBottom: 20,
+      padding: 14,
+      background: 'rgba(0,0,0,0.25)',
+      borderRadius: 10,
+      border: '1px solid rgba(212,175,55,0.15)'
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10
+    }
+  }, React.createElement("div", {
+    className: "eyebrow"
+  }, "Proposta do ", agent?.name || 'specialist'), typeof specialistOutput.confidence === 'number' ? React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)'
+    }
+  }, "Confian\xE7a ", React.createElement(ConfidenceStars, {
+    value: specialistOutput.confidence
+  })) : null), specialistOutput.proposed_action ? React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-1)',
+      lineHeight: 1.55,
+      marginBottom: 12,
+      whiteSpace: 'pre-wrap'
+    }
+  }, specialistOutput.proposed_action) : null, specialistOutput.reasoning ? React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      lineHeight: 1.5,
+      marginBottom: 12,
+      fontStyle: 'italic'
+    }
+  }, specialistOutput.reasoning) : null, Array.isArray(specialistOutput.data_cited) && specialistOutput.data_cited.length ? React.createElement("div", {
+    style: {
+      marginTop: 10
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 6,
+      fontSize: 9
+    }
+  }, "Dados citados"), React.createElement("table", {
+    style: {
+      width: '100%',
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      borderCollapse: 'collapse'
+    }
+  }, React.createElement("tbody", null, specialistOutput.data_cited.map((d, i) => React.createElement("tr", {
+    key: i,
+    style: {
+      borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none'
+    }
+  }, React.createElement("td", {
+    style: {
+      padding: '6px 8px 6px 0',
+      color: 'var(--ink-4)',
+      fontFamily: 'var(--font-mono)',
+      width: '30%'
+    }
+  }, d.source), React.createElement("td", {
+    style: {
+      padding: '6px 0',
+      fontWeight: 600
+    }
+  }, d.value), React.createElement("td", {
+    style: {
+      padding: '6px 0 6px 8px',
+      color: 'var(--ink-3)'
+    }
+  }, d.note)))))) : null, specialistOutput.blockers ? React.createElement("div", {
+    style: {
+      marginTop: 12,
+      padding: 10,
+      background: 'rgba(255,90,60,0.06)',
+      border: '1px solid rgba(255,90,60,0.25)',
+      borderRadius: 8,
+      fontSize: 11,
+      color: '#ff9a8a'
+    }
+  }, "\u26A0 Bloqueios: ", specialistOutput.blockers) : null, specialistOutput.next_step_for_user ? React.createElement("div", {
+    style: {
+      marginTop: 10,
+      fontSize: 11,
+      color: 'var(--ink-3)'
+    }
+  }, React.createElement("strong", {
+    style: {
+      color: 'var(--ink-2)'
+    }
+  }, "Pr\xF3ximo passo:"), " ", specialistOutput.next_step_for_user) : null) : null, reviewDoc || task.reviewerNotes ? React.createElement("div", {
+    style: {
+      marginBottom: 20,
+      padding: 14,
+      background: 'rgba(212,175,55,0.06)',
+      border: '1px solid rgba(212,175,55,0.25)',
+      borderRadius: 10
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      color: '#D4AF37'
+    }
+  }, "Revis\xE3o de Diocletian"), reviewDoc?.verdict ? React.createElement("span", {
+    className: "chip",
+    style: {
+      background: reviewDoc.verdict === 'verified' ? 'rgba(60,207,145,0.15)' : 'rgba(255,154,60,0.15)',
+      color: reviewDoc.verdict === 'verified' ? '#3ccf91' : '#ff9a3c',
+      borderColor: 'transparent'
+    }
+  }, reviewDoc.verdict === 'verified' ? '✓ Verificado' : '⚠ Sinalizado') : null), task.reviewerNotes ? React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-2)',
+      lineHeight: 1.55,
+      marginBottom: 10
+    }
+  }, task.reviewerNotes) : null, Array.isArray(reviewDoc?.issues) && reviewDoc.issues.length ? React.createElement("div", null, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 6,
+      fontSize: 9
+    }
+  }, "Issues"), reviewDoc.issues.map((iss, i) => React.createElement("div", {
+    key: i,
+    style: {
+      fontSize: 11,
+      padding: '4px 0',
+      color: 'var(--ink-3)'
+    }
+  }, React.createElement("span", {
+    style: {
+      fontFamily: 'var(--font-mono)',
+      fontSize: 9,
+      padding: '1px 6px',
+      borderRadius: 4,
+      marginRight: 6,
+      background: iss.severity === 'high' ? 'rgba(255,90,60,0.15)' : iss.severity === 'med' ? 'rgba(255,154,60,0.15)' : 'rgba(168,168,188,0.1)',
+      color: iss.severity === 'high' ? '#ff7a5a' : iss.severity === 'med' ? '#ff9a3c' : '#a8a8bc'
+    }
+  }, iss.severity || 'low'), React.createElement("span", {
+    style: {
+      color: 'var(--ink-4)',
+      marginRight: 6
+    }
+  }, iss.type), iss.detail))) : null, Array.isArray(reviewDoc?.verified_numbers) && reviewDoc.verified_numbers.length ? React.createElement("div", {
+    style: {
+      marginTop: 10
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 6,
+      fontSize: 9
+    }
+  }, "N\xFAmeros verificados"), reviewDoc.verified_numbers.map((v, i) => React.createElement("div", {
+    key: i,
+    style: {
+      fontSize: 11,
+      padding: '2px 0',
+      color: 'var(--ink-3)'
+    }
+  }, React.createElement("span", {
+    style: {
+      color: v.match ? '#3ccf91' : '#ff9a3c',
+      marginRight: 6
+    }
+  }, v.match ? '✓' : '≠'), React.createElement("span", {
+    style: {
+      color: 'var(--ink-2)'
+    }
+  }, v.claim), v.match ? null : React.createElement("span", {
+    style: {
+      color: 'var(--ink-4)'
+    }
+  }, " \u2192 ", v.your_finding)))) : null) : null, React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      marginBottom: 8
+    }
+  }, "Reatribuir"), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, LEGIO_AGENTS.map(a => React.createElement("button", {
+    key: a.slug,
+    onClick: () => onReassign(task.id, a.slug),
+    className: "chip",
+    style: {
+      cursor: 'pointer',
+      opacity: task.assignedTo === a.slug ? 1 : 0.7,
+      border: task.assignedTo === a.slug ? '1px solid #D4AF37' : '1px solid var(--glass-border)'
+    }
+  }, a.name)))), task.status === 'needs-review' || task.status === 'needs-review-verified' || task.status === 'needs-review-flagged' ? React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10
+    }
+  }, React.createElement("button", {
+    onClick: () => {
+      onReject(task.id);
+      onClose();
+    },
+    className: "btn",
+    style: {
+      flex: 1,
+      justifyContent: 'center',
+      background: 'rgba(255,90,60,0.08)',
+      borderColor: 'rgba(255,90,60,0.4)',
+      color: '#ff7a5a'
+    }
+  }, "\u2715 Rejeitar"), React.createElement("button", {
+    onClick: () => {
+      onApprove(task.id);
+      onClose();
+    },
+    className: "btn btn-primary",
+    style: {
+      flex: 1.5,
+      justifyContent: 'center'
+    }
+  }, "\u2713 Aprovar \xB7 Enviar a Caesar")) : task.status === 'pending' && onStart ? React.createElement("button", {
+    onClick: () => {
+      onStart(task.id);
+      onClose();
+    },
+    className: "btn",
+    style: {
+      width: '100%',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, rgba(60,207,145,0.16), rgba(60,207,145,0.08))',
+      color: '#3ccf91',
+      borderColor: 'rgba(60,207,145,0.4)'
+    }
+  }, "\u25B6 Iniciar \xB7 ", task.assignedTo ? LEGIO_AGENTS.find(a => a.slug === task.assignedTo)?.name + ' vai trabalhar nela' : 'aguarda atribuição') : null, React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 24,
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-4)',
+      fontFamily: 'var(--font-mono)'
+    }
+  }, "ID: ", task.id, " \xB7 Criada: ", fmtAgo(task.createdAt)), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6
+    }
+  }, asanaGid ? React.createElement("button", {
+    onClick: completeInAsana,
+    style: {
+      padding: '6px 10px',
+      borderRadius: 6,
+      fontSize: 11,
+      background: 'rgba(240,106,106,0.06)',
+      color: '#F06A6A',
+      border: '1px solid rgba(240,106,106,0.3)',
+      cursor: 'pointer'
+    },
+    title: `Marcar Asana ${asanaGid} como concluída`
+  }, "\u2713 Concluir no Asana") : null, onDelete ? React.createElement("button", {
+    onClick: () => {
+      if (!confirm('Excluir essa tarefa?')) return;
+      if (asanaGid && confirm('Marcar também como concluída no Asana?')) completeInAsana();
+      onDelete(task.id);
+      onClose();
+    },
+    style: {
+      padding: '6px 10px',
+      borderRadius: 6,
+      fontSize: 11,
+      background: 'rgba(255,90,60,0.06)',
+      color: '#ff7a5a',
+      border: '1px solid rgba(255,90,60,0.25)',
+      cursor: 'pointer'
+    }
+  }, "\uD83D\uDDD1 Excluir") : null))));
+}
+function NewTaskModal({
+  onClose,
+  onCreate,
+  preset
+}) {
+  const [title, setTitle] = React.useState('');
+  const [clientId, setClientId] = React.useState(preset?.clientId || '');
+  const [assignedTo, setAssignedTo] = React.useState(preset?.assignedTo || '');
+  const [priority, setPriority] = React.useState(2);
+  function submit() {
+    if (!title.trim()) return;
+    onCreate({
+      title: title.trim(),
+      clientId: clientId || null,
+      assignedTo: assignedTo || null,
+      priority
+    });
+    onClose();
+  }
+  return React.createElement("div", {
+    className: "modal-overlay",
+    onClick: onClose
+  }, React.createElement("div", {
+    className: "modal-panel",
+    onClick: e => e.stopPropagation(),
+    style: {
+      width: 'min(520px, 92vw)'
+    }
+  }, React.createElement("div", {
+    className: "modal-header"
+  }, React.createElement("h2", null, "Nova tarefa"), React.createElement("button", {
+    className: "modal-close",
+    onClick: onClose
+  }, "\u2715")), React.createElement("div", {
+    style: {
+      padding: '20px 24px 24px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16
+    }
+  }, React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("label", {
+    className: "form-label"
+  }, "T\xEDtulo"), React.createElement("input", {
+    className: "form-input",
+    autoFocus: true,
+    value: title,
+    onChange: e => setTitle(e.target.value),
+    placeholder: "Ex: Revisar search terms TLC semana 19",
+    onKeyDown: e => {
+      if (e.key === 'Enter') submit();
+    }
+  })), React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("label", {
+    className: "form-label"
+  }, "Cliente"), React.createElement("select", {
+    className: "form-input",
+    value: clientId,
+    onChange: e => setClientId(e.target.value)
+  }, React.createElement("option", {
+    value: ""
+  }, "\u2014 Sem cliente \u2014"), Object.values(LEGIO_CLIENTS).map(c => React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.name)))), React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("label", {
+    className: "form-label"
+  }, "Atribuir a"), React.createElement("select", {
+    className: "form-input",
+    value: assignedTo,
+    onChange: e => setAssignedTo(e.target.value)
+  }, React.createElement("option", {
+    value: ""
+  }, "\u2014 Decidir depois \u2014"), LEGIO_AGENTS.map(a => React.createElement("option", {
+    key: a.slug,
+    value: a.slug
+  }, a.name, " \xB7 ", a.role)))), React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("label", {
+    className: "form-label"
+  }, "Prioridade"), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, [{
+    v: 1,
+    l: 'Urgente'
+  }, {
+    v: 2,
+    l: 'Normal'
+  }, {
+    v: 3,
+    l: 'Baixa'
+  }].map(p => React.createElement("button", {
+    key: p.v,
+    onClick: () => setPriority(p.v),
+    className: "chip",
+    style: {
+      cursor: 'pointer',
+      flex: 1,
+      justifyContent: 'center',
+      padding: '8px 12px',
+      background: priority === p.v ? 'var(--gradient-neon-soft)' : 'var(--glass-bg)',
+      borderColor: priority === p.v ? 'var(--neon-a)' : 'var(--glass-border)'
+    }
+  }, p.l)))), React.createElement("button", {
+    onClick: submit,
+    className: "btn btn-primary",
+    style: {
+      justifyContent: 'center',
+      padding: '12px 0'
+    },
+    disabled: !title.trim()
+  }, "\uFF0B Criar tarefa"))));
+}
+window.ScreenLegio = ScreenLegio;
+window.LEGIO_AGENTS = LEGIO_AGENTS;
+window.LEGIO_CLIENTS = LEGIO_CLIENTS;
+window.defaultImperiumState = defaultImperiumState;

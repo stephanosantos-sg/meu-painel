@@ -1,22 +1,26 @@
-/* Orbita v2 — DataProvider (React Context + all mutations) */
-const { createContext, useContext, useState, useCallback, useRef } = React;
-
+const {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef
+} = React;
 const DataContext = createContext();
-function useData() { return useContext(DataContext); }
-
-function DataProvider({ children }) {
+function useData() {
+  return useContext(DataContext);
+}
+function DataProvider({
+  children
+}) {
   const [data, setData] = useState(() => {
     const d = Orbita.loadData();
     return d || Orbita.defaultData();
   });
   const [toasts, setToasts] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
-  const [calendarConnected, setCalendarConnected] = useState(
-    () => !!localStorage.getItem('orbita_gcalConnected') && !!localStorage.getItem('orbita_gcalToken')
-  );
+  const [calendarConnected, setCalendarConnected] = useState(() => !!localStorage.getItem('orbita_gcalConnected') && !!localStorage.getItem('orbita_gcalToken'));
   const dataRef = useRef(data);
   dataRef.current = data;
-
   React.useEffect(() => {
     function onPull(e) {
       if (e.detail) setData(e.detail);
@@ -24,18 +28,15 @@ function DataProvider({ children }) {
     window.addEventListener('orbita:dataPulled', onPull);
     return () => window.removeEventListener('orbita:dataPulled', onPull);
   }, []);
-
-  const fetchCalendarEvents = useCallback(async (dateStr) => {
+  const fetchCalendarEvents = useCallback(async dateStr => {
     if (!window.OrbitaCalendar || !window.OrbitaCalendar.isConnected()) return;
     const events = await window.OrbitaCalendar.fetchEvents(dateStr);
     setCalendarEvents(events);
   }, []);
-
   const fetchCalendarRange = useCallback(async (startStr, endStr) => {
     if (!window.OrbitaCalendar || !window.OrbitaCalendar.isConnected()) return [];
     return await window.OrbitaCalendar.fetchRangeEvents(startStr, endStr);
   }, []);
-
   React.useEffect(() => {
     function onConnected() {
       setCalendarConnected(true);
@@ -61,10 +62,11 @@ function DataProvider({ children }) {
       window.removeEventListener('orbita:calendarTokenExpired', onExpired);
     };
   }, []);
-
-  const historyRef = useRef({ past: [], future: [] });
+  const historyRef = useRef({
+    past: [],
+    future: []
+  });
   const MAX_HISTORY = 50;
-
   function undo() {
     const h = historyRef.current;
     if (h.past.length === 0) return;
@@ -76,7 +78,6 @@ function DataProvider({ children }) {
     setData(restored);
     toast('↩ Desfeito');
   }
-
   function redo() {
     const h = historyRef.current;
     if (h.future.length === 0) return;
@@ -87,17 +88,23 @@ function DataProvider({ children }) {
     setData(restored);
     toast('↪ Refeito');
   }
-
   React.useEffect(() => {
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); }
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); e.stopPropagation(); redo(); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        undo();
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || e.key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        redo();
+      }
     }
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
-
   function commit(mutator) {
     setData(prev => {
       historyRef.current.past.push(JSON.stringify(prev));
@@ -110,7 +117,11 @@ function DataProvider({ children }) {
         if (newAchs.length > 0) {
           newAchs.forEach(a => {
             const id = Date.now() + Math.random();
-            setToasts(t => [...t, { id, msg: `🏆 ${a.name}! +${a.xp} xp`, type: 'levelup' }]);
+            setToasts(t => [...t, {
+              id,
+              msg: `🏆 ${a.name}! +${a.xp} xp`,
+              type: 'levelup'
+            }]);
             setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
           });
         }
@@ -119,21 +130,26 @@ function DataProvider({ children }) {
       return next;
     });
   }
-
   function toast(msg, type = 'xp') {
     const id = Date.now();
-    setToasts(t => [...t, { id, msg, type }]);
+    setToasts(t => [...t, {
+      id,
+      msg,
+      type
+    }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 2500);
   }
-
   function addXP(amount, D) {
-    if (!D.xp) D.xp = { total: 0, level: 1, class: null };
+    if (!D.xp) D.xp = {
+      total: 0,
+      level: 1,
+      class: null
+    };
     const prevLevel = D.xp.level;
     D.xp.total += amount;
     D.xp.level = Orbita.calcLevel(D.xp.total);
     return D.xp.level > prevLevel;
   }
-
   const toggleTask = useCallback((id, dateCtx) => {
     let xpMsg = '';
     commit(D => {
@@ -142,7 +158,10 @@ function DataProvider({ children }) {
       if (t.freq === 'pontual') {
         t.done = !t.done;
         t.doneAt = t.done ? Orbita.todayStr() : null;
-        if (t.done) { addXP(10, D); xpMsg = '+10 xp'; }
+        if (t.done) {
+          addXP(10, D);
+          xpMsg = '+10 xp';
+        }
       } else if (t.times && t.times.length) {
         if (!t.doneSlots) t.doneSlots = {};
         const allDone = t.doneSlots[dateCtx] && t.doneSlots[dateCtx].length >= t.times.length;
@@ -151,7 +170,8 @@ function DataProvider({ children }) {
         } else {
           t.doneSlots[dateCtx] = t.times.map(s => s.time);
           const amt = 5 * t.times.length;
-          addXP(amt, D); xpMsg = `+${amt} xp`;
+          addXP(amt, D);
+          xpMsg = `+${amt} xp`;
         }
       } else {
         if (!t.doneSlots) t.doneSlots = {};
@@ -159,13 +179,13 @@ function DataProvider({ children }) {
           delete t.doneSlots[dateCtx];
         } else {
           t.doneSlots[dateCtx] = true;
-          addXP(5, D); xpMsg = '+5 xp';
+          addXP(5, D);
+          xpMsg = '+5 xp';
         }
       }
     });
     if (xpMsg) toast(xpMsg);
   }, []);
-
   const toggleSlot = useCallback((taskId, dateCtx, time) => {
     let xpMsg = '';
     commit(D => {
@@ -179,12 +199,12 @@ function DataProvider({ children }) {
         if (t.doneSlots[dateCtx].length === 0) delete t.doneSlots[dateCtx];
       } else {
         t.doneSlots[dateCtx].push(time);
-        addXP(5, D); xpMsg = '+5 xp';
+        addXP(5, D);
+        xpMsg = '+5 xp';
       }
     });
     if (xpMsg) toast(xpMsg);
   }, []);
-
   const toggleHabitDay = useCallback((habitId, dateStr) => {
     let xpMsg = '';
     commit(D => {
@@ -195,12 +215,12 @@ function DataProvider({ children }) {
         delete h.log[dateStr];
       } else {
         h.log[dateStr] = true;
-        addXP(10, D); xpMsg = '+10 xp';
+        addXP(10, D);
+        xpMsg = '+10 xp';
       }
     });
     if (xpMsg) toast(xpMsg);
   }, []);
-
   const addHabitQuantity = useCallback((habitId, dateStr, deltaValue) => {
     let xpMsg = '';
     commit(D => {
@@ -209,24 +229,23 @@ function DataProvider({ children }) {
       if (!h.log) h.log = {};
       const cur = typeof h.log[dateStr] === 'number' ? h.log[dateStr] : 0;
       const next = Math.max(0, cur + deltaValue);
-      if (next === 0) delete h.log[dateStr];
-      else h.log[dateStr] = next;
-      if (deltaValue > 0) { addXP(5, D); xpMsg = '+5 xp'; }
+      if (next === 0) delete h.log[dateStr];else h.log[dateStr] = next;
+      if (deltaValue > 0) {
+        addXP(5, D);
+        xpMsg = '+5 xp';
+      }
     });
     if (xpMsg) toast(xpMsg);
   }, []);
-
   const setHabitQuantity = useCallback((habitId, dateStr, value) => {
     commit(D => {
       const h = D.habits.find(x => x.id === habitId);
       if (!h) return;
       if (!h.log) h.log = {};
       const v = parseFloat(value);
-      if (isNaN(v) || v <= 0) delete h.log[dateStr];
-      else h.log[dateStr] = v;
+      if (isNaN(v) || v <= 0) delete h.log[dateStr];else h.log[dateStr] = v;
     });
   }, []);
-
   const saveTask = useCallback((taskData, editId) => {
     commit(D => {
       if (editId) {
@@ -240,16 +259,16 @@ function DataProvider({ children }) {
           id: Orbita.uid(),
           done: false,
           doneSlots: {},
-          ...taskData,
+          ...taskData
         });
       }
     });
   }, []);
-
-  const deleteTask = useCallback((id) => {
-    commit(D => { D.tasks = D.tasks.filter(x => x.id !== id); });
+  const deleteTask = useCallback(id => {
+    commit(D => {
+      D.tasks = D.tasks.filter(x => x.id !== id);
+    });
   }, []);
-
   const saveHabit = useCallback((habitData, editId) => {
     commit(D => {
       if (editId) {
@@ -259,27 +278,29 @@ function DataProvider({ children }) {
         D.habits.push({
           id: Orbita.uid(),
           log: {},
-          ...habitData,
+          ...habitData
         });
       }
     });
   }, []);
-
-  const deleteHabit = useCallback((id) => {
-    commit(D => { D.habits = D.habits.filter(x => x.id !== id); });
+  const deleteHabit = useCallback(id => {
+    commit(D => {
+      D.habits = D.habits.filter(x => x.id !== id);
+    });
   }, []);
-
   const saveGoal = useCallback((goalData, editId) => {
     commit(D => {
       if (editId) {
         const idx = D.goals.findIndex(x => x.id === editId);
         if (idx >= 0) Object.assign(D.goals[idx], goalData);
       } else {
-        D.goals.push({ id: Orbita.uid(), ...goalData });
+        D.goals.push({
+          id: Orbita.uid(),
+          ...goalData
+        });
       }
     });
   }, []);
-
   const toggleMilestone = useCallback((goalId, msIdx) => {
     commit(D => {
       const g = D.goals.find(x => x.id === goalId);
@@ -288,11 +309,11 @@ function DataProvider({ children }) {
       if (g.milestones[msIdx].done) addXP(15, D);
     });
   }, []);
-
-  const deleteGoal = useCallback((id) => {
-    commit(D => { D.goals = D.goals.filter(x => x.id !== id); });
+  const deleteGoal = useCallback(id => {
+    commit(D => {
+      D.goals = D.goals.filter(x => x.id !== id);
+    });
   }, []);
-
   const toggleSubtask = useCallback((taskId, subtaskIdx) => {
     commit(D => {
       const t = D.tasks.find(x => x.id === taskId);
@@ -301,7 +322,6 @@ function DataProvider({ children }) {
       }
     });
   }, []);
-
   const saveCategory = useCallback((catData, editId) => {
     commit(D => {
       if (!D.categories) D.categories = [];
@@ -309,27 +329,53 @@ function DataProvider({ children }) {
         const idx = D.categories.findIndex(x => x.id === editId);
         if (idx >= 0) Object.assign(D.categories[idx], catData);
       } else {
-        D.categories.push({ id: Orbita.uid(), ...catData });
+        D.categories.push({
+          id: Orbita.uid(),
+          ...catData
+        });
       }
     });
   }, []);
-
-  const deleteCategory = useCallback((id) => {
-    commit(D => { D.categories = D.categories.filter(x => x.id !== id); });
+  const deleteCategory = useCallback(id => {
+    commit(D => {
+      D.categories = D.categories.filter(x => x.id !== id);
+    });
   }, []);
-
   const value = {
-    data, toasts, calendarEvents, calendarConnected, fetchCalendarEvents, fetchCalendarRange,
-    toggleTask, toggleSlot, toggleHabitDay, addHabitQuantity, setHabitQuantity, toggleSubtask,
-    saveTask, deleteTask,
-    saveHabit, deleteHabit,
-    saveGoal, deleteGoal, toggleMilestone,
-    saveCategory, deleteCategory,
-    commit, toast, addXP: (amt) => { commit(D => { const up = addXP(amt, D); if (up) toast('Level up! 🎉', 'levelup'); }); toast(`+${amt} xp`); },
+    data,
+    toasts,
+    calendarEvents,
+    calendarConnected,
+    fetchCalendarEvents,
+    fetchCalendarRange,
+    toggleTask,
+    toggleSlot,
+    toggleHabitDay,
+    addHabitQuantity,
+    setHabitQuantity,
+    toggleSubtask,
+    saveTask,
+    deleteTask,
+    saveHabit,
+    deleteHabit,
+    saveGoal,
+    deleteGoal,
+    toggleMilestone,
+    saveCategory,
+    deleteCategory,
+    commit,
+    toast,
+    addXP: amt => {
+      commit(D => {
+        const up = addXP(amt, D);
+        if (up) toast('Level up! 🎉', 'levelup');
+      });
+      toast(`+${amt} xp`);
+    }
   };
-
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return React.createElement(DataContext.Provider, {
+    value: value
+  }, children);
 }
-
 window.DataProvider = DataProvider;
 window.useData = useData;
