@@ -4,9 +4,10 @@ const NAV = [
   { section: 'WORKSPACE', items: [
     { id: 'today', icon: '☀︎', label: 'Home' },
   ]},
-  { section: 'LEGIO', items: [
-    { id: 'legio', icon: '⚔', label: 'Legio' },
-  ]},
+  // LEGIO oculto por hora (2026-07-16) — descomente pra reativar
+  // { section: 'LEGIO', items: [
+  //   { id: 'legio', icon: '⚔', label: 'Legio' },
+  // ]},
   { section: 'JORNADA', items: [
     { id: 'habits', icon: '✦', label: 'Hábitos' },
     { id: 'goals', icon: '◎', label: 'Objetivos' },
