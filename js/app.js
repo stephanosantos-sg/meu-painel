@@ -570,20 +570,17 @@ function AppRoot() {
       if (e.detail) {
         setUser(e.detail);
         function onDataPulled() {
-          window.removeEventListener('orbita:dataPulled', onDataPulled);
           clearTimeout(fallback);
-          if (checkOnboarding()) setNeedsOnboarding(true);
+          setNeedsOnboarding(checkOnboarding());
           setAuthState('logged-in');
         }
         const fallback = setTimeout(() => {
-          window.removeEventListener('orbita:dataPulled', onDataPulled);
           if (checkOnboarding()) setNeedsOnboarding(true);
           setAuthState('logged-in');
-        }, 3000);
+        }, 15000);
         window.addEventListener('orbita:dataPulled', onDataPulled);
         const local = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
         if (local.tasks && local.tasks.length > 0) {
-          window.removeEventListener('orbita:dataPulled', onDataPulled);
           clearTimeout(fallback);
           if (checkOnboarding()) setNeedsOnboarding(true);
           setAuthState('logged-in');
