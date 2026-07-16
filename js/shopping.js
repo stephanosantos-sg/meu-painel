@@ -8,11 +8,61 @@ function ScreenShopping() {
   const [newListName, setNewListName] = React.useState('');
   const [newListIcon, setNewListIcon] = React.useState('🛒');
   const [addingItemTo, setAddingItemTo] = React.useState(null);
+  const [editing, setEditing] = React.useState(null);
   const [newItemText, setNewItemText] = React.useState('');
   const [newItemPrice, setNewItemPrice] = React.useState('');
   const [newItemUrl, setNewItemUrl] = React.useState('');
   const [newItemDate, setNewItemDate] = React.useState('');
   const [showExtras, setShowExtras] = React.useState(false);
+  function resetForm() {
+    setNewItemText('');
+    setNewItemPrice('');
+    setNewItemUrl('');
+    setNewItemDate('');
+    setShowExtras(false);
+  }
+  function normalizeUrl(u) {
+    let url = (u || '').trim();
+    if (url && !/^[a-z]+:\/\//i.test(url)) url = 'https://' + url;
+    return url;
+  }
+  function startAdd(listId) {
+    setEditing(null);
+    setAddingItemTo(listId);
+    resetForm();
+  }
+  function startEdit(listId, idx, item) {
+    setAddingItemTo(null);
+    setEditing({
+      listId,
+      idx
+    });
+    setNewItemText(item.text || '');
+    setNewItemPrice(item.price ? String(item.price) : '');
+    setNewItemUrl(item.url || '');
+    setNewItemDate(item.date || '');
+    setShowExtras(!!(item.url || item.date));
+  }
+  function cancelForm() {
+    setAddingItemTo(null);
+    setEditing(null);
+    resetForm();
+  }
+  function saveEdit() {
+    if (!editing) return;
+    if (!newItemText.trim()) return;
+    const url = normalizeUrl(newItemUrl);
+    commit(D => {
+      const list = D.shopLists.find(l => l.id === editing.listId);
+      if (!list || !list.items[editing.idx]) return;
+      const item = list.items[editing.idx];
+      item.text = newItemText.trim();
+      item.price = parseFloat(newItemPrice) || 0;
+      if (url) item.url = url;else delete item.url;
+      if (newItemDate) item.date = newItemDate;else delete item.date;
+    });
+    cancelForm();
+  }
   function createList() {
     if (!newListName.trim()) return;
     commit(D => {
@@ -30,8 +80,7 @@ function ScreenShopping() {
   }
   function addItem(listId) {
     if (!newItemText.trim()) return;
-    let url = newItemUrl.trim();
-    if (url && !/^[a-z]+:\/\//i.test(url)) url = 'https://' + url;
+    const url = normalizeUrl(newItemUrl);
     commit(D => {
       const list = D.shopLists.find(l => l.id === listId);
       if (!list) return;
@@ -44,12 +93,100 @@ function ScreenShopping() {
       if (newItemDate) item.date = newItemDate;
       list.items.push(item);
     });
-    setNewItemText('');
-    setNewItemPrice('');
-    setNewItemUrl('');
-    setNewItemDate('');
-    setShowExtras(false);
+    resetForm();
     setAddingItemTo(null);
+  }
+  function renderItemForm(onSubmit) {
+    return React.createElement("div", {
+      style: {
+        marginTop: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6
+      }
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6
+      }
+    }, React.createElement("input", {
+      className: "form-input",
+      placeholder: "Item...",
+      value: newItemText,
+      onChange: e => setNewItemText(e.target.value),
+      style: {
+        flex: 1,
+        padding: '6px 10px',
+        fontSize: 12
+      },
+      autoFocus: true,
+      onKeyDown: e => {
+        if (e.key === 'Enter') onSubmit();
+        if (e.key === 'Escape') cancelForm();
+      }
+    }), React.createElement("input", {
+      className: "form-input",
+      placeholder: "R$",
+      value: newItemPrice,
+      onChange: e => setNewItemPrice(e.target.value),
+      style: {
+        width: 60,
+        padding: '6px 8px',
+        fontSize: 12
+      },
+      onKeyDown: e => {
+        if (e.key === 'Enter') onSubmit();
+      }
+    }), React.createElement("button", {
+      className: "btn-ghost small",
+      onClick: () => setShowExtras(s => !s),
+      title: "Adicionar link e data",
+      style: {
+        padding: '6px 8px',
+        color: showExtras ? 'var(--neon-a)' : undefined
+      }
+    }, "\uD83D\uDD17"), React.createElement("button", {
+      className: "btn-ghost small",
+      onClick: onSubmit,
+      title: "Salvar"
+    }, "\u2713"), React.createElement("button", {
+      className: "btn-ghost small",
+      onClick: cancelForm,
+      title: "Cancelar"
+    }, "\u2715")), showExtras && React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6
+      }
+    }, React.createElement("input", {
+      className: "form-input",
+      type: "url",
+      placeholder: "\uD83D\uDD17 Link (https://...)",
+      value: newItemUrl,
+      onChange: e => setNewItemUrl(e.target.value),
+      style: {
+        flex: 1,
+        padding: '6px 10px',
+        fontSize: 11
+      },
+      onKeyDown: e => {
+        if (e.key === 'Enter') onSubmit();
+      }
+    }), React.createElement("input", {
+      className: "form-input",
+      type: "date",
+      title: "Data",
+      value: newItemDate,
+      onChange: e => setNewItemDate(e.target.value),
+      style: {
+        width: 130,
+        padding: '6px 8px',
+        fontSize: 11
+      },
+      onKeyDown: e => {
+        if (e.key === 'Enter') onSubmit();
+      }
+    })));
   }
   function toggleItem(listId, idx) {
     commit(D => {
@@ -218,6 +355,15 @@ function ScreenShopping() {
         });
       })() : null;
       const isOverdue = item.date && !item.done && new Date(item.date) < new Date(new Date().toDateString());
+      if (editing && editing.listId === list.id && editing.idx === idx) {
+        return React.createElement("div", {
+          key: idx,
+          style: {
+            borderBottom: '1px solid var(--line)',
+            paddingBottom: 6
+          }
+        }, renderItemForm(saveEdit));
+      }
       return React.createElement("div", {
         key: idx,
         style: {
@@ -285,7 +431,19 @@ function ScreenShopping() {
           flexShrink: 0
         }
       }, "R$ ", parseFloat(item.price).toFixed(2)), React.createElement("button", {
+        onClick: () => startEdit(list.id, idx, item),
+        title: "Editar item",
+        style: {
+          background: 'none',
+          border: 'none',
+          color: 'var(--ink-4)',
+          cursor: 'pointer',
+          fontSize: 12,
+          flexShrink: 0
+        }
+      }, "\u270E"), React.createElement("button", {
         onClick: () => deleteItem(list.id, idx),
+        title: "Remover",
         style: {
           background: 'none',
           border: 'none',
@@ -295,108 +453,14 @@ function ScreenShopping() {
           flexShrink: 0
         }
       }, "\u2715"));
-    })), addingItemTo === list.id ? React.createElement("div", {
-      style: {
-        marginTop: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6
-      }
-    }, React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 6
-      }
-    }, React.createElement("input", {
-      className: "form-input",
-      placeholder: "Item...",
-      value: newItemText,
-      onChange: e => setNewItemText(e.target.value),
-      style: {
-        flex: 1,
-        padding: '6px 10px',
-        fontSize: 12
-      },
-      autoFocus: true,
-      onKeyDown: e => {
-        if (e.key === 'Enter') addItem(list.id);
-        if (e.key === 'Escape') {
-          setAddingItemTo(null);
-          setShowExtras(false);
-        }
-      }
-    }), React.createElement("input", {
-      className: "form-input",
-      placeholder: "R$",
-      value: newItemPrice,
-      onChange: e => setNewItemPrice(e.target.value),
-      style: {
-        width: 60,
-        padding: '6px 8px',
-        fontSize: 12
-      },
-      onKeyDown: e => {
-        if (e.key === 'Enter') addItem(list.id);
-      }
-    }), React.createElement("button", {
-      className: "btn-ghost small",
-      onClick: () => setShowExtras(s => !s),
-      title: "Link / data",
-      style: {
-        padding: '6px 8px',
-        color: showExtras ? 'var(--neon-a)' : undefined
-      }
-    }, "\uFF0B"), React.createElement("button", {
-      className: "btn-ghost small",
-      onClick: () => addItem(list.id)
-    }, "\u2713")), showExtras && React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 6
-      }
-    }, React.createElement("input", {
-      className: "form-input",
-      type: "url",
-      placeholder: "\uD83D\uDD17 https://...",
-      value: newItemUrl,
-      onChange: e => setNewItemUrl(e.target.value),
-      style: {
-        flex: 1,
-        padding: '6px 10px',
-        fontSize: 11
-      },
-      onKeyDown: e => {
-        if (e.key === 'Enter') addItem(list.id);
-      }
-    }), React.createElement("input", {
-      className: "form-input",
-      type: "date",
-      placeholder: "\uD83D\uDCC5",
-      value: newItemDate,
-      onChange: e => setNewItemDate(e.target.value),
-      style: {
-        width: 130,
-        padding: '6px 8px',
-        fontSize: 11
-      },
-      onKeyDown: e => {
-        if (e.key === 'Enter') addItem(list.id);
-      }
-    }))) : React.createElement("button", {
+    })), addingItemTo === list.id ? renderItemForm(() => addItem(list.id)) : React.createElement("button", {
       className: "btn-ghost small",
       style: {
         marginTop: 8,
         width: '100%',
         justifyContent: 'center'
       },
-      onClick: () => {
-        setAddingItemTo(list.id);
-        setNewItemText('');
-        setNewItemPrice('');
-        setNewItemUrl('');
-        setNewItemDate('');
-        setShowExtras(false);
-      }
+      onClick: () => startAdd(list.id)
     }, "\uFF0B Adicionar item"));
   })), showNewList && React.createElement("div", {
     className: "modal-overlay",
