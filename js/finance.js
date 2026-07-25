@@ -309,11 +309,14 @@ function finBuildSnap(D, F) {
     };
   }
   const alvo = (D.metas || {}).quitacao_alvo || 10000;
+  const meios = [...new Set((D.itens || []).map(i => i.meio).filter(Boolean))].sort();
+  if (!meios.includes('A DEFINIR')) meios.unshift('A DEFINIR');
   return {
     ts: Date.now(),
     meses,
     porMes,
     alvo,
+    meios,
     cruzaMes: meses.find(m => porMes[m].acum >= alvo) || null,
     recorrentes: ((F || {}).recorrencias || []).slice(0, 10).map(r => ({
       n: r.nome,
@@ -337,6 +340,8 @@ function FinResumoMobile({
   const [nVal, setNVal] = React.useState('');
   const [nMes, setNMes] = React.useState(defMes);
   const [nGrupo, setNGrupo] = React.useState('NECESSIDADES BÁSICAS');
+  const meios = snap.meios && snap.meios.length ? snap.meios : ['A DEFINIR'];
+  const [nMeio, setNMeio] = React.useState('A DEFINIR');
   function submitAdd() {
     const v = parseFloat((nVal || '').replace(/\./g, '').replace(',', '.'));
     if (!nDesc.trim() || !v || v <= 0) return;
@@ -346,6 +351,7 @@ function FinResumoMobile({
       v: Math.round(v * 100) / 100,
       mes: nMes,
       g: nGrupo,
+      meio: nMeio,
       ts: Date.now()
     });
     setNDesc('');
@@ -437,6 +443,23 @@ function FinResumoMobile({
       fontSize: 13
     }
   }, snap.meses.map(x => React.createElement("option", {
+    key: x
+  }, x)))), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginBottom: 8
+    }
+  }, React.createElement("select", {
+    className: "form-input",
+    value: nMeio,
+    onChange: e => setNMeio(e.target.value),
+    style: {
+      flex: 1,
+      fontSize: 12
+    },
+    title: "cart\xE3o / meio de pagamento"
+  }, meios.map(x => React.createElement("option", {
     key: x
   }, x)))), React.createElement("div", {
     style: {
@@ -673,7 +696,7 @@ function FinPainelNovo({
               valor: String(it.v).replace('.', ','),
               mes: it.mes,
               grupo: it.g || 'NECESSIDADES BÁSICAS',
-              meio: 'A DEFINIR',
+              meio: it.meio || 'A DEFINIR',
               categoria: '',
               obs: `lançado pelo celular em ${new Date(it.ts).toLocaleDateString('pt-BR')}`
             })
@@ -797,9 +820,11 @@ function FinPainelNovo({
   }, "Tentar de novo"), React.createElement("div", {
     style: {
       color: 'var(--ink-3)',
-      fontSize: '0.75rem'
+      fontSize: '0.75rem',
+      maxWidth: 420,
+      lineHeight: 1.5
     }
-  }, "Dispon\xEDvel no Mac. No celular, as outras abas do Financeiro continuam funcionando normalmente.")));
+  }, "No celular: abra o Financeiro ", React.createElement("b", null, "no Mac"), " uma vez \u2014 ele envia um espelho pra nuvem e esta tela vira o resumo com lan\xE7amento r\xE1pido de gastos.")));
 }
 window.FinPainelNovo = FinPainelNovo;
 function ScreenFinance() {
