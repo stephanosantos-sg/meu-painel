@@ -504,7 +504,10 @@ function App() {
     }
   }, React.createElement(WeeklyBanner, {
     onOpen: () => setActive('weekly')
-  })), React.createElement(Screen, null)), React.createElement("div", {
+  })), React.createElement(ScreenBoundary, {
+    key: active,
+    goHome: () => setActive('today')
+  }, React.createElement(Screen, null))), React.createElement("div", {
     className: "mobile-nav"
   }, [{
     id: 'today',
@@ -555,6 +558,75 @@ function App() {
   }), showSettings && window.SettingsModal && React.createElement(SettingsModal, {
     onClose: () => setShowSettings(false)
   })));
+}
+class ScreenBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      err: null
+    };
+  }
+  static getDerivedStateFromError(err) {
+    return {
+      err
+    };
+  }
+  componentDidCatch(err, info) {
+    console.error('Tela quebrou:', err, info && info.componentStack);
+  }
+  render() {
+    if (this.state.err) {
+      return React.createElement("div", {
+        style: {
+          padding: 48,
+          textAlign: 'center',
+          fontFamily: 'var(--font-ui)'
+        }
+      }, React.createElement("div", {
+        style: {
+          fontSize: '2.2rem'
+        }
+      }, "\uD83D\uDCA5"), React.createElement("div", {
+        style: {
+          fontWeight: 700,
+          margin: '12px 0 6px',
+          fontSize: '1.05rem'
+        }
+      }, "Esta tela encontrou um erro"), React.createElement("div", {
+        style: {
+          color: 'var(--ink-3)',
+          fontSize: 12,
+          marginBottom: 18,
+          maxWidth: 420,
+          marginLeft: 'auto',
+          marginRight: 'auto'
+        }
+      }, String(this.state.err && this.state.err.message || this.state.err)), React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 10,
+          justifyContent: 'center'
+        }
+      }, React.createElement("button", {
+        className: "btn btn-primary",
+        style: {
+          padding: '10px 22px'
+        },
+        onClick: () => {
+          this.setState({
+            err: null
+          });
+          this.props.goHome && this.props.goHome();
+        }
+      }, "\u2190 Voltar pra Home"), React.createElement("button", {
+        className: "btn-ghost",
+        onClick: () => this.setState({
+          err: null
+        })
+      }, "Tentar de novo")));
+    }
+    return this.props.children;
+  }
 }
 function AppRoot() {
   const [authState, setAuthState] = React.useState('loading');

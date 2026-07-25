@@ -13,21 +13,34 @@ function ScreenHistory() {
   (data.categories || []).forEach(c => {
     catMap[c.id] = c;
   });
+  function normDate(v) {
+    if (typeof v === 'number') {
+      const d = new Date(v);
+      return isNaN(d) ? null : d.toISOString().slice(0, 10);
+    }
+    if (typeof v === 'string') {
+      const s = v.slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+    }
+    return null;
+  }
   function getCompletedTasks() {
     const completed = [];
-    tasks.forEach(t => {
+    tasks.filter(Boolean).forEach(t => {
       if (t.freq === 'pontual' && t.done && t.doneAt) {
-        completed.push({
+        const d = normDate(t.doneAt);
+        if (d) completed.push({
           task: t,
-          date: t.doneAt
+          date: d
         });
       }
       if (t.doneSlots && typeof t.doneSlots === 'object') {
         Object.keys(t.doneSlots).forEach(ds => {
-          if (t.doneSlots[ds]) {
+          const d = normDate(ds);
+          if (d && t.doneSlots[ds]) {
             completed.push({
               task: t,
-              date: ds
+              date: d
             });
           }
         });
@@ -90,6 +103,7 @@ function ScreenHistory() {
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   function fmtDayLabel(ds) {
     const d = new Date(ds + 'T12:00:00');
+    if (isNaN(d)) return ds;
     const today = Orbita.todayStr();
     const yesterday = (() => {
       const y = new Date();
