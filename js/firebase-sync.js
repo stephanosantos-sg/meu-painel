@@ -31,7 +31,26 @@ function initFirebase() {
       console.log('Firebase: logged out');
     }
   });
+
+  // Completa o login iniciado via signInWithRedirect (mobile/PWA)
+  _auth.getRedirectResult().then(result => {
+    if (result && result.user) console.log('Firebase: redirect sign-in ok', result.user.email);
+    const credential = result && result.credential;
+    if (credential && credential.accessToken && window.OrbitaCalendar) {
+      window.OrbitaCalendar.setAccessToken(credential.accessToken);
+      window.dispatchEvent(new CustomEvent('orbita:calendarConnected'));
+    }
+  }).catch(e => {
+    if (e && e.code !== 'auth/no-auth-event') {
+      console.error('Redirect sign-in failed:', e);
+      alert('Erro no login: ' + e.message);
+    }
+  });
 }
+
+const _IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const _IS_STANDALONE = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+  || window.navigator.standalone === true;
 
 async function signInWithGoogle(requestCalendar) {
   initFirebase();
@@ -40,6 +59,12 @@ async function signInWithGoogle(requestCalendar) {
     provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
   }
   try {
+    // Popup não existe em PWA standalone / iOS: vai direto pro redirect.
+    if (_IS_MOBILE || _IS_STANDALONE) {
+      if (requestCalendar) localStorage.setItem('orbita_gcalConnected', '1');
+      await _auth.signInWithRedirect(provider);
+      return; // a página recarrega; getRedirectResult (no init) completa o login
+    }
     const result = await _auth.signInWithPopup(provider);
     const credential = result.credential;
     if (credential && credential.accessToken && window.OrbitaCalendar) {
@@ -48,6 +73,11 @@ async function signInWithGoogle(requestCalendar) {
       window.dispatchEvent(new CustomEvent('orbita:calendarConnected'));
     }
   } catch (e) {
+    // popup bloqueado (Safari, extensões) → tenta o fluxo de redirect
+    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment'
+              || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) {
+      try { await _auth.signInWithRedirect(provider); return; } catch (e2) { e = e2; }
+    }
     console.error('Google sign-in failed:', e);
     alert('Erro no login: ' + e.message);
   }

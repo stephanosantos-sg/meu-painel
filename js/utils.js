@@ -91,9 +91,13 @@ function importData(jsonText) {
   return parsed;
 }
 
-/* ── Auto-export semanal ── baixa um JSON 1x por semana (domingo) como seguro extra. */
+/* ── Auto-export semanal ── baixa um JSON 1x por semana como seguro extra.
+   Só em desktop: em iOS/Android o download automático abre o preview/share
+   por cima do app e bloqueia a entrada. */
 function maybeAutoExport() {
   try {
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) return;
+    if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
     const D = loadData();
     if (!D || !(D.tasks || []).length) return;
     const lastStr = localStorage.getItem('orbita_lastAutoExport');
