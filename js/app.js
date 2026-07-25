@@ -364,7 +364,18 @@ function QuickBar({
   }, btn.icon)));
 }
 function App() {
-  const [active, setActive] = React.useState('today');
+  const HASH_ROUTES = {
+    financeiro: 'finance',
+    financas: 'finance',
+    finance: 'finance',
+    dash: 'finance',
+    habitos: 'habits',
+    dieta: 'diet',
+    midia: 'media',
+    livros: 'books',
+    metas: 'goals'
+  };
+  const [active, setActive] = React.useState(() => HASH_ROUTES[(location.hash || '').replace('#', '').toLowerCase()] || 'today');
   const [showTaskModal, setShowTaskModal] = React.useState(false);
   const [showHabitModal, setShowHabitModal] = React.useState(false);
   const [showPomo, setShowPomo] = React.useState(false);
