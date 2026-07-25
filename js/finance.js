@@ -279,11 +279,9 @@ function finGetIncome(fin, ym) {
   return parseFloat(fin && fin.monthlyIncome) || 0;
 }
 window.finGetIncome = finGetIncome;
-
-// ─── Painel novo (Orbita Finanças local — Flask na porta 5188) ───
 function FinPainelNovo() {
   const URL_FIN = 'http://localhost:5188';
-  const [status, setStatus] = React.useState('loading'); // loading | ok | off
+  const [status, setStatus] = React.useState('loading');
   const [tryN, setTryN] = React.useState(0);
   React.useEffect(() => {
     setStatus('loading');
@@ -319,30 +317,45 @@ function FinPainelNovo() {
     }
   }, status !== 'off' && React.createElement("iframe", {
     key: tryN,
-    src: URL_FIN + '/?embed=1',
+    src: `${URL_FIN}/?embed=1`,
+    title: "Orbita Finan\xE7as",
     style: {
       width: '100%',
       height: '100%',
       border: '1px solid var(--glass-border)',
       borderRadius: 'var(--r-md)',
       background: 'transparent'
-    },
-    title: 'Orbita Finanças'
+    }
   }), status === 'loading' && React.createElement("div", {
     style: overlay
   }, React.createElement("div", {
-    style: { fontSize: '2rem' }
-  }, '🪙'), React.createElement("div", {
-    style: { color: 'var(--ink-2)' }
-  }, 'Conectando ao Orbita Finanças…')), status === 'off' && React.createElement("div", {
+    style: {
+      fontSize: '2rem'
+    }
+  }, "\uD83E\uDE99"), React.createElement("div", {
+    style: {
+      color: 'var(--ink-2)'
+    }
+  }, "Conectando ao Orbita Finan\xE7as\u2026")), status === 'off' && React.createElement("div", {
     style: overlay
   }, React.createElement("div", {
-    style: { fontSize: '2.4rem' }
-  }, '🪙'), React.createElement("div", {
-    style: { fontSize: '1.05rem', fontWeight: 700, color: 'var(--ink-1)' }
-  }, 'O servidor do Finanças não está rodando'), React.createElement("div", {
-    style: { color: 'var(--ink-2)', maxWidth: 460, fontSize: '0.85rem', lineHeight: 1.6 }
-  }, 'O painel roda localmente no seu Mac (os dados ficam só com você). Abra o Terminal e rode:'), React.createElement("code", {
+    style: {
+      fontSize: '2.4rem'
+    }
+  }, "\uD83E\uDE99"), React.createElement("div", {
+    style: {
+      fontSize: '1.05rem',
+      fontWeight: 700,
+      color: 'var(--ink-1)'
+    }
+  }, "O servidor do Finan\xE7as n\xE3o est\xE1 rodando"), React.createElement("div", {
+    style: {
+      color: 'var(--ink-2)',
+      maxWidth: 460,
+      fontSize: '0.85rem',
+      lineHeight: 1.6
+    }
+  }, "O painel roda localmente no seu Mac (os dados ficam s\xF3 com voc\xEA). Abra o Terminal e rode:"), React.createElement("code", {
     style: {
       background: 'var(--glass-bg-strong)',
       border: '1px solid var(--glass-border)',
@@ -352,7 +365,7 @@ function FinPainelNovo() {
       userSelect: 'all',
       fontFamily: 'var(--font-mono)'
     }
-  }, 'python3 "/Users/stephano/Downloads/Claude Code/Pessoal/Financas/app/app.py"'), React.createElement("button", {
+  }, "python3 \"/Users/stephano/Downloads/Claude Code/Pessoal/Financas/app/app.py\""), React.createElement("button", {
     onClick: () => setTryN(n => n + 1),
     style: {
       background: 'var(--gradient-neon)',
@@ -364,12 +377,14 @@ function FinPainelNovo() {
       cursor: 'pointer',
       fontSize: '0.9rem'
     }
-  }, 'Tentar de novo'), React.createElement("div", {
-    style: { color: 'var(--ink-3)', fontSize: '0.75rem' }
-  }, 'Disponível no Mac. No celular, as outras abas do Financeiro continuam funcionando normalmente.')));
+  }, "Tentar de novo"), React.createElement("div", {
+    style: {
+      color: 'var(--ink-3)',
+      fontSize: '0.75rem'
+    }
+  }, "Dispon\xEDvel no Mac. No celular, as outras abas do Financeiro continuam funcionando normalmente.")));
 }
 window.FinPainelNovo = FinPainelNovo;
-
 function ScreenFinance() {
   const {
     data,
