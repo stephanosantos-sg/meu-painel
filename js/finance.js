@@ -279,13 +279,104 @@ function finGetIncome(fin, ym) {
   return parseFloat(fin && fin.monthlyIncome) || 0;
 }
 window.finGetIncome = finGetIncome;
+
+// ─── Painel novo (Orbita Finanças local — Flask na porta 5188) ───
+function FinPainelNovo() {
+  const URL_FIN = 'http://localhost:5188';
+  const [status, setStatus] = React.useState('loading'); // loading | ok | off
+  const [tryN, setTryN] = React.useState(0);
+  React.useEffect(() => {
+    setStatus('loading');
+    const onMsg = e => {
+      if (e.data === 'financas-ok') setStatus('ok');
+    };
+    window.addEventListener('message', onMsg);
+    const t = setTimeout(() => setStatus(s => s === 'loading' ? 'off' : s), 3500);
+    return () => {
+      window.removeEventListener('message', onMsg);
+      clearTimeout(t);
+    };
+  }, [tryN]);
+  const overlay = {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    textAlign: 'center',
+    padding: 20,
+    background: 'var(--bg-0)',
+    borderRadius: 'var(--r-md)',
+    fontFamily: 'var(--font-ui)'
+  };
+  return React.createElement("div", {
+    style: {
+      position: 'relative',
+      height: 'calc(100vh - 200px)',
+      minHeight: 480
+    }
+  }, status !== 'off' && React.createElement("iframe", {
+    key: tryN,
+    src: URL_FIN + '/?embed=1',
+    style: {
+      width: '100%',
+      height: '100%',
+      border: '1px solid var(--glass-border)',
+      borderRadius: 'var(--r-md)',
+      background: 'transparent'
+    },
+    title: 'Orbita Finanças'
+  }), status === 'loading' && React.createElement("div", {
+    style: overlay
+  }, React.createElement("div", {
+    style: { fontSize: '2rem' }
+  }, '🪙'), React.createElement("div", {
+    style: { color: 'var(--ink-2)' }
+  }, 'Conectando ao Orbita Finanças…')), status === 'off' && React.createElement("div", {
+    style: overlay
+  }, React.createElement("div", {
+    style: { fontSize: '2.4rem' }
+  }, '🪙'), React.createElement("div", {
+    style: { fontSize: '1.05rem', fontWeight: 700, color: 'var(--ink-1)' }
+  }, 'O servidor do Finanças não está rodando'), React.createElement("div", {
+    style: { color: 'var(--ink-2)', maxWidth: 460, fontSize: '0.85rem', lineHeight: 1.6 }
+  }, 'O painel roda localmente no seu Mac (os dados ficam só com você). Abra o Terminal e rode:'), React.createElement("code", {
+    style: {
+      background: 'var(--glass-bg-strong)',
+      border: '1px solid var(--glass-border)',
+      borderRadius: 10,
+      padding: '10px 16px',
+      fontSize: '0.75rem',
+      userSelect: 'all',
+      fontFamily: 'var(--font-mono)'
+    }
+  }, 'python3 "/Users/stephano/Downloads/Claude Code/Pessoal/Financas/app/app.py"'), React.createElement("button", {
+    onClick: () => setTryN(n => n + 1),
+    style: {
+      background: 'var(--gradient-neon)',
+      border: 'none',
+      color: '#fff',
+      fontWeight: 700,
+      padding: '10px 22px',
+      borderRadius: 12,
+      cursor: 'pointer',
+      fontSize: '0.9rem'
+    }
+  }, 'Tentar de novo'), React.createElement("div", {
+    style: { color: 'var(--ink-3)', fontSize: '0.75rem' }
+  }, 'Disponível no Mac. No celular, as outras abas do Financeiro continuam funcionando normalmente.')));
+}
+window.FinPainelNovo = FinPainelNovo;
+
 function ScreenFinance() {
   const {
     data,
     commit
   } = useData();
   const [tab, setTab] = React.useState(() => {
-    const t = localStorage.getItem('orbita_fin_tab') || 'lancamentos';
+    const t = localStorage.getItem('orbita_fin_tab') || 'painel';
     if (t === 'investimentos' || t === 'dividas') return 'patrimonio';
     if (t === 'categorias' || t === 'orcamento') return 'config';
     return t;
@@ -342,6 +433,9 @@ function ScreenFinance() {
         fontFamily: 'var(--font-ui)'
       }
     }, revealed ? '👁' : '⊘'), [{
+      v: 'painel',
+      l: '✨ Painel'
+    }, {
       v: 'lancamentos',
       l: 'Lançamentos'
     }, {
@@ -375,7 +469,7 @@ function ScreenFinance() {
     totalSpent: totalSpent,
     balance: balance,
     revealed: revealed
-  }), tab === 'lancamentos' && React.createElement(FinLancamentos, {
+  }), tab === 'painel' && React.createElement(FinPainelNovo, null), tab === 'lancamentos' && React.createElement(FinLancamentos, {
     month: month,
     setMonth: setMonth,
     fin: fin,
