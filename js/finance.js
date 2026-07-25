@@ -323,9 +323,34 @@ function finBuildSnap(D, F) {
 }
 function FinResumoMobile({
   snap,
+  inbox = [],
+  onAdd,
+  onRemoveInbox,
   onRetry
 }) {
-  const [m, setM] = React.useState(snap.meses.includes('AGO26') ? 'AGO26' : snap.meses[0]);
+  const MESL = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+  const _now = new Date();
+  const curLabel = `${MESL[_now.getMonth()]}${String(_now.getFullYear()).slice(2)}`;
+  const defMes = snap.meses.includes(curLabel) ? curLabel : snap.meses[0];
+  const [m, setM] = React.useState(defMes);
+  const [nDesc, setNDesc] = React.useState('');
+  const [nVal, setNVal] = React.useState('');
+  const [nMes, setNMes] = React.useState(defMes);
+  const [nGrupo, setNGrupo] = React.useState('NECESSIDADES BÁSICAS');
+  function submitAdd() {
+    const v = parseFloat((nVal || '').replace(/\./g, '').replace(',', '.'));
+    if (!nDesc.trim() || !v || v <= 0) return;
+    onAdd({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      n: nDesc.trim().slice(0, 40),
+      v: Math.round(v * 100) / 100,
+      mes: nMes,
+      g: nGrupo,
+      ts: Date.now()
+    });
+    setNDesc('');
+    setNVal('');
+  }
   const pm = snap.porMes[m] || {
     renda: 0,
     tot: 0,
@@ -365,6 +390,118 @@ function FinResumoMobile({
     },
     onClick: () => setM(x)
   }, x))), React.createElement("div", {
+    style: {
+      ...card,
+      border: '1px solid rgba(91,141,255,0.35)'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCB8 Lan\xE7ar gasto (sincroniza com o Mac)"), React.createElement("input", {
+    className: "form-input",
+    placeholder: "O que foi? (ex: uber, mercado, farm\xE1cia)",
+    value: nDesc,
+    onChange: e => setNDesc(e.target.value),
+    style: {
+      marginBottom: 8,
+      fontSize: 14
+    }
+  }), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginBottom: 8
+    }
+  }, React.createElement("input", {
+    className: "form-input",
+    placeholder: "Valor (49,90)",
+    inputMode: "decimal",
+    value: nVal,
+    onChange: e => setNVal(e.target.value),
+    onKeyDown: e => e.key === 'Enter' && submitAdd(),
+    style: {
+      flex: 1,
+      fontSize: 14
+    }
+  }), React.createElement("select", {
+    className: "form-input",
+    value: nMes,
+    onChange: e => setNMes(e.target.value),
+    style: {
+      width: 96,
+      fontSize: 13
+    }
+  }, snap.meses.map(x => React.createElement("option", {
+    key: x
+  }, x)))), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, React.createElement("select", {
+    className: "form-input",
+    value: nGrupo,
+    onChange: e => setNGrupo(e.target.value),
+    style: {
+      flex: 1,
+      fontSize: 12
+    }
+  }, ['NECESSIDADES BÁSICAS', 'LAZER', 'DÍVIDAS', 'VARIÁVEL'].map(g => React.createElement("option", {
+    key: g
+  }, g))), React.createElement("button", {
+    className: "btn btn-primary",
+    style: {
+      padding: '9px 20px',
+      fontSize: 13
+    },
+    onClick: submitAdd
+  }, "Lan\xE7ar")), inbox.length > 0 && React.createElement("div", {
+    style: {
+      marginTop: 10,
+      borderTop: '1px solid var(--line)',
+      paddingTop: 8
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: 'var(--yellow, #ffd60a)',
+      marginBottom: 4
+    }
+  }, "\u23F3 ", inbox.length, " aguardando o Mac abrir o Financeiro:"), inbox.map(it => React.createElement("div", {
+    key: it.id,
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 8,
+      fontSize: 12,
+      padding: '3px 0',
+      color: 'var(--ink-2)'
+    }
+  }, React.createElement("span", {
+    style: {
+      minWidth: 0,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, it.n, " \xB7 ", it.mes), React.createElement("span", {
+    style: {
+      whiteSpace: 'nowrap'
+    }
+  }, FIN_BRL(it.v), React.createElement("button", {
+    className: "btn-ghost small",
+    style: {
+      marginLeft: 6,
+      fontSize: 10,
+      padding: '1px 6px'
+    },
+    onClick: () => onRemoveInbox(it.id)
+  }, "\u2715")))))), React.createElement("div", {
     style: {
       ...card,
       background: saldo >= 0 ? 'linear-gradient(135deg, rgba(48,209,88,0.18), rgba(91,141,255,0.12))' : 'linear-gradient(135deg, rgba(255,46,136,0.2), rgba(255,85,85,0.12))'
@@ -517,6 +654,45 @@ function FinPainelNovo({
       });
     }).catch(() => {});
   }, [status]);
+  const inbox = data._financasInbox || [];
+  const _draining = React.useRef(false);
+  React.useEffect(() => {
+    if (status !== 'ok' || !inbox.length || _draining.current) return;
+    _draining.current = true;
+    (async () => {
+      const okIds = [];
+      for (const it of inbox) {
+        try {
+          const r = await fetch(URL_FIN + '/api/add', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              nome: it.n,
+              valor: String(it.v).replace('.', ','),
+              mes: it.mes,
+              grupo: it.g || 'NECESSIDADES BÁSICAS',
+              meio: 'A DEFINIR',
+              categoria: '',
+              obs: `lançado pelo celular em ${new Date(it.ts).toLocaleDateString('pt-BR')}`
+            })
+          });
+          if ((await r.json()).ok) okIds.push(it.id);
+        } catch (e) {
+          break;
+        }
+      }
+      if (okIds.length) {
+        commit(Dd => {
+          Dd._financasInbox = (Dd._financasInbox || []).filter(x => !okIds.includes(x.id));
+        });
+        _synced.current = false;
+        setTryN(n => n + 1);
+      }
+      _draining.current = false;
+    })();
+  }, [status, inbox.length]);
   const overlay = {
     position: 'absolute',
     inset: 0,
@@ -569,6 +745,13 @@ function FinPainelNovo({
     }
   }, React.createElement(FinResumoMobile, {
     snap: data._financasSnap,
+    inbox: inbox,
+    onAdd: it => commit(Dd => {
+      Dd._financasInbox = [...(Dd._financasInbox || []), it];
+    }),
+    onRemoveInbox: id => commit(Dd => {
+      Dd._financasInbox = (Dd._financasInbox || []).filter(x => x.id !== id);
+    }),
     onRetry: () => setTryN(n => n + 1)
   })), status === 'off' && !data._financasSnap && React.createElement("div", {
     style: overlay
