@@ -279,7 +279,10 @@ function finGetIncome(fin, ym) {
   return parseFloat(fin && fin.monthlyIncome) || 0;
 }
 window.finGetIncome = finGetIncome;
-function FinPainelNovo() {
+const FIN_LEGACY_TABS = ['lancamentos', 'cartoes', 'resumo', 'graficos', 'patrimonio', 'recorrentes', 'config', 'investimentos', 'dividas'];
+function FinPainelNovo({
+  path = '/'
+}) {
   const URL_FIN = 'http://localhost:5188';
   const [status, setStatus] = React.useState('loading');
   const [tryN, setTryN] = React.useState(0);
@@ -316,8 +319,8 @@ function FinPainelNovo() {
       minHeight: 480
     }
   }, status !== 'off' && React.createElement("iframe", {
-    key: tryN,
-    src: `${URL_FIN}/?embed=1`,
+    key: `${path}-${tryN}`,
+    src: `${URL_FIN}${path}?embed=1`,
     title: "Orbita Finan\xE7as",
     style: {
       width: '100%',
@@ -451,6 +454,17 @@ function ScreenFinance() {
       v: 'painel',
       l: '✨ Painel'
     }, {
+      v: 'dash',
+      l: 'Σ Dash'
+    }].map(t => React.createElement("button", {
+      key: t.v,
+      className: `tab-btn ${tab === t.v ? 'active' : ''}`,
+      onClick: () => setTab(t.v)
+    }, t.l)), React.createElement("button", {
+      className: `tab-btn ${FIN_LEGACY_TABS.includes(tab) ? 'active' : ''}`,
+      onClick: () => setTab('lancamentos'),
+      title: "M\xF3dulo antigo do Financeiro (dados locais/Firestore)"
+    }, "Antigo", FIN_LEGACY_TABS.includes(tab) ? ' ▾' : ''), FIN_LEGACY_TABS.includes(tab) && [{
       v: 'lancamentos',
       l: 'Lançamentos'
     }, {
@@ -473,6 +487,10 @@ function ScreenFinance() {
       l: 'Config'
     }].map(t => React.createElement("button", {
       key: t.v,
+      style: {
+        opacity: 0.75,
+        fontSize: '0.75rem'
+      },
       className: `tab-btn ${tab === t.v ? 'active' : ''}`,
       onClick: () => setTab(t.v)
     }, t.l)))
@@ -484,7 +502,11 @@ function ScreenFinance() {
     totalSpent: totalSpent,
     balance: balance,
     revealed: revealed
-  }), tab === 'painel' && React.createElement(FinPainelNovo, null), tab === 'lancamentos' && React.createElement(FinLancamentos, {
+  }), tab === 'painel' && React.createElement(FinPainelNovo, {
+    path: "/"
+  }), tab === 'dash' && React.createElement(FinPainelNovo, {
+    path: "/dash"
+  }), tab === 'lancamentos' && React.createElement(FinLancamentos, {
     month: month,
     setMonth: setMonth,
     fin: fin,
