@@ -280,12 +280,213 @@ function finGetIncome(fin, ym) {
 }
 window.finGetIncome = finGetIncome;
 const FIN_LEGACY_TABS = ['lancamentos', 'cartoes', 'resumo', 'graficos', 'patrimonio', 'recorrentes', 'config', 'investimentos', 'dividas'];
+const FIN_BRL = v => (v || 0).toLocaleString('pt-BR', {
+  style: 'currency',
+  currency: 'BRL'
+});
+function finBuildSnap(D, F) {
+  const meses = D.meses || [];
+  let acum = 0;
+  const porMes = {};
+  for (const m of meses) {
+    const its = (D.itens || []).filter(i => i.mes === m);
+    const tot = its.reduce((a, i) => a + i.valor, 0);
+    const pago = its.filter(i => i.status === 'PAGO').reduce((a, i) => a + i.valor, 0);
+    const renda = (D.renda || {})[m] || 0;
+    const settled = its.length > 0 && its.every(i => i.status === 'PAGO');
+    acum = acum + (renda - tot);
+    if (settled && acum < 0) acum = 0;
+    porMes[m] = {
+      renda,
+      tot: Math.round(tot * 100) / 100,
+      pago: Math.round(pago * 100) / 100,
+      acum: Math.round(acum * 100) / 100,
+      pend: its.filter(i => i.status !== 'PAGO').sort((a, b) => b.valor - a.valor).slice(0, 14).map(i => ({
+        n: i.nome.slice(0, 32),
+        v: i.valor,
+        g: (i.grupo || '').slice(0, 22)
+      }))
+    };
+  }
+  const alvo = (D.metas || {}).quitacao_alvo || 10000;
+  return {
+    ts: Date.now(),
+    meses,
+    porMes,
+    alvo,
+    cruzaMes: meses.find(m => porMes[m].acum >= alvo) || null,
+    recorrentes: ((F || {}).recorrencias || []).slice(0, 10).map(r => ({
+      n: r.nome,
+      v: r.valor
+    }))
+  };
+}
+function FinResumoMobile({
+  snap,
+  onRetry
+}) {
+  const [m, setM] = React.useState(snap.meses.includes('AGO26') ? 'AGO26' : snap.meses[0]);
+  const pm = snap.porMes[m] || {
+    renda: 0,
+    tot: 0,
+    pago: 0,
+    acum: 0,
+    pend: []
+  };
+  const saldo = pm.renda - pm.tot;
+  const ultimo = snap.meses[snap.meses.length - 1];
+  const fundoFinal = (snap.porMes[ultimo] || {}).acum || 0;
+  const pct = Math.min(Math.max(fundoFinal / snap.alvo * 100, 0), 100);
+  const card = {
+    background: 'var(--glass-bg)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 'var(--r-md)',
+    padding: 16
+  };
+  return React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+      fontFamily: 'var(--font-ui)'
+    }
+  }, React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      overflowX: 'auto',
+      paddingBottom: 4
+    }
+  }, snap.meses.map(x => React.createElement("button", {
+    key: x,
+    className: `tab-btn ${x === m ? 'active' : ''}`,
+    style: {
+      flexShrink: 0
+    },
+    onClick: () => setM(x)
+  }, x))), React.createElement("div", {
+    style: {
+      ...card,
+      background: saldo >= 0 ? 'linear-gradient(135deg, rgba(48,209,88,0.18), rgba(91,141,255,0.12))' : 'linear-gradient(135deg, rgba(255,46,136,0.2), rgba(255,85,85,0.12))'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em'
+    }
+  }, "Saldo ", m), React.createElement("div", {
+    style: {
+      fontSize: 26,
+      fontWeight: 800,
+      color: saldo >= 0 ? 'var(--green)' : 'var(--pink)'
+    }
+  }, FIN_BRL(saldo)), React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      marginTop: 4
+    }
+  }, "renda ", FIN_BRL(pm.renda), " \xB7 sa\xEDdas ", FIN_BRL(pm.tot), " \xB7 pago ", FIN_BRL(pm.pago), " \xB7 acumulado ", FIN_BRL(pm.acum))), React.createElement("div", {
+    style: card
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      marginBottom: 8
+    }
+  }, "Fundo de quita\xE7\xE3o \xB7 alvo ", FIN_BRL(snap.alvo)), React.createElement("div", {
+    style: {
+      height: 8,
+      background: 'rgba(255,255,255,0.07)',
+      borderRadius: 4,
+      overflow: 'hidden'
+    }
+  }, React.createElement("div", {
+    style: {
+      width: `${pct.toFixed(0)}%`,
+      height: '100%',
+      background: pct >= 100 ? 'var(--green)' : 'var(--gradient-neon)'
+    }
+  })), React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      marginTop: 6
+    }
+  }, FIN_BRL(fundoFinal), " projetados at\xE9 ", ultimo, snap.cruzaMes ? ` · ✓ cruza o alvo em ${snap.cruzaMes}` : ' · ainda não cruza o alvo')), React.createElement("div", {
+    style: card
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-2)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      marginBottom: 8
+    }
+  }, "Pend\xEAncias de ", m), pm.pend.length === 0 && React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)'
+    }
+  }, "Tudo pago \uD83C\uDF89"), pm.pend.map((p, i) => React.createElement("div", {
+    key: i,
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 10,
+      padding: '5px 0',
+      borderBottom: '1px solid var(--line)',
+      fontSize: 12.5
+    }
+  }, React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, React.createElement("div", {
+    style: {
+      fontWeight: 500
+    }
+  }, p.n), React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-3)'
+    }
+  }, p.g)), React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      whiteSpace: 'nowrap'
+    }
+  }, FIN_BRL(p.v))))), React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: 'var(--ink-3)',
+      textAlign: 'center',
+      lineHeight: 1.5
+    }
+  }, "Espelho somente leitura \xB7 atualizado ", new Date(snap.ts).toLocaleString('pt-BR'), " (sincroniza quando o painel abre no Mac).", React.createElement("button", {
+    className: "btn-ghost small",
+    style: {
+      marginLeft: 8,
+      fontSize: 10
+    },
+    onClick: onRetry
+  }, "conectar ao Mac")));
+}
 function FinPainelNovo({
   path = '/'
 }) {
   const URL_FIN = 'http://localhost:5188';
+  const {
+    data,
+    commit
+  } = useData();
   const [status, setStatus] = React.useState('loading');
   const [tryN, setTryN] = React.useState(0);
+  const _synced = React.useRef(false);
   React.useEffect(() => {
     setStatus('loading');
     const onMsg = e => {
@@ -298,6 +499,24 @@ function FinPainelNovo({
       clearTimeout(t);
     };
   }, [tryN]);
+  React.useEffect(() => {
+    if (status !== 'ok' || _synced.current) return;
+    _synced.current = true;
+    Promise.all([fetch(URL_FIN + '/api/data').then(r => r.json()), fetch(URL_FIN + '/api/faturas').then(r => r.json()).catch(() => ({}))]).then(([D, F]) => {
+      const snap = finBuildSnap(D, F);
+      const old = data._financasSnap;
+      const same = old && JSON.stringify({
+        ...old,
+        ts: 0
+      }) === JSON.stringify({
+        ...snap,
+        ts: 0
+      });
+      if (!same) commit(Dd => {
+        Dd._financasSnap = snap;
+      });
+    }).catch(() => {});
+  }, [status]);
   const overlay = {
     position: 'absolute',
     inset: 0,
@@ -339,7 +558,19 @@ function FinPainelNovo({
     style: {
       color: 'var(--ink-2)'
     }
-  }, "Conectando ao Orbita Finan\xE7as\u2026")), status === 'off' && React.createElement("div", {
+  }, "Conectando ao Orbita Finan\xE7as\u2026")), status === 'off' && data._financasSnap && React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      overflowY: 'auto',
+      background: 'var(--bg-0)',
+      borderRadius: 'var(--r-md)',
+      padding: 14
+    }
+  }, React.createElement(FinResumoMobile, {
+    snap: data._financasSnap,
+    onRetry: () => setTryN(n => n + 1)
+  })), status === 'off' && !data._financasSnap && React.createElement("div", {
     style: overlay
   }, React.createElement("div", {
     style: {
@@ -395,8 +626,7 @@ function ScreenFinance() {
   } = useData();
   const [tab, setTab] = React.useState(() => {
     const t = localStorage.getItem('orbita_fin_tab') || 'painel';
-    if (t === 'investimentos' || t === 'dividas') return 'patrimonio';
-    if (t === 'categorias' || t === 'orcamento') return 'config';
+    if (FIN_LEGACY_TABS.includes(t) || !['painel', 'dash'].includes(t)) return 'painel';
     return t;
   });
   const [month, setMonth] = React.useState(finCurrentMonth());
@@ -458,39 +688,6 @@ function ScreenFinance() {
       l: 'Σ Dash'
     }].map(t => React.createElement("button", {
       key: t.v,
-      className: `tab-btn ${tab === t.v ? 'active' : ''}`,
-      onClick: () => setTab(t.v)
-    }, t.l)), React.createElement("button", {
-      className: `tab-btn ${FIN_LEGACY_TABS.includes(tab) ? 'active' : ''}`,
-      onClick: () => setTab('lancamentos'),
-      title: "M\xF3dulo antigo do Financeiro (dados locais/Firestore)"
-    }, "Antigo", FIN_LEGACY_TABS.includes(tab) ? ' ▾' : ''), FIN_LEGACY_TABS.includes(tab) && [{
-      v: 'lancamentos',
-      l: 'Lançamentos'
-    }, {
-      v: 'cartoes',
-      l: 'Cartões'
-    }, {
-      v: 'resumo',
-      l: 'Resumo'
-    }, {
-      v: 'graficos',
-      l: 'Gráficos'
-    }, {
-      v: 'patrimonio',
-      l: 'Patrimônio'
-    }, {
-      v: 'recorrentes',
-      l: 'Recorrentes'
-    }, {
-      v: 'config',
-      l: 'Config'
-    }].map(t => React.createElement("button", {
-      key: t.v,
-      style: {
-        opacity: 0.75,
-        fontSize: '0.75rem'
-      },
       className: `tab-btn ${tab === t.v ? 'active' : ''}`,
       onClick: () => setTab(t.v)
     }, t.l)))

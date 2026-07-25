@@ -1233,70 +1233,83 @@ function ScreenMedia() {
     });
   }
   const tabLabel = tab === 'filmes' ? 'Filmes' : tab === 'series' ? 'Séries' : 'Documentários';
+  function MediaThumb({
+    item,
+    size = 56
+  }) {
+    if (item.poster) {
+      return React.createElement("img", {
+        src: item.poster,
+        alt: item.title,
+        style: {
+          width: size,
+          height: size * 1.5,
+          borderRadius: 6,
+          objectFit: 'cover',
+          flexShrink: 0,
+          border: '1px solid var(--line)',
+          boxShadow: '0 8px 24px -8px rgba(0,0,0,0.6)'
+        }
+      });
+    }
+    const hue = (item.title || '').split('').reduce((s, c) => s + c.charCodeAt(0), 0) % 360;
+    return React.createElement("div", {
+      style: {
+        width: size,
+        height: size * 1.5,
+        borderRadius: 6,
+        flexShrink: 0,
+        background: `linear-gradient(135deg, hsl(${hue}, 50%, 35%), hsl(${(hue + 40) % 360}, 40%, 25%))`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    }, React.createElement("span", {
+      style: {
+        fontSize: 20,
+        opacity: 0.7
+      }
+    }, tab === 'series' ? '📺' : tab === 'docs' ? '🎥' : '🎬'));
+  }
   function MediaCard({
     item,
     idx
   }) {
-    const [hovered, setHovered] = React.useState(false);
     return React.createElement("div", {
       className: "panel",
       style: {
         padding: 14,
-        position: 'relative'
-      },
-      onMouseEnter: () => setHovered(true),
-      onMouseLeave: () => setHovered(false)
-    }, item.poster ? React.createElement("img", {
-      src: item.poster,
-      alt: item.title,
-      style: {
-        width: '100%',
-        borderRadius: 8,
-        marginBottom: 8,
-        aspectRatio: '2/3',
-        objectFit: 'cover'
-      }
-    }) : React.createElement("div", {
-      style: {
-        width: '100%',
-        aspectRatio: '2/3',
-        borderRadius: 8,
-        marginBottom: 8,
-        background: `linear-gradient(135deg, hsl(${(item.title || '').split('').reduce((s, c) => s + c.charCodeAt(0), 0) % 360}, 50%, 35%), hsl(${((item.title || '').split('').reduce((s, c) => s + c.charCodeAt(0), 0) + 40) % 360}, 40%, 25%))`,
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12
+        gap: 14,
+        alignItems: 'flex-start'
       }
-    }, React.createElement("span", {
+    }, React.createElement(MediaThumb, {
+      item: item
+    }), React.createElement("div", {
       style: {
-        fontSize: 32,
-        opacity: 0.6
+        flex: 1,
+        minWidth: 0
       }
-    }, tab === 'series' ? '📺' : tab === 'docs' ? '🎥' : '🎬')), React.createElement("div", {
+    }, React.createElement("div", {
       style: {
-        fontSize: 13,
-        fontWeight: 500
+        fontSize: 13.5,
+        fontWeight: 500,
+        lineHeight: 1.25
       }
-    }, item.title), item.year && React.createElement("div", {
+    }, item.title), React.createElement("div", {
       className: "mono",
       style: {
         fontSize: 10,
         color: 'var(--ink-3)',
-        marginTop: 2
+        marginTop: 3
       }
-    }, item.year, item.director && ` · ${item.director}`), item.genre && React.createElement("div", {
+    }, [item.year, item.director, tab === 'series' && item.seasons ? `${item.seasons} temporadas` : null].filter(Boolean).join(' · ')), item.genre && React.createElement("div", {
       style: {
         fontSize: 10,
-        color: 'var(--ink-3)'
+        color: 'var(--ink-3)',
+        marginTop: 1
       }
-    }, item.genre), tab === 'series' && item.seasons && React.createElement("div", {
-      className: "mono",
-      style: {
-        fontSize: 10,
-        color: 'var(--ink-3)'
-      }
-    }, item.seasons, " temporadas"), React.createElement("div", {
+    }, item.genre), React.createElement("div", {
       style: {
         display: 'flex',
         gap: 2,
@@ -1307,14 +1320,14 @@ function ScreenMedia() {
       onClick: () => setRating(idx, s),
       style: {
         cursor: 'pointer',
-        fontSize: 14,
+        fontSize: 15,
         color: s <= (item.userRating || 0) ? '#ffd60a' : 'var(--ink-4)'
       }
     }, "\u2605"))), React.createElement("div", {
       style: {
         display: 'flex',
-        gap: 3,
-        marginTop: 6,
+        gap: 4,
+        marginTop: 8,
         flexWrap: 'wrap'
       }
     }, !item.done && React.createElement("button", {
@@ -1322,38 +1335,38 @@ function ScreenMedia() {
       onClick: () => toggleDone(idx),
       style: {
         fontSize: 10,
-        padding: '3px 6px'
+        padding: '3px 8px'
       }
-    }, "\u2713"), !item.queued && !item.done && React.createElement("button", {
+    }, "\u2713 Visto"), !item.queued && !item.done && React.createElement("button", {
       className: "btn-ghost small",
       onClick: () => toggleQueue(idx),
       style: {
         fontSize: 10,
-        padding: '3px 6px'
+        padding: '3px 8px'
       }
     }, "Fila"), React.createElement("button", {
       className: "btn-ghost small",
       onClick: () => setEditMediaIdx(idx),
       style: {
         fontSize: 10,
-        padding: '3px 6px'
+        padding: '3px 8px'
       }
     }, "\u270E"), React.createElement("button", {
       className: "btn-ghost small",
       onClick: () => reFetch(idx),
       style: {
         fontSize: 10,
-        padding: '3px 6px'
+        padding: '3px 8px'
       }
     }, "\u21BB"), React.createElement("button", {
       className: "btn-ghost small",
       onClick: () => deleteItem(idx),
       style: {
         fontSize: 10,
-        padding: '3px 6px',
+        padding: '3px 8px',
         color: 'var(--ink-4)'
       }
-    }, "\u2715")));
+    }, "\u2715"))));
   }
   return React.createElement(React.Fragment, null, React.createElement(TopBar, {
     title: "M\xEDdia.",
@@ -1400,7 +1413,7 @@ function ScreenMedia() {
   }, "Assistindo agora"), React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
       gap: 14
     }
   }, watching.map((item, i) => React.createElement(MediaCard, {
@@ -1419,7 +1432,7 @@ function ScreenMedia() {
   }, "Para assistir \xB7 ", unwatched.length), React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
       gap: 14
     }
   }, unwatched.map((item, i) => React.createElement(MediaCard, {
@@ -1438,7 +1451,7 @@ function ScreenMedia() {
   }, "Conclu\xEDdos \xB7 ", doneItems.length), React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
       gap: 14
     }
   }, doneItems.map((item, i) => React.createElement(MediaCard, {

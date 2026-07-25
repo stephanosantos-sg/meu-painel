@@ -27,8 +27,10 @@ function initFirebase() {
     if (user) {
       console.log('Firebase: logged in as', user.email);
       pullFromCloud();
+      startRealtimeSync();
     } else {
       console.log('Firebase: logged out');
+      if (_unsubSnap) { _unsubSnap(); _unsubSnap = null; }
     }
   });
 
@@ -247,6 +249,31 @@ function scheduleSyncFirebase(data) {
   if (!_currentUser) return;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => pushToCloud(data), 3000);
+}
+
+/* Sync em tempo real: outro device (ex.: celular) pushou → este puxa e faz merge.
+ * Sem isso o desktop só puxava no login e podia sobrescrever mudanças do celular. */
+let _unsubSnap = null;
+let _lastFocusPull = 0;
+function startRealtimeSync() {
+  if (_unsubSnap || !_db || !_currentUser) return;
+  _unsubSnap = _db.collection('users').doc(_currentUser.uid).onSnapshot(doc => {
+    if (!doc.exists || doc.metadata.hasPendingWrites) return; // ignora eco do próprio push
+    const cloud = doc.data().data;
+    if (!cloud) return;
+    const local = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+    if ((cloud.lastModified || 0) > (local.lastModified || 0)) {
+      console.log('Firebase: mudança remota detectada — sincronizando');
+      pullFromCloud();
+    }
+  }, e => console.warn('Realtime sync error:', e.message));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if (now - _lastFocusPull < 15000) return;
+    _lastFocusPull = now;
+    pullFromCloud();
+  });
 }
 
 function stripImages(obj) {
