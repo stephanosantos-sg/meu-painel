@@ -311,18 +311,69 @@ function finBuildSnap(D, F) {
   const alvo = (D.metas || {}).quitacao_alvo || 10000;
   const meios = [...new Set((D.itens || []).map(i => i.meio).filter(Boolean))].sort();
   if (!meios.includes('A DEFINIR')) meios.unshift('A DEFINIR');
+  const vencs = [];
+  (D.itens || []).forEach(i => {
+    if (i.status === 'PAGO') return;
+    const m = /(?:venc\.?\s*|vence\s*|até\s*(?:o\s*dia\s*)?)(\d{1,2}\/\d{1,2})/i.exec(i.obs || '');
+    if (m) vencs.push({
+      n: i.nome.slice(0, 32),
+      v: i.valor,
+      d: m[1],
+      mes: i.mes
+    });
+  });
   return {
     ts: Date.now(),
     meses,
     porMes,
     alvo,
     meios,
+    vencs,
     cruzaMes: meses.find(m => porMes[m].acum >= alvo) || null,
     recorrentes: ((F || {}).recorrencias || []).slice(0, 10).map(r => ({
       n: r.nome,
       v: r.valor
     }))
   };
+}
+function finVencProximos(snap, dias = 3) {
+  if (!snap || !snap.vencs) return [];
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const out = [];
+  snap.vencs.forEach(x => {
+    const [dd, mm] = x.d.split('/').map(Number);
+    let ano = hoje.getFullYear();
+    const dt = new Date(ano, mm - 1, dd);
+    if (dt < hoje && hoje - dt > 45 * 86400000) dt.setFullYear(ano + 1);
+    const diff = Math.round((dt - hoje) / 86400000);
+    if (diff >= -1 && diff <= dias) out.push({
+      ...x,
+      diff,
+      quando: diff < 0 ? 'ontem!' : diff === 0 ? 'HOJE' : diff === 1 ? 'amanhã' : `em ${diff} dias`
+    });
+  });
+  return out.sort((a, b) => a.diff - b.diff);
+}
+function finNotifyVencimentos(snap) {
+  try {
+    if (!('Notification' in window)) return;
+    const due = finVencProximos(snap, 1);
+    if (!due.length) return;
+    const key = 'orbita_finVencNotif';
+    const today = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem(key) === today) return;
+    const fire = () => {
+      new Notification('💸 Contas vencendo', {
+        body: due.map(x => `${x.n} — ${FIN_BRL(x.v)} (${x.quando})`).join('\n'),
+        tag: 'fin-venc'
+      });
+      localStorage.setItem(key, today);
+    };
+    if (Notification.permission === 'granted') fire();else if (Notification.permission !== 'denied') Notification.requestPermission().then(p => {
+      if (p === 'granted') fire();
+    });
+  } catch (e) {}
 }
 function FinResumoMobile({
   snap,
@@ -548,7 +599,38 @@ function FinResumoMobile({
       color: 'var(--ink-2)',
       marginTop: 4
     }
-  }, "renda ", FIN_BRL(pm.renda), " \xB7 sa\xEDdas ", FIN_BRL(pm.tot), " \xB7 pago ", FIN_BRL(pm.pago), " \xB7 acumulado ", FIN_BRL(pm.acum))), React.createElement("div", {
+  }, "renda ", FIN_BRL(pm.renda), " \xB7 sa\xEDdas ", FIN_BRL(pm.tot), " \xB7 pago ", FIN_BRL(pm.pago), " \xB7 acumulado ", FIN_BRL(pm.acum))), finVencProximos(snap, 5).length > 0 && React.createElement("div", {
+    style: {
+      ...card,
+      border: '1px solid rgba(255,214,10,0.4)'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--yellow, #ffd60a)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      marginBottom: 8
+    }
+  }, "\u26A0\uFE0F Vencimentos pr\xF3ximos"), finVencProximos(snap, 5).map((x, i) => React.createElement("div", {
+    key: i,
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 10,
+      padding: '4px 0',
+      fontSize: 12.5
+    }
+  }, React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, React.createElement("b", null, x.quando), " \xB7 ", x.n), React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      whiteSpace: 'nowrap'
+    }
+  }, FIN_BRL(x.v))))), React.createElement("div", {
     style: card
   }, React.createElement("div", {
     style: {
@@ -861,6 +943,9 @@ function ScreenFinance() {
       });
     }
   }, []);
+  React.useEffect(() => {
+    if (data._financasSnap) finNotifyVencimentos(data._financasSnap);
+  }, [!!data._financasSnap]);
   const showMonthSwitcher = ['resumo', 'lancamentos', 'cartoes', 'config'].includes(tab);
   return React.createElement(React.Fragment, null, React.createElement(TopBar, {
     title: "Financeiro.",
@@ -898,10 +983,27 @@ function ScreenFinance() {
       key: t.v,
       className: `tab-btn ${tab === t.v ? 'active' : ''}`,
       onClick: () => setTab(t.v)
-    }, t.l)))
+    }, t.l)), React.createElement("button", {
+      className: "tab-btn",
+      title: "abrir em tela cheia (janela do navegador)",
+      onClick: () => window.open('http://localhost:5188' + (tab === 'dash' ? '/dash' : ''), '_blank')
+    }, "\u2922 Tela cheia"))
   }), React.createElement("div", {
     className: "fin-screen-pad"
-  }, showMonthSwitcher && React.createElement(FinMonthSwitcher, {
+  }, (() => {
+    const due = finVencProximos(data._financasSnap, 2);
+    return due.length ? React.createElement("div", {
+      style: {
+        background: 'linear-gradient(90deg, rgba(255,214,10,0.12), rgba(255,46,136,0.08))',
+        border: '1px solid rgba(255,214,10,0.35)',
+        borderRadius: 12,
+        padding: '10px 16px',
+        marginBottom: 14,
+        fontSize: 13,
+        fontFamily: 'var(--font-ui)'
+      }
+    }, "\u26A0\uFE0F ", React.createElement("b", null, "Vencendo:"), " ", due.map(x => `${x.n} ${FIN_BRL(x.v)} (${x.quando})`).join(' · ')) : null;
+  })(), showMonthSwitcher && React.createElement(FinMonthSwitcher, {
     month: month,
     setMonth: setMonth,
     totalSpent: totalSpent,
