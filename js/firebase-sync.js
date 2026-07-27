@@ -176,14 +176,29 @@ async function maybeCloudBackup(payload) {
   }
 }
 
-/* Merge nível-entidade: une arrays por id (o "base", mais recente, vence em conflito).
- * Preserva itens criados offline no outro device em vez de sobrescrever o doc inteiro. */
+/* Merge nível-entidade: cada item vence pelo seu próprio carimbo _u
+ * (quem editou aquele item por último ganha — não mais o doc inteiro).
+ * Itens que só existem de um lado são preservados. */
+function _entKey(x) {
+  return x && (x.id != null ? 'i:' + x.id : (x.title ? 't:' + x.title : null));
+}
 function mergeById(baseArr, otherArr) {
   if (!Array.isArray(baseArr)) return otherArr || [];
   if (!Array.isArray(otherArr)) return baseArr;
-  const seen = new Set(baseArr.map(x => x && x.id).filter(Boolean));
-  const merged = baseArr.slice();
-  otherArr.forEach(x => { if (x && x.id && !seen.has(x.id)) merged.push(x); });
+  const omap = new Map();
+  otherArr.forEach(x => { const k = _entKey(x); if (k) omap.set(k, x); });
+  const bkeys = new Set();
+  const merged = baseArr.map(x => {
+    const k = _entKey(x);
+    if (!k) return x;
+    bkeys.add(k);
+    const o = omap.get(k);
+    return (o && (o._u || 0) > (x._u || 0)) ? o : x;
+  });
+  otherArr.forEach(x => {
+    const k = _entKey(x);
+    if (k && !bkeys.has(k)) merged.push(x);
+  });
   return merged;
 }
 

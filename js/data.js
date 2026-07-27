@@ -105,6 +105,39 @@ function DataProvider({
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
+  function stampUpdates(prev, next) {
+    const now = Date.now();
+    const key = x => x && (x.id != null ? 'i:' + x.id : x.title ? 't:' + x.title : null);
+    const stampArr = (pa, na) => {
+      if (!Array.isArray(na)) return;
+      const pmap = new Map();
+      (pa || []).forEach(x => {
+        const k = key(x);
+        if (k) pmap.set(k, x);
+      });
+      na.forEach(x => {
+        const k = key(x);
+        if (!k) return;
+        const before = pmap.get(k);
+        if (!before) {
+          if (!x._u) x._u = now;
+          return;
+        }
+        const a = {
+          ...x
+        };
+        delete a._u;
+        const b = {
+          ...before
+        };
+        delete b._u;
+        if (JSON.stringify(a) !== JSON.stringify(b)) x._u = now;else if (before._u && !x._u) x._u = before._u;
+      });
+    };
+    ['tasks', 'habits', 'goals', 'categories', 'ideias', 'shopLists'].forEach(k => stampArr(prev[k], next[k]));
+    ['livros', 'filmes', 'series', 'docs'].forEach(k => stampArr((prev.media || {})[k], (next.media || {})[k]));
+    stampArr((prev._finance || {}).transactions, (next._finance || {}).transactions);
+  }
   function commit(mutator) {
     setData(prev => {
       historyRef.current.past.push(JSON.stringify(prev));
@@ -112,6 +145,7 @@ function DataProvider({
       historyRef.current.future = [];
       const next = JSON.parse(JSON.stringify(prev));
       mutator(next);
+      stampUpdates(prev, next);
       if (window.checkAchievements) {
         const newAchs = checkAchievements(next);
         if (newAchs.length > 0) {
