@@ -145,9 +145,14 @@ async function pushToCloud(data) {
       email: _currentUser.email,
       displayName: _currentUser.displayName || null,
     }, { merge: true });
+    _lastPushTs = Date.now();
+    _lastSyncError = null;
+    window.dispatchEvent(new CustomEvent('orbita:syncInfo'));
     console.log('Firebase: pushed to cloud');
     maybeCloudBackup(payload);
   } catch (e) {
+    _lastSyncError = (e && e.message || String(e)).slice(0, 120);
+    window.dispatchEvent(new CustomEvent('orbita:syncInfo'));
     console.error('Firebase push failed:', e);
   }
 }
@@ -238,10 +243,13 @@ async function pullFromCloud() {
         mergeLocalImages(merged, localData);
         merged.lastModified = cloudData.lastModified || cloudTime;
         localStorage.setItem('meuPainel_v4', JSON.stringify(merged));
+        _lastPullTs = Date.now();
+        window.dispatchEvent(new CustomEvent('orbita:syncInfo'));
         console.log('Firebase: pulled newer data from cloud (merged local-only entities)');
         window.dispatchEvent(new CustomEvent('orbita:dataPulled', { detail: merged }));
         return merged;
       } else {
+        _lastPullTs = Date.now();
         console.log('Firebase: local is newer, merging cloud-only entities then pushing');
         const merged = mergeData(localData, cloudData);
         merged.lastModified = localData.lastModified || localTime;
@@ -270,8 +278,31 @@ function scheduleSyncFirebase(data) {
  * Sem isso o desktop só puxava no login e podia sobrescrever mudanças do celular. */
 let _unsubSnap = null;
 let _lastFocusPull = 0;
+let _lastPullTs = 0;
+let _lastPushTs = 0;
+let _lastSyncError = null;
+
+function getSyncInfo() {
+  return {
+    user: _currentUser ? _currentUser.email : null,
+    lastPull: _lastPullTs, lastPush: _lastPushTs, error: _lastSyncError,
+  };
+}
+
+async function syncNow() {
+  _lastSyncError = null;
+  await pullFromCloud();
+  const local = JSON.parse(localStorage.getItem('meuPainel_v4') || '{}');
+  if (local.tasks) await pushToCloud(local);
+  window.dispatchEvent(new CustomEvent('orbita:syncInfo'));
+}
+
 function startRealtimeSync() {
   if (_unsubSnap || !_db || !_currentUser) return;
+  // pull periódico (60s com a aba visível): cobre iOS, onde o listener morre em background
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && _currentUser) pullFromCloud();
+  }, 60000);
   _unsubSnap = _db.collection('users').doc(_currentUser.uid).onSnapshot(doc => {
     if (!doc.exists || doc.metadata.hasPendingWrites) return; // ignora eco do próprio push
     const cloud = doc.data().data;
@@ -326,6 +357,8 @@ function mergeLocalImages(cloud, local) {
 
 window.OrbitaFirebase = {
   init: initFirebase,
+  getSyncInfo,
+  syncNow,
   signInWithGoogle,
   signInWithEmail,
   signOut,

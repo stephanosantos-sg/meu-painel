@@ -1,3 +1,67 @@
+function SyncStatusBar() {
+  const [, force] = React.useReducer(x => x + 1, 0);
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => {
+    const h = () => force();
+    window.addEventListener('orbita:syncInfo', h);
+    window.addEventListener('orbita:authChanged', h);
+    const t = setInterval(h, 30000);
+    return () => {
+      window.removeEventListener('orbita:syncInfo', h);
+      window.removeEventListener('orbita:authChanged', h);
+      clearInterval(t);
+    };
+  }, []);
+  const info = window.OrbitaFirebase && window.OrbitaFirebase.getSyncInfo ? window.OrbitaFirebase.getSyncInfo() : {};
+  const ago = ts => !ts ? '—' : Math.round((Date.now() - ts) / 60000) < 1 ? 'agora' : Math.round((Date.now() - ts) / 60000) + 'min';
+  return React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '5px 10px',
+      fontSize: 10,
+      fontFamily: 'var(--font-mono)',
+      color: info.error ? 'var(--red, #ff5555)' : 'var(--ink-3)'
+    },
+    title: info.error ? 'Erro de sync: ' + info.error : 'Sincronização com a nuvem (⟳ força agora)'
+  }, React.createElement("button", {
+    disabled: busy,
+    onClick: async () => {
+      if (!window.OrbitaFirebase || !window.OrbitaFirebase.syncNow) return;
+      setBusy(true);
+      try {
+        await window.OrbitaFirebase.syncNow();
+      } catch (e) {
+        console.error(e);
+      }
+      setBusy(false);
+      force();
+    },
+    style: {
+      background: 'none',
+      border: '1px solid var(--line)',
+      borderRadius: 7,
+      color: 'inherit',
+      cursor: 'pointer',
+      padding: '2px 8px',
+      fontSize: 12,
+      flexShrink: 0
+    }
+  }, busy ? '…' : '⟳'), React.createElement("div", {
+    style: {
+      minWidth: 0,
+      lineHeight: 1.4,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, info.user ? React.createElement(React.Fragment, null, info.user.split('@')[0], " \xB7 \u2191", ago(info.lastPush), " \u2193", ago(info.lastPull), info.error ? ' · ERRO!' : '') : React.createElement("b", {
+    style: {
+      color: 'var(--orange, #ff9500)'
+    }
+  }, "SEM CONTA \u2014 n\xE3o sincroniza!")));
+}
 const NAV = [{
   section: 'WORKSPACE',
   items: [{
@@ -306,7 +370,7 @@ function Sidebar({
       fontSize: 9,
       color: 'var(--ink-3)'
     }
-  }, "melhor streak"))), React.createElement("button", {
+  }, "melhor streak"))), React.createElement(SyncStatusBar, null), React.createElement("button", {
     className: "cmd-button",
     onClick: () => {
       if (confirm('Sair da conta?')) {
