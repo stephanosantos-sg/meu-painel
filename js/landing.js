@@ -25,6 +25,21 @@ function LandingPage() {
     }
     setLoading(false);
   }
+  async function handleReset() {
+    if (!email) {
+      setError('Digite seu e-mail primeiro, aí eu envio o link.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await firebase.auth().sendPasswordResetEmail(email);
+      setError('✓ Link enviado pro seu e-mail — defina a senha e volte aqui.');
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }
   return React.createElement("div", {
     style: {
       minHeight: '100vh',
@@ -203,6 +218,21 @@ function LandingPage() {
       fontSize: 14
     }
   }, loading ? 'Entrando...' : 'Entrar / Criar conta'), React.createElement("button", {
+    onClick: handleReset,
+    disabled: loading,
+    style: {
+      width: '100%',
+      marginTop: 10,
+      padding: '9px 0',
+      background: 'transparent',
+      border: '1px solid var(--glass-border)',
+      borderRadius: 10,
+      color: 'var(--ink-2)',
+      fontSize: 12,
+      cursor: 'pointer',
+      fontFamily: 'var(--font-ui)'
+    }
+  }, "Definir / esquec\xED minha senha (recebe link por e-mail)"), React.createElement("button", {
     onClick: () => setMode('main'),
     style: {
       width: '100%',
