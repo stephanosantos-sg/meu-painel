@@ -728,11 +728,49 @@ function FinPainelNovo({
   } = useData();
   const [status, setStatus] = React.useState('loading');
   const [tryN, setTryN] = React.useState(0);
-  const _synced = React.useRef(false);
+  const ifrRef = React.useRef(null);
+  const _drained = React.useRef(false);
   React.useEffect(() => {
     setStatus('loading');
     const onMsg = e => {
-      if (e.data === 'financas-ok') setStatus('ok');
+      const m = e.data;
+      if (m === 'financas-ok') {
+        setStatus('ok');
+        return;
+      }
+      if (!m || typeof m !== 'object') return;
+      if (m.tipo === 'financas-snap' && m.data) {
+        setStatus('ok');
+        try {
+          const snap = finBuildSnap(m.data, m.faturas || {});
+          const old = data._financasSnap;
+          const same = old && JSON.stringify({
+            ...old,
+            ts: 0
+          }) === JSON.stringify({
+            ...snap,
+            ts: 0
+          });
+          if (!same) commit(Dd => {
+            Dd._financasSnap = snap;
+          });
+        } catch (err) {
+          console.warn('snap:', err);
+        }
+        const inbox = data._financasInbox || [];
+        if (inbox.length && !_drained.current && ifrRef.current) {
+          _drained.current = true;
+          ifrRef.current.contentWindow.postMessage({
+            tipo: 'financas-inbox',
+            itens: inbox
+          }, '*');
+        }
+      }
+      if (m.tipo === 'financas-inbox-ok' && Array.isArray(m.ids) && m.ids.length) {
+        commit(Dd => {
+          Dd._financasInbox = (Dd._financasInbox || []).filter(x => !m.ids.includes(x.id));
+        });
+      }
     };
     window.addEventListener('message', onMsg);
     const t = setTimeout(() => setStatus(s => s === 'loading' ? 'off' : s), 3500);
@@ -740,64 +778,7 @@ function FinPainelNovo({
       window.removeEventListener('message', onMsg);
       clearTimeout(t);
     };
-  }, [tryN]);
-  React.useEffect(() => {
-    if (status !== 'ok' || _synced.current) return;
-    _synced.current = true;
-    Promise.all([fetch(URL_FIN + '/api/data').then(r => r.json()), fetch(URL_FIN + '/api/faturas').then(r => r.json()).catch(() => ({}))]).then(([D, F]) => {
-      const snap = finBuildSnap(D, F);
-      const old = data._financasSnap;
-      const same = old && JSON.stringify({
-        ...old,
-        ts: 0
-      }) === JSON.stringify({
-        ...snap,
-        ts: 0
-      });
-      if (!same) commit(Dd => {
-        Dd._financasSnap = snap;
-      });
-    }).catch(() => {});
-  }, [status]);
-  const inbox = data._financasInbox || [];
-  const _draining = React.useRef(false);
-  React.useEffect(() => {
-    if (status !== 'ok' || !inbox.length || _draining.current) return;
-    _draining.current = true;
-    (async () => {
-      const okIds = [];
-      for (const it of inbox) {
-        try {
-          const r = await fetch(URL_FIN + '/api/add', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              nome: it.n,
-              valor: String(it.v).replace('.', ','),
-              mes: it.mes,
-              grupo: it.g || 'NECESSIDADES BÁSICAS',
-              meio: it.meio || 'A DEFINIR',
-              categoria: '',
-              obs: `lançado pelo celular em ${new Date(it.ts).toLocaleDateString('pt-BR')}`
-            })
-          });
-          if ((await r.json()).ok) okIds.push(it.id);
-        } catch (e) {
-          break;
-        }
-      }
-      if (okIds.length) {
-        commit(Dd => {
-          Dd._financasInbox = (Dd._financasInbox || []).filter(x => !okIds.includes(x.id));
-        });
-        _synced.current = false;
-        setTryN(n => n + 1);
-      }
-      _draining.current = false;
-    })();
-  }, [status, inbox.length]);
+  }, [tryN, (data._financasInbox || []).length]);
   const overlay = {
     position: 'absolute',
     inset: 0,
@@ -820,6 +801,7 @@ function FinPainelNovo({
     }
   }, status !== 'off' && React.createElement("iframe", {
     key: `${path}-${tryN}`,
+    ref: ifrRef,
     src: `${URL_FIN}${path}?embed=1`,
     title: "Orbita Finan\xE7as",
     style: {
