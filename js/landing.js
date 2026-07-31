@@ -232,7 +232,7 @@ function LandingPage() {
       cursor: 'pointer',
       fontFamily: 'var(--font-ui)'
     }
-  }, "Definir / esquec\xED minha senha (recebe link por e-mail)"), React.createElement("button", {
+  }, "Definir / esqueci minha senha (recebe link por e-mail)"), React.createElement("button", {
     onClick: () => setMode('main'),
     style: {
       width: '100%',
