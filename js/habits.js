@@ -270,19 +270,19 @@ function ContribGrid({
   }, weeks.map((w, i) => React.createElement("div", {
     key: i,
     style: {
-      fontSize: 8,
+      fontSize: height ? 8 : 10,
       color: 'var(--ink-3)',
       textAlign: 'center'
     }
   }, w.label))), React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateRows: `repeat(7, 1fr)`,
+      gridTemplateRows: height ? 'repeat(7, 1fr)' : 'repeat(7, auto)',
       gridAutoFlow: 'column',
       gridAutoColumns: '1fr',
-      gap: 3,
+      gap: height ? 3 : 4,
       width: '100%',
-      height: height || 80
+      height: height || 'auto'
     }
   }, weeks.flatMap((w, wi) => w.cells.map((c, di) => React.createElement("div", {
     key: `${wi}-${di}`,
@@ -291,6 +291,7 @@ function ContribGrid({
     style: {
       borderRadius: 3,
       background: c.bg,
+      aspectRatio: height ? undefined : '1 / 1',
       cursor: c.inYear && c.past && onToggle ? 'pointer' : 'default',
       transition: 'opacity 80ms'
     },
@@ -781,8 +782,7 @@ function YearGrid({
   }, React.createElement(ContribGrid, {
     allLogs: allLogs,
     maxHabits: habits.length || 1,
-    year: year,
-    height: 110
+    year: year
   }));
 }
 function YearGridCount({

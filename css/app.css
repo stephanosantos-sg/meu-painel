@@ -198,7 +198,7 @@
 .kanban-card:hover { border-color: var(--glass-border-hover); background: rgba(255,255,255,0.05); }
 
 /* ═══ SCREEN — HABITS ═══ */
-.habits-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; padding: 0 28px 28px; }
+.habits-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; padding: 0 28px 28px; align-items: start; }
 .check-lg { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; cursor: pointer; border: 1.5px solid var(--line-2); color: transparent; transition: all 140ms; }
 .check-lg:hover { border-color: var(--neon-a); }
 .check-lg.checked { border-color: transparent; color: #fff; }
