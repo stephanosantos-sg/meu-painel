@@ -9,11 +9,26 @@ const DataContext = createContext();
 function useData() {
   return useContext(DataContext);
 }
+function backfillStamps(d) {
+  if (!d || d._uMigrated) return d;
+  const base = d.lastModified || 1;
+  const stamp = arr => Array.isArray(arr) && arr.forEach(x => {
+    if (x && x._u == null) x._u = base;
+  });
+  ['tasks', 'habits', 'goals', 'categories', 'ideias', 'shopLists'].forEach(k => stamp(d[k]));
+  ['livros', 'filmes', 'series', 'docs'].forEach(k => stamp((d.media || {})[k]));
+  stamp((d._finance || {}).transactions);
+  d._uMigrated = true;
+  try {
+    Orbita.persistData(d);
+  } catch (e) {}
+  return d;
+}
 function DataProvider({
   children
 }) {
   const [data, setData] = useState(() => {
-    const d = Orbita.loadData();
+    const d = backfillStamps(Orbita.loadData());
     return d || Orbita.defaultData();
   });
   const [toasts, setToasts] = useState([]);
@@ -23,7 +38,7 @@ function DataProvider({
   dataRef.current = data;
   React.useEffect(() => {
     function onPull(e) {
-      if (e.detail) setData(e.detail);
+      if (e.detail) setData(backfillStamps(e.detail));
     }
     window.addEventListener('orbita:dataPulled', onPull);
     return () => window.removeEventListener('orbita:dataPulled', onPull);
