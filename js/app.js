@@ -389,8 +389,8 @@ function App() {
     setEditTask(null);
     setShowTaskModal(true);
   }
-  function openNewHabit() {
-    setEditHabit(null);
+  function openNewHabit(habit) {
+    setEditHabit(habit && habit.id ? habit : null);
     setShowHabitModal(true);
   }
   React.useEffect(() => {
