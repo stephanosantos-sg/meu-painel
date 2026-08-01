@@ -113,6 +113,32 @@ function TaskModal({
     saveTask(taskData, editTask?.id);
     onClose();
   }
+  function handleDuplicate() {
+    if (!text.trim()) return;
+    const copia = {
+      text: `${text.trim()} (cópia)`,
+      desc: desc.trim() || null,
+      date: noDate ? null : date || null,
+      dateEnd: noDate ? null : dateEnd || null,
+      time: freq === 'pontual' && times.length === 0 ? time || null : null,
+      freq,
+      prio,
+      cat: cat || null,
+      icon: icon || null,
+      days: freq === 'semanal' ? days : undefined,
+      interval: freq === 'periodica' ? interval_ : undefined,
+      subtasks: subtasks.map(s => ({
+        ...s,
+        done: false
+      })),
+      times: times.map(t => ({
+        ...t
+      })),
+      dependsOn: dependsOn || null
+    };
+    saveTask(copia);
+    onClose();
+  }
   return React.createElement("div", {
     className: "modal-overlay",
     onClick: onClose
@@ -551,7 +577,11 @@ function TaskModal({
   }, React.createElement("button", {
     className: "btn-ghost",
     onClick: onClose
-  }, "Cancelar"), React.createElement("button", {
+  }, "Cancelar"), editTask && React.createElement("button", {
+    className: "btn-ghost",
+    title: "cria uma c\xF3pia desta tarefa (subtarefas zeradas)",
+    onClick: handleDuplicate
+  }, "\u29C9 Duplicar"), React.createElement("button", {
     className: "btn btn-primary",
     style: {
       padding: '10px 24px',
