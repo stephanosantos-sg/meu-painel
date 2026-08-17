@@ -456,6 +456,7 @@ function App() {
   };
   window._toggleMobileMenu = () => setMobileMenu(m => !m);
   window._goHome = () => setActive('today');
+  window._goScreen = id => setActive(id);
   const screens = {
     today: () => React.createElement(ScreenToday, {
       onNewTask: openNewTask

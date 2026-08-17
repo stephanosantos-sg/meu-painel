@@ -21,6 +21,7 @@ function TaskModal({
     ...s
   })) : []);
   const [newSubtask, setNewSubtask] = React.useState('');
+  const [newSubtaskTime, setNewSubtaskTime] = React.useState('');
   const [times, setTimes] = React.useState(editTask?.times ? editTask.times.map(t => ({
     ...t
   })) : []);
@@ -73,12 +74,20 @@ function TaskModal({
     if (!newSubtask.trim()) return;
     setSubtasks(prev => [...prev, {
       text: newSubtask.trim(),
-      done: false
+      done: false,
+      time: newSubtaskTime || null
     }]);
     setNewSubtask('');
+    setNewSubtaskTime('');
   }
   function removeSubtask(idx) {
     setSubtasks(prev => prev.filter((_, i) => i !== idx));
+  }
+  function updateSubtask(idx, patch) {
+    setSubtasks(prev => prev.map((x, j) => j === idx ? {
+      ...x,
+      ...patch
+    } : x));
   }
   function addTimeSlot() {
     if (!newTimeVal) return;
@@ -91,6 +100,15 @@ function TaskModal({
   }
   function removeTimeSlot(idx) {
     setTimes(prev => prev.filter((_, i) => i !== idx));
+  }
+  function updateTimeSlot(idx, patch) {
+    setTimes(prev => prev.map((x, j) => j === idx ? {
+      ...x,
+      ...patch
+    } : x));
+  }
+  function sortTimeSlots() {
+    setTimes(prev => [...prev].sort((a, b) => (a.time || '').localeCompare(b.time || '')));
   }
   function handleSave() {
     if (!text.trim()) return;
@@ -108,7 +126,10 @@ function TaskModal({
       interval: freq === 'periodica' ? interval_ : undefined,
       subtasks,
       times: times.length > 0 ? times : editTask?.times || [],
-      dependsOn: dependsOn || null
+      dependsOn: dependsOn || null,
+      starred: noDate || !date,
+      source: editTask?.source || 'orbita',
+      srcRef: editTask?.srcRef || null
     };
     saveTask(taskData, editTask?.id);
     onClose();
@@ -378,19 +399,34 @@ function TaskModal({
       borderRadius: 6,
       background: 'rgba(255,255,255,0.03)'
     }
-  }, React.createElement("span", {
-    className: "mono",
+  }, React.createElement("input", {
+    className: "form-input mono",
+    type: "time",
+    value: s.time || '',
+    aria: "Hor\xE1rio",
+    title: "Hor\xE1rio deste slot",
+    onChange: e => updateTimeSlot(i, {
+      time: e.target.value
+    }),
+    onBlur: sortTimeSlots,
     style: {
-      fontSize: 12,
-      color: 'var(--ink-2)'
+      width: 96,
+      padding: '4px 8px',
+      fontSize: 12
     }
-  }, s.time), React.createElement("span", {
+  }), React.createElement("input", {
+    className: "form-input",
+    placeholder: "Label (opcional)",
+    value: s.label || '',
+    onChange: e => updateTimeSlot(i, {
+      label: e.target.value
+    }),
     style: {
-      fontSize: 12,
       flex: 1,
-      color: 'var(--ink-1)'
+      padding: '4px 8px',
+      fontSize: 12
     }
-  }, s.label || '—'), React.createElement("button", {
+  }), React.createElement("button", {
     onClick: () => removeTimeSlot(i),
     style: {
       background: 'none',
@@ -519,14 +555,33 @@ function TaskModal({
       ...x,
       done: !x.done
     } : x))
-  }, s.done && '✓'), React.createElement("span", {
+  }, s.done && '✓'), React.createElement("input", {
+    className: "form-input",
+    value: s.text || '',
+    onChange: e => updateSubtask(i, {
+      text: e.target.value
+    }),
     style: {
       flex: 1,
+      padding: '4px 8px',
       fontSize: 12,
       textDecoration: s.done ? 'line-through' : 'none',
       color: s.done ? 'var(--ink-3)' : 'var(--ink-1)'
     }
-  }, s.text), React.createElement("button", {
+  }), React.createElement("input", {
+    className: "form-input mono",
+    type: "time",
+    value: s.time || '',
+    title: "Hor\xE1rio desta subtarefa (opcional)",
+    onChange: e => updateSubtask(i, {
+      time: e.target.value || null
+    }),
+    style: {
+      width: 96,
+      padding: '4px 8px',
+      fontSize: 12
+    }
+  }), React.createElement("button", {
     onClick: () => removeSubtask(i),
     style: {
       background: 'none',
@@ -555,6 +610,17 @@ function TaskModal({
         e.preventDefault();
         addSubtask();
       }
+    }
+  }), React.createElement("input", {
+    className: "form-input mono",
+    type: "time",
+    value: newSubtaskTime,
+    title: "Hor\xE1rio (opcional)",
+    onChange: e => setNewSubtaskTime(e.target.value),
+    style: {
+      width: 96,
+      padding: '6px 8px',
+      fontSize: 12
     }
   }), React.createElement("button", {
     className: "btn-ghost small",

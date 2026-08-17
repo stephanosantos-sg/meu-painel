@@ -1,5 +1,5 @@
 /* Orbita v2 Service Worker — build v107 */
-const CACHE = 'orbita-v107';
+const CACHE = 'orbita-v108';
 const SHELL = [
   "js/data.js?v=107",
   "js/helpers.js?v=107",

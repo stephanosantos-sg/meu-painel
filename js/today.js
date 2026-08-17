@@ -208,7 +208,7 @@ function ScreenToday({
     }
   }, "+"), React.createElement(BirthdayBanner, {
     profile: data._profile
-  }), React.createElement(DailyQuote, null), React.createElement(UpcomingHolidays, null), React.createElement("div", {
+  }), React.createElement(DailyQuote, null), React.createElement(UpcomingHolidays, null), React.createElement(StarredInbox, null), React.createElement("div", {
     className: "tab-scroll",
     style: {
       padding: '0 28px 8px',
@@ -1932,7 +1932,14 @@ function TaskItem({
       height: 14,
       fontSize: 7
     }
-  }, s.done && '✓'), React.createElement("span", {
+  }, s.done && '✓'), s.time && React.createElement("span", {
+    className: "mono",
+    style: {
+      fontSize: 10.5,
+      color: 'var(--ink-3)',
+      marginRight: 2
+    }
+  }, s.time), React.createElement("span", {
     style: {
       textDecoration: s.done ? 'line-through' : 'none',
       color: s.done ? 'var(--ink-3)' : 'var(--ink-2)'
@@ -2345,11 +2352,34 @@ function GoalsOverview({
     }
   }, React.createElement("div", {
     className: "eyebrow",
+    role: "button",
+    tabIndex: 0,
+    title: "Abrir Objetivos",
+    onClick: () => window._goScreen && window._goScreen('goals'),
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        window._goScreen && window._goScreen('goals');
+      }
+    },
     style: {
       color: 'var(--neon-c, #b066ff)',
-      marginBottom: 12
+      marginBottom: 12,
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      opacity: 1,
+      transition: 'opacity 120ms'
+    },
+    onMouseEnter: e => e.currentTarget.style.opacity = 0.7,
+    onMouseLeave: e => e.currentTarget.style.opacity = 1
+  }, "\u25CE Objetivos \xB7 ", active.length, React.createElement("span", {
+    style: {
+      fontSize: 9,
+      opacity: 0.8
     }
-  }, "\u25CE Objetivos \xB7 ", active.length), React.createElement("div", {
+  }, "\u2192")), React.createElement("div", {
     style: {
       display: 'flex',
       flexDirection: 'column',
@@ -2363,6 +2393,16 @@ function GoalsOverview({
     const overdue = g.deadline && Orbita.isOverdue(g.deadline);
     return React.createElement("div", {
       key: g.id,
+      role: "button",
+      tabIndex: 0,
+      title: `Abrir Objetivos — ${g.title || ''}`.trim(),
+      onClick: () => window._goScreen && window._goScreen('goals'),
+      onKeyDown: e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          window._goScreen && window._goScreen('goals');
+        }
+      },
       style: {
         display: 'flex',
         gap: 12,
@@ -2612,6 +2652,172 @@ function CalendarEventsPanel({
     }, "\u2197"));
   })));
 }
+const TASK_SOURCE_META = {
+  obsidian: {
+    icon: '🪨',
+    label: 'Obsidian'
+  },
+  'notion-work': {
+    icon: '💼',
+    label: 'Notion trabalho'
+  },
+  'notion-personal': {
+    icon: '📓',
+    label: 'Notion pessoal'
+  },
+  claude: {
+    icon: '✳',
+    label: 'Claude'
+  },
+  orbita: {
+    icon: '◈',
+    label: 'Orbita'
+  }
+};
+function TaskSourceBadge({
+  source
+}) {
+  const m = TASK_SOURCE_META[source];
+  if (!m || source === 'orbita') return null;
+  return React.createElement("span", {
+    title: `Origem: ${m.label}`,
+    style: {
+      fontSize: 10,
+      padding: '1px 6px',
+      borderRadius: 6,
+      background: 'rgba(255,255,255,0.06)',
+      border: '1px solid var(--line)',
+      color: 'var(--ink-3)',
+      whiteSpace: 'nowrap'
+    }
+  }, m.icon, " ", m.label);
+}
+function StarredInbox() {
+  const {
+    data,
+    saveTask
+  } = useData();
+  const [open, setOpen] = React.useState(() => localStorage.getItem('orbita_starred_open') !== '0');
+  const catMap = React.useMemo(() => Object.fromEntries((data.categories || []).map(c => [c.id, c])), [data.categories]);
+  const items = (data.tasks || []).filter(t => !t.done && (t.starred || !t.date));
+  if (items.length === 0) return null;
+  function toggleOpen() {
+    const v = !open;
+    setOpen(v);
+    localStorage.setItem('orbita_starred_open', v ? '1' : '0');
+  }
+  function setDeadline(task, value) {
+    if (!value) return;
+    saveTask({
+      date: value,
+      starred: false
+    }, task.id);
+    window._showQuickToast && window._showQuickToast(`Prazo definido — "${task.text}"`);
+  }
+  return React.createElement("div", {
+    className: "panel",
+    style: {
+      margin: '0 28px 12px',
+      padding: 18,
+      borderLeft: '3px solid #ffb020'
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    role: "button",
+    tabIndex: 0,
+    onClick: toggleOpen,
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleOpen();
+      }
+    },
+    title: "Tarefas ainda sem prazo definido",
+    style: {
+      color: '#ffb020',
+      marginBottom: open ? 12 : 0,
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, React.createElement("span", {
+    style: {
+      fontSize: 8,
+      transition: 'transform 150ms',
+      transform: open ? 'rotate(90deg)' : 'rotate(0deg)'
+    }
+  }, "▶"), "★ Sem prazo \xB7 ", items.length), open && React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, items.map(t => {
+    const cat = catMap[t.cat];
+    const color = cat ? Orbita.resolveColor(cat.color) : null;
+    return React.createElement("div", {
+      key: t.id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 10px',
+        borderRadius: 10,
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid var(--line)',
+        transition: 'background 120ms'
+      },
+      onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)',
+      onMouseLeave: e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+    }, React.createElement("span", {
+      style: {
+        fontSize: 14,
+        width: 18,
+        textAlign: 'center'
+      }
+    }, t.icon || '★'), React.createElement("span", {
+      role: "button",
+      tabIndex: 0,
+      onClick: () => window._editTask && window._editTask(t),
+      onKeyDown: e => {
+        if (e.key === 'Enter') window._editTask && window._editTask(t);
+      },
+      title: "Abrir tarefa",
+      style: {
+        flex: 1,
+        fontSize: 13,
+        cursor: 'pointer',
+        color: 'var(--ink-1)'
+      }
+    }, t.text), cat && React.createElement("span", {
+      style: {
+        fontSize: 10,
+        padding: '1px 6px',
+        borderRadius: 6,
+        background: color ? color + '22' : 'rgba(255,255,255,0.06)',
+        border: `1px solid ${color ? color + '55' : 'var(--line)'}`,
+        color: 'var(--ink-2)',
+        whiteSpace: 'nowrap'
+      }
+    }, cat.icon, " ", cat.name), React.createElement(TaskSourceBadge, {
+      source: t.source
+    }), React.createElement("input", {
+      className: "form-input mono",
+      type: "date",
+      value: "",
+      title: "Definir prazo (tira da lista)",
+      onChange: e => setDeadline(t, e.target.value),
+      style: {
+        width: 132,
+        padding: '4px 8px',
+        fontSize: 11
+      }
+    }));
+  })));
+}
+window.StarredInbox = StarredInbox;
+window.TaskSourceBadge = TaskSourceBadge;
 window.ScreenToday = ScreenToday;
 window.TaskItem = TaskItem;
 window.CalendarEventsPanel = CalendarEventsPanel;
