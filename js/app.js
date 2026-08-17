@@ -461,7 +461,8 @@ function App() {
     today: () => React.createElement(ScreenToday, {
       onNewTask: openNewTask
     }),
-    legio: () => React.createElement(ScreenLegio, null),
+    // Legio aposentada: o worker da frota de agentes deixou de existir.
+    // legio.js segue carregado porque settings.js usa defaultImperiumState.
     habits: () => React.createElement(ScreenHabits, {
       onNewHabit: openNewHabit
     }),

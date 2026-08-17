@@ -1838,7 +1838,7 @@ function TaskItem({
       transform: slotsOpen ? 'rotate(90deg)' : 'rotate(0deg)',
       display: 'inline-block'
     }
-  }, "\u25B6"), React.createElement("span", null, t.times.filter(s => Orbita.isSlotDone(t, dateCtx, s.time)).length, "/", t.times.length, " subtarefas")), slotsOpen && React.createElement("div", {
+  }, "\u25B6"), React.createElement("span", null, t.times.filter(s => Orbita.isSlotDone(t, dateCtx, s.time)).length, "/", t.times.length, " hor\xE1rios")), slotsOpen && React.createElement("div", {
     className: "task-slots",
     style: {
       marginTop: 4
