@@ -2692,6 +2692,34 @@ function TaskSourceBadge({
     }
   }, m.icon, " ", m.label);
 }
+// Campo de prazo do painel ★ Sem prazo.
+//
+// input[type=date] dispara change a cada dígito do ano: digitar 2026 emite
+// "0002", "0020", "0202" e só então "2026". Como gravar o prazo tira a tarefa
+// da lista, gravar no primeiro evento fazia a linha sumir no meio da digitação,
+// com o ano errado. Só comitamos quando o ano é plausível.
+function DeadlineInput({
+  onSet
+}) {
+  const [v, setV] = React.useState('');
+  return React.createElement("input", {
+    className: "form-input mono",
+    type: "date",
+    value: v,
+    title: "Definir prazo (tira da lista)",
+    onChange: e => {
+      const val = e.target.value;
+      setV(val);
+      const ano = Number((val.split('-')[0] || '0'));
+      if (val && ano >= 2000 && ano <= 2999) onSet(val);
+    },
+    style: {
+      width: 132,
+      padding: '4px 8px',
+      fontSize: 11
+    }
+  });
+}
 function StarredInbox() {
   const {
     data,
@@ -2825,17 +2853,8 @@ function StarredInbox() {
       }
     }, cat.icon, " ", cat.name), React.createElement(TaskSourceBadge, {
       source: t.source
-    }), React.createElement("input", {
-      className: "form-input mono",
-      type: "date",
-      value: "",
-      title: "Definir prazo (tira da lista)",
-      onChange: e => setDeadline(t, e.target.value),
-      style: {
-        width: 132,
-        padding: '4px 8px',
-        fontSize: 11
-      }
+    }), React.createElement(DeadlineInput, {
+      onSet: v => setDeadline(t, v)
     }), React.createElement("button", {
       title: "Excluir",
       onClick: () => {
