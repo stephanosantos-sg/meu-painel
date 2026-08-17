@@ -315,6 +315,15 @@ function DataProvider({
   }, []);
   const deleteTask = useCallback(id => {
     commit(D => {
+      const t = (D.tasks || []).find(x => x.id === id);
+      // Tarefa vinda do Obsidian/Notion precisa deixar lápide: sem isso a ponte
+      // não distingue "apagada aqui" de "ainda não importada" e recria na
+      // próxima rodada.
+      const anchor = t && t.srcRef && (t.srcRef.anchor || t.srcRef.notionId);
+      if (anchor) {
+        if (!Array.isArray(D._bridgeDeleted)) D._bridgeDeleted = [];
+        if (!D._bridgeDeleted.includes(anchor)) D._bridgeDeleted.push(anchor);
+      }
       D.tasks = D.tasks.filter(x => x.id !== id);
     });
   }, []);

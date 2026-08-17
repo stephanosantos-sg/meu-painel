@@ -2695,7 +2695,9 @@ function TaskSourceBadge({
 function StarredInbox() {
   const {
     data,
-    saveTask
+    saveTask,
+    toggleTask,
+    deleteTask
   } = useData();
   const [open, setOpen] = React.useState(() => localStorage.getItem('orbita_starred_open') !== '0');
   const catMap = React.useMemo(() => Object.fromEntries((data.categories || []).map(c => [c.id, c])), [data.categories]);
@@ -2770,7 +2772,28 @@ function StarredInbox() {
       },
       onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)',
       onMouseLeave: e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
-    }, React.createElement("span", {
+    }, React.createElement("div", {
+      className: "check",
+      role: "button",
+      tabIndex: 0,
+      title: "Concluir",
+      onClick: () => {
+        toggleTask(t.id, Orbita.todayStr());
+      },
+      onKeyDown: e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleTask(t.id, Orbita.todayStr());
+        }
+      },
+      style: {
+        width: 16,
+        height: 16,
+        fontSize: 9,
+        flexShrink: 0,
+        cursor: 'pointer'
+      }
+    }), React.createElement("span", {
       style: {
         fontSize: 14,
         width: 18,
@@ -2813,7 +2836,25 @@ function StarredInbox() {
         padding: '4px 8px',
         fontSize: 11
       }
-    }));
+    }), React.createElement("button", {
+      title: "Excluir",
+      onClick: () => {
+        if (!confirm(`Excluir "${t.text}"?`)) return;
+        deleteTask(t.id);
+        window._showQuickToast && window._showQuickToast(`"${t.text}" excluída`);
+      },
+      style: {
+        background: 'none',
+        border: 'none',
+        color: 'var(--ink-4)',
+        cursor: 'pointer',
+        fontSize: 12,
+        padding: '2px 4px',
+        flexShrink: 0
+      },
+      onMouseEnter: e => e.currentTarget.style.color = 'var(--neon-a, #ff2e88)',
+      onMouseLeave: e => e.currentTarget.style.color = 'var(--ink-4)'
+    }, "✕"));
   })));
 }
 window.StarredInbox = StarredInbox;
