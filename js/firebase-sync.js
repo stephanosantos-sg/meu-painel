@@ -207,6 +207,47 @@ function mergeById(baseArr, otherArr) {
   return merged;
 }
 
+/* União por chave estável, pra listas que são LOG (não têm carimbo _u):
+ * o que existe em qualquer um dos lados fica. */
+function unionBy(baseArr, otherArr, keyOf) {
+  const out = Array.isArray(baseArr) ? baseArr.slice() : [];
+  const seen = new Set(out.map(keyOf));
+  (Array.isArray(otherArr) ? otherArr : []).forEach(x => {
+    const k = keyOf(x);
+    if (k != null && !seen.has(k)) { seen.add(k); out.push(x); }
+  });
+  return out;
+}
+const _logKey = x => (x && (x.id != null ? 'i:' + x.id : (x.timestamp != null ? 't:' + x.timestamp : (x.date || null))));
+
+/* _diet não entrava no merge: quem pushava por último levava o bloco inteiro,
+ * então marcação feita no celular (ou por script externo) era descartada.
+ * Aqui o log é unido — doneDates por item, extras/peso/medidas/fotos por id ou timestamp. */
+function mergeDiet(base, other) {
+  if (!base) return other || null;
+  if (!other) return base;
+  const out = JSON.parse(JSON.stringify(base));
+  const bMeals = base.meals || [], oMeals = other.meals || [];
+  out.meals = mergeById(bMeals, oMeals).map(m => {
+    const b = bMeals.find(x => x.id === m.id), o = oMeals.find(x => x.id === m.id);
+    if (!b || !o) return m;
+    const meal = JSON.parse(JSON.stringify(m));
+    meal.items = (meal.items || []).map(it => {
+      const bi = (b.items || []).find(x => x.name === it.name) || {};
+      const oi = (o.items || []).find(x => x.name === it.name) || {};
+      const dd = [...new Set([...(bi.doneDates || []), ...(oi.doneDates || [])])].sort();
+      return Object.assign({}, it, { doneDates: dd });
+    });
+    meal.mealExtras = unionBy(b.mealExtras, o.mealExtras, _logKey);
+    return meal;
+  });
+  out.extraCalories = unionBy(base.extraCalories, other.extraCalories, _logKey);
+  out.weightLog = unionBy(base.weightLog, other.weightLog, _logKey).sort((a, b2) => (a.date || '').localeCompare(b2.date || ''));
+  out.measurements = unionBy(base.measurements, other.measurements, _logKey).sort((a, b2) => (a.date || '').localeCompare(b2.date || ''));
+  out.photos = unionBy(base.photos, other.photos, _logKey).sort((a, b2) => (b2.timestamp || 0) - (a.timestamp || 0));
+  return out;
+}
+
 function mergeData(base, other) {
   if (!other) return base;
   if (!base) return other;
@@ -220,6 +261,7 @@ function mergeData(base, other) {
       out.media[k] = mergeById((base.media || {})[k], (other.media || {})[k]);
     });
   }
+  if (base._diet || other._diet) out._diet = mergeDiet(base._diet, other._diet);
   if ((base._finance && base._finance.transactions) || (other._finance && other._finance.transactions)) {
     out._finance = out._finance || base._finance || other._finance || {};
     out._finance.transactions = mergeById(
