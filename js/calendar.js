@@ -187,8 +187,12 @@ function WeekView({
   catMap
 }) {
   const {
-    toggleTask
+    toggleTask,
+    moveTaskToDate
   } = useData();
+  const [dragId, setDragId] = React.useState(null);
+  const [dragSourceDs, setDragSourceDs] = React.useState(null);
+  const [dragOverDs, setDragOverDs] = React.useState(null);
   const today = Orbita.todayStr();
   const start = new Date(baseDate);
   start.setDate(start.getDate() - start.getDay());
@@ -209,13 +213,30 @@ function WeekView({
     const ds = Orbita.dateToStr(d);
     const isToday = ds === today;
     const dayTasks = tasks.filter(t => Orbita.isTaskForDate(t, ds));
+    const isDragOver = dragOverDs === ds && dragSourceDs !== ds;
     return React.createElement("div", {
       key: i,
       className: "panel",
+      onDragOver: e => {
+        if (!dragId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverDs !== ds) setDragOverDs(ds);
+      },
+      onDragLeave: () => {
+        if (dragOverDs === ds) setDragOverDs(null);
+      },
+      onDrop: e => {
+        e.preventDefault();
+        if (dragId && dragSourceDs) moveTaskToDate(dragId, dragSourceDs, ds);
+        setDragId(null);
+        setDragSourceDs(null);
+        setDragOverDs(null);
+      },
       style: {
         padding: 14,
-        border: isToday ? '1px solid rgba(255,46,136,0.3)' : undefined,
-        background: isToday ? 'rgba(255,46,136,0.06)' : undefined
+        border: isDragOver ? '1px dashed var(--neon-a)' : isToday ? '1px solid rgba(255,46,136,0.3)' : undefined,
+        background: isDragOver ? 'rgba(255,46,136,0.1)' : isToday ? 'rgba(255,46,136,0.06)' : undefined
       }
     }, React.createElement("div", {
       style: {
@@ -246,17 +267,32 @@ function WeekView({
       const done = Orbita.isTaskDone(t, ds);
       const cat = catMap[t.cat];
       const color = cat ? Orbita.resolveColor(cat.color) : 'var(--neon-c)';
+      const draggable = t.freq === 'pontual';
+      const isDragging = dragId === t.id;
       return React.createElement("div", {
         key: t.id,
         onClick: () => toggleTask(t.id, ds),
+        draggable: draggable,
+        onDragStart: e => {
+          if (!draggable) return;
+          setDragId(t.id);
+          setDragSourceDs(ds);
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', t.id);
+        },
+        onDragEnd: () => {
+          setDragId(null);
+          setDragSourceDs(null);
+          setDragOverDs(null);
+        },
         style: {
           padding: '6px 8px',
           borderRadius: 6,
           fontSize: 11,
-          cursor: 'pointer',
+          cursor: draggable ? 'grab' : 'pointer',
           borderLeft: `2px solid ${color}`,
           background: done ? 'rgba(255,255,255,0.02)' : `${color}11`,
-          opacity: done ? 0.45 : 1,
+          opacity: isDragging ? 0.4 : done ? 0.45 : 1,
           textDecoration: done ? 'line-through' : 'none',
           color: done ? 'var(--ink-3)' : 'var(--ink-1)'
         }

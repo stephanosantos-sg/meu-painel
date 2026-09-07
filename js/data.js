@@ -235,6 +235,20 @@ function DataProvider({
     });
     if (xpMsg) toast(xpMsg);
   }, []);
+  const moveTaskToDate = useCallback((taskId, sourceDs, targetDs) => {
+    if (sourceDs === targetDs) return;
+    let moved = false;
+    commit(D => {
+      const t = D.tasks.find(x => x.id === taskId);
+      if (!t || t.freq !== 'pontual') return;
+      const deltaMs = new Date(targetDs + 'T12:00:00') - new Date(sourceDs + 'T12:00:00');
+      const shift = ds => Orbita.dateToStr(new Date(new Date(ds + 'T12:00:00').getTime() + deltaMs));
+      t.date = shift(t.date);
+      if (t.dateEnd) t.dateEnd = shift(t.dateEnd);
+      moved = true;
+    });
+    if (moved) toast(`📅 Movido para ${Orbita.fmtDate(targetDs)}`);
+  }, []);
   const toggleSlot = useCallback((taskId, dateCtx, time) => {
     let xpMsg = '';
     commit(D => {
@@ -408,6 +422,7 @@ function DataProvider({
     fetchCalendarRange,
     toggleTask,
     toggleSlot,
+    moveTaskToDate,
     toggleHabitDay,
     addHabitQuantity,
     setHabitQuantity,
