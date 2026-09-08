@@ -1234,7 +1234,9 @@ function ItemRow({
     style: {
       display: 'flex',
       alignItems: 'center',
-      gap: 8,
+      flexWrap: 'wrap',
+      gap: 4,
+      rowGap: 2,
       padding: '5px 8px',
       borderRadius: 6,
       cursor: 'pointer',
