@@ -496,7 +496,12 @@ function ScreenGoals() {
         color: 'var(--ink-3)',
         marginBottom: 10
       }
-    }, doneMilestones, "/", ms.length, " etapas"), ms.map((m, idx) => {
+    }, doneMilestones, "/", ms.length, " etapas"), React.createElement("div", {
+      style: {
+        maxHeight: 360,
+        overflowY: 'auto'
+      }
+    }, ms.map((m, idx) => {
       const mProg = m.done ? 100 : m.progress || 0;
       const mColor = m.done ? 'var(--neon-a)' : mProg > 0 ? 'var(--neon-c)' : 'var(--ink-4)';
       return React.createElement("div", {
@@ -585,7 +590,7 @@ function ScreenGoals() {
         color: 'var(--ink-4)',
         padding: '8px 0'
       }
-    }, "Nenhuma etapa definida")));
+    }, "Nenhuma etapa definida"))));
   })), editing && React.createElement(GoalModal, {
     onClose: () => setEditing(null),
     editGoal: editGoal
