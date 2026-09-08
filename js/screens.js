@@ -409,14 +409,22 @@ function ScreenGoals() {
       style: {
         fontSize: 17,
         fontWeight: 600,
-        lineHeight: 1.2
+        lineHeight: 1.2,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
       }
-    }, g.title), g.desc && React.createElement("div", {
+    }, g.title), React.createElement("div", {
       style: {
         fontSize: 11.5,
         color: 'var(--ink-3)',
         marginTop: 4,
-        lineHeight: 1.4
+        lineHeight: 1.4,
+        minHeight: '2.8em',
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden'
       }
     }, g.desc)), React.createElement("div", {
       style: {
