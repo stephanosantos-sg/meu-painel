@@ -313,8 +313,10 @@ function HabitCard({
     toggleHabitDay,
     addHabitQuantity,
     setHabitQuantity,
-    deleteHabit
+    deleteHabit,
+    toggleHabitSubtask
   } = useData();
+  const [subsOpen, setSubsOpen] = React.useState(false);
   const h = habit;
   const hColor = Orbita.resolveColor(h.color);
   const isQuantity = h.type === 'quantity';
@@ -663,7 +665,59 @@ function HabitCard({
       color: d.done ? '#fff' : hColor,
       marginTop: 2
     }
-  }, Math.round(d.value), unitLabel)))), React.createElement("div", {
+  }, Math.round(d.value), unitLabel)))), h.subtasks && h.subtasks.length > 0 && React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, React.createElement("div", {
+    onClick: () => setSubsOpen(!subsOpen),
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      cursor: 'pointer',
+      padding: '3px 0',
+      fontSize: 11,
+      color: 'var(--ink-3)'
+    }
+  }, React.createElement("span", {
+    style: {
+      fontSize: 8,
+      transition: 'transform 150ms',
+      transform: subsOpen ? 'rotate(90deg)' : 'rotate(0deg)'
+    }
+  }, "▶"), React.createElement("span", null, h.subtasks.filter(s => s.done).length, "/", h.subtasks.length, " itens")), subsOpen && React.createElement("div", {
+    className: "subtask-list",
+    style: {
+      marginTop: 4,
+      maxHeight: 260,
+      overflowY: 'auto'
+    }
+  }, h.subtasks.map((s, i) => React.createElement("div", {
+    key: i,
+    className: "subtask-item",
+    onClick: () => toggleHabitSubtask(h.id, i),
+    style: {
+      cursor: 'pointer',
+      padding: '4px 6px',
+      borderRadius: 6,
+      transition: 'background 100ms'
+    },
+    onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)',
+    onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+  }, React.createElement("div", {
+    className: `check ${s.done ? 'checked' : ''}`,
+    style: {
+      width: 14,
+      height: 14,
+      fontSize: 7
+    }
+  }, s.done && '✓'), React.createElement("span", {
+    style: {
+      textDecoration: s.done ? 'line-through' : 'none',
+      color: s.done ? 'var(--ink-3)' : 'var(--ink-2)'
+    }
+  }, s.text))))), React.createElement("div", {
     style: {
       marginBottom: 14
     }

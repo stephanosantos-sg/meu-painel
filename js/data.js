@@ -394,6 +394,14 @@ function DataProvider({
       }
     });
   }, []);
+  const toggleHabitSubtask = useCallback((habitId, subtaskIdx) => {
+    commit(D => {
+      const h = D.habits.find(x => x.id === habitId);
+      if (h && h.subtasks && h.subtasks[subtaskIdx]) {
+        h.subtasks[subtaskIdx].done = !h.subtasks[subtaskIdx].done;
+      }
+    });
+  }, []);
   const saveCategory = useCallback((catData, editId) => {
     commit(D => {
       if (!D.categories) D.categories = [];
@@ -427,6 +435,7 @@ function DataProvider({
     addHabitQuantity,
     setHabitQuantity,
     toggleSubtask,
+    toggleHabitSubtask,
     saveTask,
     deleteTask,
     saveHabit,
