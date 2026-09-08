@@ -394,6 +394,12 @@ function DataProvider({
       }
     });
   }, []);
+  const setTaskTime = useCallback((taskId, time) => {
+    commit(D => {
+      const t = D.tasks.find(x => x.id === taskId);
+      if (t) t.time = time;
+    });
+  }, []);
   const toggleHabitSubtask = useCallback((habitId, subtaskIdx) => {
     commit(D => {
       const h = D.habits.find(x => x.id === habitId);
@@ -436,6 +442,7 @@ function DataProvider({
     setHabitQuantity,
     toggleSubtask,
     toggleHabitSubtask,
+    setTaskTime,
     saveTask,
     deleteTask,
     saveHabit,

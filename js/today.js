@@ -585,11 +585,13 @@ function RightPanel({
   showEvents,
   calendarEvents,
   calendarConnected,
-  diet
+  diet,
+  showUntimed
 }) {
   const {
     toggleHabitDay
   } = useData();
+  const untimedTasks = showUntimed ? todayTasks.filter(t => !t.time && (!t.times || !t.times.length)) : [];
   return React.createElement("div", {
     style: {
       display: 'flex',
@@ -688,7 +690,57 @@ function RightPanel({
       lineHeight: 1,
       marginTop: 6
     }
-  }, habitsDone, "/", todayHabits.length))), showEvents && calendarEvents && calendarEvents.length > 0 && React.createElement("div", {
+  }, habitsDone, "/", todayHabits.length))), showUntimed && untimedTasks.length > 0 && React.createElement("div", {
+    className: "panel",
+    style: {
+      padding: 20,
+      borderLeft: '3px solid #b066ff'
+    }
+  }, React.createElement("div", {
+    className: "eyebrow",
+    style: {
+      color: '#b066ff',
+      marginBottom: 12
+    }
+  }, "◈ Sem hor\xE1rio \xB7 ", untimedTasks.length), React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 2
+    }
+  }, untimedTasks.map(t => {
+    const cat = catMap && catMap[t.cat];
+    const color = cat ? Orbita.resolveColor(cat.color) : '#b066ff';
+    return React.createElement("div", {
+      key: t.id,
+      draggable: true,
+      onDragStart: e => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', t.id);
+      },
+      title: "Arraste pra um hor\xE1rio na timeline",
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px',
+        borderRadius: 8,
+        cursor: 'grab',
+        borderLeft: `2px solid ${color}`,
+        background: 'rgba(255,255,255,0.02)'
+      }
+    }, t.icon && React.createElement("span", {
+      style: {
+        fontSize: 14
+      }
+    }, t.icon), React.createElement("span", {
+      style: {
+        flex: 1,
+        fontSize: 13,
+        fontWeight: 500
+      }
+    }, t.text));
+  }))), showEvents && calendarEvents && calendarEvents.length > 0 && React.createElement("div", {
     className: "panel",
     style: {
       padding: 20,
@@ -843,8 +895,10 @@ function TimelineView({
 }) {
   const {
     toggleTask,
-    toggleSlot
+    toggleSlot,
+    setTaskTime
   } = useData();
+  const [dragOverHr, setDragOverHr] = React.useState(null);
   const timedItems = [];
   todayTasks.forEach(t => {
     if (t.times && t.times.length) {
@@ -922,17 +976,34 @@ function TimelineView({
     const hrStr = String(hr).padStart(2, '0');
     const items = byHour[hrStr] || [];
     const isNow = hr === nowHour;
-    if (items.length === 0 && !isNow) return null;
+    const isEmpty = items.length === 0 && !isNow;
+    const isDragOver = dragOverHr === hrStr;
     const nowMinPct = isNow ? Math.round((nowH - hr) * 100) : 0;
     return React.createElement("div", {
       key: hr,
+      onDragOver: e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverHr !== hrStr) setDragOverHr(hrStr);
+      },
+      onDragLeave: () => {
+        if (dragOverHr === hrStr) setDragOverHr(null);
+      },
+      onDrop: e => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId) setTaskTime(taskId, `${hrStr}:00`);
+        setDragOverHr(null);
+      },
       style: {
         display: 'flex',
         gap: 12,
-        padding: '6px 0',
+        padding: isEmpty && !isDragOver ? '2px 0' : '6px 0',
         borderTop: '1px solid var(--line)',
         position: 'relative',
-        minHeight: isNow ? 40 : undefined
+        minHeight: isNow ? 40 : isDragOver ? 30 : undefined,
+        background: isDragOver ? 'rgba(176,102,255,0.08)' : undefined,
+        transition: 'padding 100ms, background 100ms'
       }
     }, isNow && React.createElement("div", {
       style: {
@@ -986,7 +1057,14 @@ function TimelineView({
         fontSize: 10,
         color: '#ff2e88'
       }
-    }, "agora")), items.map((e, i) => React.createElement("div", {
+    }, "agora")), isEmpty && isDragOver && React.createElement("div", {
+      className: "mono",
+      style: {
+        fontSize: 10,
+        color: '#b066ff',
+        padding: '2px 0'
+      }
+    }, "solte aqui"), items.map((e, i) => React.createElement("div", {
       key: i,
       onClick: () => {
         if (e.type === 'gcal') {
@@ -1060,7 +1138,9 @@ function TimelineView({
     todayTasks: todayTasks,
     todayHabits: todayHabits,
     habitsDone: habitsDone,
-    today: today
+    today: today,
+    showUntimed: true,
+    catMap: catMap
   }));
 }
 function KanbanView({
